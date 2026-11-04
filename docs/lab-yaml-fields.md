@@ -17,10 +17,10 @@ canvas:
 | lab id | topic | params | cases (input → expect) |
 |---|---|---|---|
 | `bit-editor` | co/number-representation | `width` (8/16/32), `mode` (unsigned/twos/float32), `value` initial | `{bits:"11111111", mode:twos}` → `{decimal:-1}`; `{value:0.1, mode:float32}` → `{bits:"0 01111011 1001…", stored:"0.100000001490116"}` |
-| `addr-split` | os/virtual-memory | `vaBits` (48), `pageSize` (4096), `levels` (4), `bitsPerLevel` (9), `address` initial (hex) | `{address:"0x7ffd1234abcd"}` → `{indices:[255,500,145,…], offset:"0xbcd"}` |
-| `pipeline-chart` | co/pipeline | `stages` (["IF","ID","EX","MEM","WB"]), `program` (list of instr with deps), `forwarding` (bool), `branchPenalty` | `{forwarding:false}` → `{cycles:N, stalls:[…]}`; `{forwarding:true}` → `{cycles:M}` |
+| `addr-split` | os/virtual-memory | `vaBits` (48), `pageSize` (4096), `levels` (4), `bitsPerLevel` (9), `address` initial (hex) | `{address:"0x7ffd1234abcd"}` → `{indices:[255,500,145,330], offset:"0xbcd"}` |
+| `pipeline-chart` | co/pipeline | `stages` (["IF","ID","EX","MEM","WB"]), `program` (list of instr with deps), `forwarding` (bool), `branchPenalty` | lw x1 → add x3,x1 → sub x5,x3: `{forwarding:false}` → `{cycles:11, stalls:4}`; `{forwarding:true}` → `{cycles:8, stalls:1}` |
 | `interleave` | os/lock | `threads` (2), `opsPerThread` (["read","add","write"]), `useLock` (bool), `schedule` (optional fixed interleaving) | `{schedule:[T1r,T2r,T1w,T2w], useLock:false}` → `{counter:1}`; same with lock → `{counter:2}` |
-| `wait-for-graph` (same lab, mode) | os/lock | `locks`, `acquireOrder` per thread | `{T1:[A,B],T2:[B,A]}` → `{deadlock:true, cycle:[T1,B,T2,A]}` |
+| `wait-for-graph` (same lab, mode) | os/lock | `locks`, `acquireOrder` per thread | `{T1:[A,B],T2:[B,A]}` → `{deadlock:true, cycle:[T1,T2]` (threads in the wait-for cycle; T1 waits B held by T2, T2 waits A held by T1)`}` |
 
 ## P2
 | lab id | topic | params | cases |
@@ -33,3 +33,8 @@ canvas:
 | `graph-walk` | dsa/bfs-dfs | `graph`, `start`, `mode` (bfs/dfs), editable edges | step graph from A → `{bfs:[A,B,C,D,E,F], dfs:[A,B,D,C,E,F]}` |
 
 Product side: add `cases` with the exact numbers used in the step body so the lab can be tested against the prose.
+
+
+## P1 implementation notes
+
+Implemented in `src/components/labs/*` (UI) and `src/lib/labs/*` (pure logic). Fixed cases run with `node --experimental-strip-types scripts/lab-selftest.mts`. The draft topic `content/topics/os/lab-test` exercises every lab and is excluded from `CS_PRODUCTION` builds. Each lab also re-runs its YAML `cases` in the browser and shows ✓/✗.

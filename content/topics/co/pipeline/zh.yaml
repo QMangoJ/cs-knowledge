@@ -145,6 +145,47 @@ steps:
     log:
       - mode: 转发
         event: 第二条拿到了 x，继续执行
+  - id: pipe-lab
+    title: 动手：画流水线时空图，数一数停了几拍
+    tldr: 3 条有依赖的指令，理想 7 拍；不转发要 11 拍（停 4 拍），有转发只要 8 拍（停 1 拍）。
+    body: |-
+      时空图的横轴是时钟周期，纵轴是指令，每格写这条指令此刻在哪个阶段（IF 取指、ID 译码读寄存器、EX 执行、MEM 访存、WB 写回）。
+      例子是 3 条 RISC-V 指令：
+      lw x1, 0(x2)（从内存读出 x1）；add x3, x1, x4（要用 x1）；sub x5, x3, x6（要用 x3）。
+      理想情况：第 1 条 5 拍做完，之后每拍完成 1 条，共 5 + 2 = 7 拍。
+      不转发：add 必须等 lw 在第 5 拍写回（寄存器堆前半拍写、后半拍读），才能在第 5 拍译码，比原定第 3 拍晚 2 拍；sub 同理要等 add 在第 8 拍写回，又停 2 拍。一共 11 拍，停 4 拍。
+      打开转发：add 的结果在 EX 结束就能直接送给下一条，所以 sub 不用停；但 lw 的数据要到 MEM 结束（第 4 拍）才从内存读出来，add 的 EX 最早在第 5 拍，仍要停 1 拍。这就是“load-use 冒险”，转发也救不了。一共 8 拍。
+      可以试试：在右边关掉/打开转发，看气泡出现在哪；或者把 add 和 sub 之间插一条无关指令，看 load-use 的那 1 拍能不能被填满（编译器的指令调度就是这么做的）。
+    derivation: original
+    sources:
+      - ref: cs61c
+        locator: "Pipelining / Hazards 讲义"
+        claim: 转发可消除大部分数据冒险，load-use 仍需停顿一拍
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: lab
+      lab: pipeline-chart
+      caption: 开关转发，看 3 条指令各要多少拍
+      params:
+        stages: [IF, ID, EX, MEM, WB]
+        program:
+          - {op: "lw x1, 0(x2)", writes: x1, reads: [x2], load: true}
+          - {op: "add x3, x1, x4", writes: x3, reads: [x1, x4]}
+          - {op: "sub x5, x3, x6", writes: x5, reads: [x3, x6]}
+        forwarding: false
+        branchPenalty: 0
+        regfileSplitCycle: true
+      cases:
+        - input: {forwarding: false}
+          expect: {cycles: 11, stalls: [{instr: 2, bubbles: 2}, {instr: 3, bubbles: 2}], totalStalls: 4}
+        - input: {forwarding: true}
+          expect: {cycles: 8, stalls: [{instr: 2, bubbles: 1}], totalStalls: 1}
+        - input: {ideal: true}
+          expect: {cycles: 7}
+    log:
+      - mode: 动手实验
+        event: 无转发 11 拍，有转发 8 拍
   - id: control
     title: 控制冒险：不知道往哪跳
     tldr: 遇到 if 这类分支时，结果出来前不知道下一条该取哪里。

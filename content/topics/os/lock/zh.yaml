@@ -119,6 +119,50 @@ steps:
     log:
       - mode: 交错执行
         event: 执行顺序不可预测
+  - id: race-lab
+    title: 动手：亲手排一次交错，让更新丢掉
+    tldr: 计数器从 0 开始，按“T1 读、T2 读、T1 写、T2 写”执行，两次加 1 后结果是 1；加锁后一定是 2。
+    body: |-
+      右边每个线程有三个操作：读（把计数器读进自己的寄存器）、加（寄存器 + 1）、写（写回计数器）。你可以拖动它们决定执行顺序。
+      计数器初值 0。试这个顺序：T1 读到 0，T2 也读到 0；T1 加 1 写回 1；T2 也加 1 写回 1。两个线程各加了一次，结果却是 1，丢了一次更新。
+      注意关键不在“同时”，而在 T2 读的时刻 T1 还没写回。只要两个“读”都落在两个“写”之前，就会丢。
+      再把“使用锁”打开：T1 拿锁后，T2 的读必须等 T1 写完、放锁才能开始，任何顺序最后都是 2。
+      可以试试：把顺序改成 T1 读、T1 写、T2 读、T2 写，不加锁也是 2。这就是竞态难复现的原因：大多数时候恰好没撞上。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: "Concurrency: An Introduction 一章"
+        claim: 非原子的读-改-写交错会丢失更新
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: lab
+      lab: interleave
+      caption: 拖动操作排出执行顺序，看计数器最后是几
+      params:
+        threads: 2
+        opsPerThread: [read, add, write]
+        initial: 0
+        useLock: false
+        schedule: [T1r, T2r, T1w, T2w]
+      cases:
+        - input: {schedule: [T1r, T2r, T1w, T2w], useLock: false}
+          expect: {counter: 1}
+        - input: {schedule: [T1r, T2r, T1w, T2w], useLock: true}
+          expect: {counter: 2}
+        - input: {schedule: [T1r, T1w, T2r, T2w], useLock: false}
+          expect: {counter: 2}
+      registers:
+        - name: 计数器
+          value: "1"
+          changed: true
+        - name: T1 寄存器
+          value: "0 → 1"
+        - name: T2 寄存器
+          value: "0 → 1"
+    log:
+      - mode: 动手实验
+        event: 两个读都在写之前，丢一次更新
   - id: mutex
     title: 互斥：同一时刻只让一个线程进
     tldr: 用一把锁把“加 1”包起来，进去前先拿锁。
@@ -283,6 +327,39 @@ steps:
     log:
       - mode: 死锁
         event: 两个线程都在等
+  - id: deadlock-lab
+    title: 动手：用等待图找出死锁
+    tldr: T1 先 A 后 B、T2 先 B 后 A，交错时形成环 T1→B→T2→A→T1，就是死锁；两边都改成先 A 后 B，环消失。
+    body: |-
+      右边设定两把锁 A、B，给每个线程排好加锁顺序，然后一步步执行。图里画“等待图”：线程指向它在等的锁，锁指向拿着它的线程。
+      试 T1: [A, B]，T2: [B, A]。T1 拿到 A，T2 拿到 B；接着 T1 要 B（被 T2 拿着），T2 要 A（被 T1 拿着）。
+      图里出现一个环：T1 等 B，B 在 T2 手里，T2 等 A，A 在 T1 手里。有环就是死锁，谁也不会放手。
+      注意它不是每次都发生：如果 T1 一口气拿到 A 和 B 再轮到 T2，就没事。这也是死锁难复现的原因。
+      再把 T2 改成 [A, B]：两个线程都先抢 A，没抢到的连 B 都不会去碰，环不可能形成。这就是“固定加锁顺序”为什么有效。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: "Common Concurrency Problems 一章"
+        claim: 循环等待是死锁条件之一，固定加锁顺序可预防
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: lab
+      lab: interleave
+      caption: 等待图模式：设定加锁顺序，看会不会出现环
+      params:
+        mode: wait-for-graph
+        threads: 2
+        locks: [A, B]
+        acquireOrder: {T1: [A, B], T2: [B, A]}
+      cases:
+        - input: {T1: [A, B], T2: [B, A]}
+          expect: {deadlock: true, cycle: [T1, B, T2, A]}
+        - input: {T1: [A, B], T2: [A, B]}
+          expect: {deadlock: false}
+    log:
+      - mode: 动手实验
+        event: 等待图出现环即死锁
   - id: beyond-mutex
     title: 锁之外的工具
     tldr: 不同场景有更合适的同步方式：条件变量、读写锁、原子变量。
