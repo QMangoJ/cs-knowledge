@@ -1,0 +1,21 @@
+{
+  "siteName": "计算机科学",
+  "tagline": "操作系统、组成原理、数据结构与算法的分步可视讲解",
+  "subjects": { "os": "操作系统", "co": "计算机组成原理", "dsa": "数据结构与算法" },
+  "comingSoon": "即将推出",
+  "draft": "草稿",
+  "prev": "上一步",
+  "next": "下一步",
+  "play": "播放",
+  "pause": "暂停",
+  "steps": "步骤",
+  "sources": "出处",
+  "log": "事件日志",
+  "overview": "概况",
+  "reportError": "报错",
+  "nextTopic": "下一个主题",
+  "home": "首页",
+  "notFound": "页面不存在",
+  "footer": "代码 MIT，内容 CC BY 4.0；引用材料各按其原许可。本站与上述大学无关联，不代表任何大学背书。",
+  "keyboardHint": "← / → 切换步骤，空格播放"
+}

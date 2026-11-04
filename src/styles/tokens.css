@@ -1,0 +1,26 @@
+/* Own design tokens (style inspired by Protocol Explorer; no files copied). */
+:root{
+  --bg:#fcfdfe; --panel:#ffffff;
+  --ink-strong:#0a2a7a; --ink:#16358f; --ink-soft:#5b72a6; --ink-muted:#8597c2;
+  --line:#7393c6; --line-mid:#cad7ea; --line-soft:#e5eaf3;
+  --accent:#1a73e8; --active:#2459d6; --ok:#0a9f6a; --warn:#e0a100; --info:#0f8f9c; --kernel:#6d55d8; --neutral:#8a98b3;
+  --font-mono:"JetBrains Mono","Iosevka",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --font-cjk:"PingFang SC","Hiragino Sans GB","Microsoft YaHei UI","Noto Sans SC","Source Han Sans SC",sans-serif;
+  --fs-xs:11px; --fs-sm:12px; --fs-md:13.5px; --fs-lg:15px; --fs-xl:18px; --lh:1.6;
+  --sp-1:4px; --sp-2:6px; --sp-3:10px; --sp-4:12px; --sp-5:16px; --sp-6:24px;
+  --ctl-h:34px; --radius:2px; --radius-lg:8px;
+  --col-left:360px; --col-right:300px; --col-left-xl:440px; --col-right-xl:330px;
+  --ease-out:cubic-bezier(.16,1,.3,1); --ease-in:cubic-bezier(.5,0,.75,0);
+  --dur-fast:.2s; --dur-base:.3s; --dur-move:.45s; --dur-slow:.6s; --stagger:.08s;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0b1020; --panel:#111833;
+    --ink-strong:#e3ebff; --ink:#c9d6f5; --ink-soft:#91a3cf; --ink-muted:#6b7da8;
+    --line:#5b78b0; --line-mid:#2a3a63; --line-soft:#1a2547;
+    --accent:#5b9dff; --active:#7aa8ff; --ok:#34d399; --warn:#fbbf24; --info:#22b8c8; --kernel:#a28bff; --neutral:#7c8bab;
+    color-scheme: dark;
+  }
+}
+@media (prefers-reduced-motion: reduce){ *,*::before,*::after{ transition:none!important; animation:none!important } }
