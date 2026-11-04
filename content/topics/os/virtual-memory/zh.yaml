@@ -183,6 +183,58 @@ steps:
     log:
       - mode: 翻译中
         event: 逐级查找页表
+  - id: addr-lab
+    title: 动手：把一个虚拟地址拆成 4 级索引
+    tldr: 48 位虚拟地址 = 4 段 9 位索引 + 12 位页内偏移；0x7ffd1234abcd 拆出来是 255、500、145、330 和 0xbcd。
+    body: |-
+      x86-64 的 4 级页表只用虚拟地址的低 48 位（更高的 16 位必须和第 47 位相同）。为什么是 9 和 12？
+      页大小 4KB = 2^12 字节，所以最低 12 位是页内偏移，翻译时原样保留。
+      每张页表本身也正好占一页：4096 字节 ÷ 每项 8 字节 = 512 项 = 2^9，所以每一级用 9 位当下标。12 + 9 × 4 = 48。
+      在右边输入地址 0x7ffd1234abcd（这是一个典型的栈地址，栈在用户空间顶部附近）：
+      第 47–39 位 = 255，是第 1 级（PML4）的下标；第 38–30 位 = 500，第 2 级（PDPT）；第 29–21 位 = 145，第 3 级（PD）；第 20–12 位 = 330，第 4 级（PT），这一项里存着物理页号；最低 12 位 = 0xbcd，即页内第 3021 字节。
+      MMU 从 CR3 寄存器拿到第 1 级表的物理地址，用 255 找到下一级表，再用 500、145、330 依次往下，最后把物理页号和 0xbcd 拼起来就是物理地址。
+      可以试试：把地址加 1，只有偏移变化；加 0x1000（一页），第 4 级下标变成 331；换一个很小的地址如 0x400000（传统的程序代码起点），看前两级下标都是 0，和栈共用的表很少，这就是多级页表省空间的原因。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: "Paging: Smaller Tables 一章"
+        claim: 多级页表按地址位段逐级索引
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: lab
+      lab: addr-split
+      caption: 输入一个虚拟地址，看它被拆成哪几段
+      params:
+        vaBits: 48
+        pageSize: 4096
+        levels: 4
+        bitsPerLevel: 9
+        address: "0x7ffd1234abcd"
+      cases:
+        - input: {address: "0x7ffd1234abcd"}
+          expect: {indices: [255, 500, 145, 330], offset: "0xbcd"}
+        - input: {address: "0x7ffd1234abce"}
+          expect: {indices: [255, 500, 145, 330], offset: "0xbce"}
+        - input: {address: "0x7ffd1234bbcd"}
+          expect: {indices: [255, 500, 145, 331], offset: "0xbcd"}
+        - input: {address: "0x400000"}
+          expect: {indices: [0, 0, 2, 0], offset: "0x0"}
+      registers:
+        - name: PML4 下标（47–39）
+          value: "255"
+        - name: PDPT 下标（38–30）
+          value: "500"
+        - name: PD 下标（29–21）
+          value: "145"
+        - name: PT 下标（20–12）
+          value: "330"
+        - name: 页内偏移（11–0）
+          value: "0xbcd"
+          changed: true
+    log:
+      - mode: 动手实验
+        event: 地址被拆成 4 个 9 位下标和 12 位偏移
   - id: tlb
     title: TLB 与大页：让翻译变快
     tldr: TLB 缓存最近的翻译结果；大页让一次翻译覆盖更多内存。

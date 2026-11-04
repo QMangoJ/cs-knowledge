@@ -2,5 +2,13 @@ import type { ComponentType } from "react";
 import type { LabState } from "@/lib/schema";
 
 export type LabProps = { state: LabState };
-/** id → lazy import. Each lab is its own chunk; nothing here is in the step page's initial JS. P1/P2 labs register here. */
-export const LABS: Record<string, () => Promise<{ default: ComponentType<LabProps> }>> = {};
+type Loader = () => Promise<{ default: ComponentType<LabProps> }>;
+
+/** id → lazy chunk. LabHost wraps each loader in next/dynamic, so no lab code ships with the step page. */
+export const LABS: Record<string, Loader> = {
+  "bit-editor": () => import("./BitEditor"),
+  "addr-split": () => import("./AddrSplit"),
+  "pipeline-chart": () => import("./PipelineChart"),
+  interleave: () => import("./Interleave"),
+  "wait-for-graph": () => import("./WaitForGraph"),
+};
