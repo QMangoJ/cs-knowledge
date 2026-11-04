@@ -73,9 +73,12 @@ code{font-family:var(--font-mono)}
 .progress{position:absolute;top:-1px;left:0;height:2px;background:var(--active);transition:width var(--dur-slow) var(--ease-out)}
 
 @media (max-width:1023px){
-  .player{grid-template-columns:minmax(0,1fr);grid-template-areas:"canvas" "explain" "side";padding:var(--sp-3);padding-bottom:calc(var(--ctl-h) + var(--sp-5) + env(safe-area-inset-bottom))}
+  .player{grid-template-columns:minmax(0,1fr);grid-template-areas:"canvas" "explain" "log" "side";padding:var(--sp-3);padding-bottom:calc(var(--ctl-h) + var(--sp-5) + env(safe-area-inset-bottom))}
   .stepnav{position:fixed;left:0;right:0;bottom:0;background:var(--panel);padding:var(--sp-2) var(--sp-3) calc(var(--sp-2) + env(safe-area-inset-bottom));z-index:10}
   .stepnav .count{margin-left:auto}
   .hint{display:none}
   .log{overflow-x:auto}
+  .col-canvas{display:contents}
+  .canvas-wrap{grid-area:canvas;min-width:0}
+  .col-canvas > .log{grid-area:log;min-width:0}
 }

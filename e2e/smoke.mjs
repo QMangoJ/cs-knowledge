@@ -28,6 +28,10 @@ for (const vp of [{ width: 1440, height: 900 }, { width: 1280, height: 800 }, { 
   ok(rsc.length === 0, `${tag} no RSC fetch while stepping ${rsc.join(",")}`);
   const sw = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   ok(sw <= 0, `${tag} no horizontal scroll (${sw})`);
+  if (vp.width < 1024) {
+    const y = await page.evaluate(() => [".canvas-wrap", ".col-explain", ".log"].map((q) => document.querySelector(q).getBoundingClientRect().top));
+    ok(y[0] < y[1] && y[1] < y[2], `${tag} mobile order 画布→讲解→日志 (${y.map(Math.round)})`);
+  }
   await page.screenshot({ path: `/workspace/scratch/cs-m0-${tag}.png`, fullPage: true });
   ok(errors.length === 0, `${tag} no console errors ${errors.join(";")}`);
   await page.close();
