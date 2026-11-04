@@ -1,6 +1,11 @@
 {
-  // Static-only Worker (no main). NOT deployed yet: needs Daniel's approval.
+  // Static-only Worker (Workers Static Assets, no main script).
   "name": "cs-knowledge",
+  "account_id": "247487e5bb3580a0727fd0d85dbc80e0",
   "compatibility_date": "2026-11-04",
-  "assets": { "directory": "./out", "not_found_handling": "404-page" }
+  "assets": { "directory": "./out", "not_found_handling": "404-page" },
+  // Production only on the custom domain; previews via `npm run preview` (versions upload).
+  "workers_dev": false,
+  "preview_urls": true,
+  "routes": [{ "pattern": "cs.ki-toko.com", "custom_domain": true }]
 }
