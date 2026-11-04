@@ -1,0 +1,333 @@
+# 知识优先版草稿（Linux x86-64 为例）。出处仅供参考，按 Daniel 决定不做逐条核对。
+id: co/cache
+subject: co
+slug: cache
+order: 4
+status: published
+license: CC-BY-4.0
+title: 缓存：命中、未命中与局部性
+summary: 内存比 CPU 慢太多，CPU 用小而快的缓存记住最近用过的数据。
+premise: 以一个程序遍历数组为例。
+overview:
+  - key: 一句话总结
+    value: 常用的数据放离 CPU 近的地方；局部性让这招非常有效
+  - key: 层级
+    value: 寄存器 → L1 → L2 → L3 → 内存，越往外越大越慢
+  - key: 缓存行
+    value: 每次搬一小块相邻数据（x86-64 上通常 64 字节），而不是一个字节
+  - key: 局部性
+    value: 时间局部性（刚用过的还会用）、空间局部性（用了这个，附近的也会用）
+  - key: 类比
+    value: 浏览器 HTTP 缓存、CDN、React 的 useMemo
+  - key: 映射方式
+    value: 直接映射、组相联（最常用）、全相联
+  - key: 替换
+    value: LRU 或其近似
+  - key: 写策略
+    value: 写回（标记脏行）与写直达
+  - key: 未命中三类
+    value: 冷未命中、容量未命中、冲突未命中
+  - key: 一致性
+    value: 多核用 MESI 类协议；注意伪共享
+  - key: 在终端里看一看
+    value: lscpu | grep -i cache　看本机各级缓存大小
+visual: swimlane
+lanes:
+  - id: cpu
+    label: CPU
+  - id: cache
+    label: 缓存
+  - id: mem
+    label: 内存
+logColumns:
+  - key: mode
+    label: 当前状态
+  - key: event
+    label: 发生了什么
+steps:
+  - id: why
+    title: 为什么需要缓存
+    tldr: CPU 算得极快，但从内存取一次数据要等上百个周期。
+    body: |-
+      如果每次都去内存拿数据，CPU 大部分时间都在等待。
+      于是在 CPU 和内存之间放了几层小而快的缓存，存放最近用过的数据。
+      这和网站用 CDN 的思路一样：把常用内容放得离用户近一点。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 6 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 存储层次结构中越靠近 CPU 越快越小
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: cpu
+          id: c
+          label: CPU
+          highlight: true
+        - lane: cache
+          id: k
+          label: 缓存
+        - lane: mem
+          id: m
+          label: 内存
+      messages:
+        - id: m-why
+          from: c
+          to: m
+          label: 去内存取数据：很慢
+          active: true
+    log:
+      - mode: 等待
+        event: CPU 等待内存
+  - id: miss
+    title: 未命中：第一次访问
+    tldr: 数据不在缓存里，只能去内存取，顺便把一整块搬进缓存。
+    body: |-
+      第一次访问数组开头，缓存里没有，这叫“未命中”。
+      CPU 去内存取数据，但不是只拿一个元素，而是把相邻的一整块（缓存行）一起搬回来。
+      这次很慢，但为后面的访问铺好了路。
+    derivation: original
+    sources:
+      - ref: cs61c
+        locator: Caches 相关讲义
+        url: https://cs61c.org/
+        claim: 未命中时以缓存块为单位从下层读入
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: cpu
+          id: c
+          label: CPU
+        - lane: cache
+          id: k
+          label: 缓存
+        - lane: mem
+          id: m
+          label: 内存
+          highlight: true
+      messages:
+        - id: m-miss
+          from: m
+          to: k
+          label: 搬入一整块缓存行
+          active: true
+    log:
+      - mode: 未命中
+        event: 从内存读入一块数据
+  - id: hit
+    title: 命中：之后的访问
+    tldr: 接下来访问相邻元素，数据已经在缓存里，几乎不用等。
+    body: |-
+      下一个数组元素就在刚搬来的那块里，这叫“命中”。
+      命中只需要几个周期，比去内存快几十倍。
+      顺序遍历数组时，绝大部分访问都能命中。
+    derivation: original
+    sources:
+      - ref: cs61c
+        locator: Caches 相关讲义
+        url: https://cs61c.org/
+        claim: 命中时直接从缓存返回数据
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: cpu
+          id: c
+          label: CPU
+        - lane: cache
+          id: k
+          label: 缓存
+          highlight: true
+        - lane: mem
+          id: m
+          label: 内存
+      messages:
+        - id: m-hit
+          from: k
+          to: c
+          label: 直接返回：很快
+          active: true
+    log:
+      - mode: 命中
+        event: 从缓存读到数据
+  - id: mapping
+    title: 数据放在缓存的哪里
+    tldr: 每个内存地址只能放进缓存里固定的几个位置，这叫组相联。
+    body: |-
+      最简单的是直接映射：每个地址只有一个固定位置，查得快，但两个常用地址撞到同一位置就会互相挤掉（冲突未命中）。
+      全相联可以放任意位置，冲突最少，但查找要比较所有位置，硬件太贵。
+      实际 CPU 折中用“组相联”：地址先决定放哪一组，组内若干个位置任选，查找时只比这一组。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 6 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 每个内存地址只能放进缓存里固定的几个位置，这叫组相联。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: cpu
+          id: c
+          label: CPU
+        - lane: cache
+          id: k
+          label: 缓存
+          highlight: true
+        - lane: mem
+          id: m
+          label: 内存
+      messages:
+        - id: m-mapping
+          from: c
+          to: k
+          label: 地址 → 第几组 → 组内找
+          active: true
+    log:
+      - mode: 查找
+        event: 按组定位缓存行
+  - id: replace-write
+    title: 满了淘汰谁，写了怎么办
+    tldr: 组满了要淘汰一行，通常淘汰最久没用的；写数据时还要决定何时写回内存。
+    body: |-
+      淘汰策略常用 LRU（最近最少使用）或它的近似：最久没碰过的，最可能以后也不用。
+      写数据时，写直达是同时写缓存和内存，简单但慢；写回是只改缓存、标记为“脏”，被淘汰时才写回内存，现代 CPU 一般用写回。
+      未命中可以分三类：第一次访问（冷）、容量不够、位置冲突，改进方向各不相同。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 6 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 组满了要淘汰一行，通常淘汰最久没用的；写数据时还要决定何时写回内存。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: cpu
+          id: c
+          label: CPU
+        - lane: cache
+          id: k
+          label: 缓存
+        - lane: mem
+          id: m
+          label: 内存
+          highlight: true
+      messages:
+        - id: m-replace-write
+          from: k
+          to: m
+          label: 淘汰脏行 → 写回内存
+          active: true
+    log:
+      - mode: 淘汰
+        event: 写回被替换的脏行
+  - id: locality
+    title: 局部性：缓存为什么有效
+    tldr: 程序访问数据有规律：刚用过的还会再用，用了这个附近的也会用。
+    body: |-
+      循环里反复用的变量体现了“时间局部性”，顺序访问数组体现了“空间局部性”。
+      缓存正是赌这两点，而大多数程序都满足，所以命中率通常很高。
+      反过来，在内存里到处乱跳的访问（比如很长的链表），会让缓存频繁失效。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 6 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 局部性原理：时间局部性与空间局部性
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: cpu
+          id: c
+          label: CPU
+        - lane: cache
+          id: k
+          label: 缓存
+          highlight: true
+        - lane: mem
+          id: m
+          label: 内存
+      messages: []
+    log:
+      - mode: 命中率高
+        event: 局部性让大部分访问命中
+  - id: lesson
+    title: 对写代码的启示
+    tldr: 同样的计算，访问顺序不同，速度可能差好几倍。
+    body: |-
+      按行遍历二维数组（顺着内存顺序）通常比按列遍历快得多。
+      数组比链表更“缓存友好”，这也是很多高性能代码偏爱连续数组的原因。
+      缓存满了就要淘汰旧数据，缓存不够大时，热数据也会被挤出去。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 6 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 编写缓存友好的代码
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: cpu
+          id: c
+          label: CPU
+          highlight: true
+        - lane: cache
+          id: k
+          label: 缓存
+        - lane: mem
+          id: m
+          label: 内存
+      messages: []
+    log:
+      - mode: 总结
+        event: 访问顺序影响性能
+  - id: coherence
+    title: 多核：缓存一致性
+    tldr: 每个核心有自己的缓存，一个核心改了数据，其他核心的旧副本必须作废。
+    body: |-
+      L1、L2 通常每个核心私有，L3 多核共享。
+      硬件用一致性协议（如 MESI）保证：一个核心写某行时，其他核心缓存里的这一行会被作废，下次读要重新取。
+      副作用是“伪共享”：两个线程改的是不同变量，但它们在同一缓存行里，这一行会在核心之间来回搬，性能大降。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 6 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 每个核心有自己的缓存，一个核心改了数据，其他核心的旧副本必须作废。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: cpu
+          id: c
+          label: CPU
+          highlight: true
+        - lane: cache
+          id: k
+          label: 缓存
+        - lane: mem
+          id: m
+          label: 内存
+      messages:
+        - id: m-coherence
+          from: c
+          to: k
+          label: 写入 → 其他核心副本作废
+          active: true
+    log:
+      - mode: 一致性
+        event: 多核看到同一份数据

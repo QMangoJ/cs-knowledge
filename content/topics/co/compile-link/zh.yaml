@@ -1,0 +1,295 @@
+# 知识优先版草稿（Linux x86-64 为例）。出处仅供参考，按 Daniel 决定不做逐条核对。
+id: co/compile-link
+subject: co
+slug: compile-link
+order: 1
+status: published
+license: CC-BY-4.0
+title: C 代码怎么变成能运行的程序
+summary: 从 hello.c 到屏幕上的 hello，中间经过编译、汇编、链接、加载四道工序。
+premise: 以 Linux 上用 gcc 编译 hello.c 为例。
+overview:
+  - key: 一句话总结
+    value: 编译成汇编 → 汇编成机器码 → 链接成可执行文件 → 加载进内存运行
+  - key: 为什么分步
+    value: 每一步只解决一个问题，各自可替换、可缓存
+  - key: Linux 上的格式
+    value: 目标文件和可执行文件都是 ELF 格式
+  - key: 类比
+    value: 前端的 TypeScript 编译 + 打包（webpack/Vite）+ 浏览器加载
+  - key: 四个阶段
+    value: 预处理（.i）→ 编译（.s）→ 汇编（.o）→ 链接（可执行文件）
+  - key: 静态 vs 动态链接
+    value: 静态把库拷进来、独立好部署；动态共享库、体积小、可单独升级
+  - key: 常见报错
+    value: undefined reference = 缺定义；multiple definition = 定义重复
+  - key: 在终端里看一看
+    value: gcc -S hello.c　生成 hello.s 看汇编；ldd ./a.out　看程序依赖哪些动态库
+visual: swimlane
+lanes:
+  - id: tools
+    label: 工具链
+  - id: files
+    label: 文件
+  - id: os
+    label: 操作系统
+logColumns:
+  - key: mode
+    label: 当前状态
+  - key: event
+    label: 发生了什么
+steps:
+  - id: why
+    title: 为什么需要“翻译”
+    tldr: CPU 只认识机器码，人写的 C 代码它看不懂。
+    body: |-
+      CPU 只能执行一串串二进制指令，而且不同的 CPU 指令还不一样。
+      所以需要工具把人能读的代码，翻译成某种 CPU 能执行的机器码。
+      这和 TypeScript 要先编译成 JavaScript 才能在浏览器跑，道理相似。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 1 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 程序从源代码经翻译系统变为可执行文件
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: tools
+          id: t
+          label: 工具链（编译器/汇编器/链接器）
+        - lane: files
+          id: f
+          label: 文件
+          highlight: true
+        - lane: os
+          id: o
+          label: 操作系统（加载器）
+      messages: []
+    log:
+      - mode: 源代码
+        event: hello.c 准备好了
+  - id: compile
+    title: 编译：C 变成汇编
+    tldr: 编译器理解程序的意思，并翻译成和 CPU 指令一一对应的汇编。
+    body: |-
+      gcc 先处理 #include 等预处理指令，再分析代码、做优化，输出汇编代码。
+      汇编是机器指令的“可读版”，一行大致对应一条指令。
+      优化开得越高，汇编和源代码看起来差别越大。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 1 章、第 3 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 编译器将 C 翻译为汇编程序
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: tools
+          id: t
+          label: 工具链（编译器/汇编器/链接器）
+          highlight: true
+        - lane: files
+          id: f
+          label: 文件
+        - lane: os
+          id: o
+          label: 操作系统（加载器）
+      messages:
+        - id: m-compile
+          from: t
+          to: f
+          label: hello.c → hello.s
+          active: true
+    log:
+      - mode: 编译
+        event: 生成汇编代码
+  - id: preprocess-opt
+    title: 预处理与优化
+    tldr: 编译前先做文本替换，编译时还会大胆改写代码，只要结果不变。
+    body: |-
+      预处理器把 #include 的头文件原样展开、把宏替换掉、按 #ifdef 删掉不用的代码，得到一个大的纯 C 文件。
+      编译器优化时，会把常量提前算好、删掉没用的代码、把小函数直接内联进调用处，-O2 比 -O0 快得多。
+      这像前端打包时的 tree shaking 和压缩：产物看起来面目全非，但行为不变。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 1 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 编译前先做文本替换，编译时还会大胆改写代码，只要结果不变。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: tools
+          id: t
+          label: 工具链（编译器/汇编器/链接器）
+          highlight: true
+        - lane: files
+          id: f
+          label: 文件
+        - lane: os
+          id: o
+          label: 操作系统（加载器）
+      messages:
+        - id: m-preprocess-opt
+          from: t
+          to: f
+          label: hello.c → hello.i → hello.s
+          active: true
+    log:
+      - mode: 编译
+        event: 展开、优化、生成汇编
+  - id: assemble
+    title: 汇编：变成机器码
+    tldr: 汇编器把汇编逐条翻译成二进制机器码，得到目标文件。
+    body: |-
+      汇编到机器码几乎是机械的查表翻译。
+      得到的目标文件已经是机器码，但还不能运行：它调用的 printf 在别处，地址还空着。
+      这些“待填的空”会被记录下来，留给链接器。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 7 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 目标文件包含机器码及待重定位信息
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: tools
+          id: t
+          label: 工具链（编译器/汇编器/链接器）
+          highlight: true
+        - lane: files
+          id: f
+          label: 文件
+        - lane: os
+          id: o
+          label: 操作系统（加载器）
+      messages:
+        - id: m-assemble
+          from: t
+          to: f
+          label: hello.s → hello.o
+          active: true
+    log:
+      - mode: 汇编
+        event: 生成目标文件，外部引用待填
+  - id: symbols
+    title: 符号与重定位
+    tldr: 目标文件里有一张符号表：我提供什么、我缺什么。
+    body: |-
+      每个目标文件都会列出自己定义的函数和全局变量，以及引用了但没定义的名字（比如 printf）。
+      引用处的地址先空着，旁边记一条“重定位”说明：将来把某个符号的地址填到这里。
+      链接时最常见的两个错误就源于此：undefined reference（缺定义）和 multiple definition（重复定义）。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 1 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 目标文件里有一张符号表：我提供什么、我缺什么。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: tools
+          id: t
+          label: 工具链（编译器/汇编器/链接器）
+        - lane: files
+          id: f
+          label: 文件
+          highlight: true
+        - lane: os
+          id: o
+          label: 操作系统（加载器）
+      messages:
+        - id: m-symbols
+          from: f
+          to: f
+          label: 符号表：定义 main，缺 printf
+          active: true
+    log:
+      - mode: 目标文件
+        event: 记录符号与重定位
+  - id: link
+    title: 链接：把零件拼起来
+    tldr: 链接器把多个目标文件和库拼成一个完整的可执行文件。
+    body: |-
+      链接器找到 printf 等符号在哪个库里，把空着的地址填上。
+      静态链接把库代码直接拷进来；动态链接只记下“运行时去找 libc”，文件更小、库可以共享。
+      这很像前端打包：把各个模块和 node_modules 里的依赖解析好、拼成能用的产物。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 7 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 链接器进行符号解析和重定位，支持静态与动态链接
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: tools
+          id: t
+          label: 工具链（编译器/汇编器/链接器）
+          highlight: true
+        - lane: files
+          id: f
+          label: 文件
+        - lane: os
+          id: o
+          label: 操作系统（加载器）
+      messages:
+        - id: m-link
+          from: t
+          to: f
+          label: hello.o + libc → a.out
+          active: true
+    log:
+      - mode: 链接
+        event: 生成可执行文件（ELF）
+  - id: load
+    title: 加载：程序跑起来
+    tldr: 运行时，操作系统把可执行文件装进内存，从入口开始执行。
+    body: |-
+      你在终端输入 ./a.out，shell 调用 execve，内核读取 ELF 文件，建立进程的地址空间。
+      动态链接器再把需要的共享库加载进来，然后跳到程序入口，经过 C 库的初始化，才调用 main。
+      就像浏览器下载打包好的 JS，再按需加载其他分块。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 7 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 加载器将可执行文件复制到内存并跳转到入口点
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: tools
+          id: t
+          label: 工具链（编译器/汇编器/链接器）
+        - lane: files
+          id: f
+          label: 文件
+        - lane: os
+          id: o
+          label: 操作系统（加载器）
+          highlight: true
+      messages:
+        - id: m-load
+          from: f
+          to: o
+          label: execve：装入内存
+          active: true
+    log:
+      - mode: 运行中
+        event: 屏幕输出 hello

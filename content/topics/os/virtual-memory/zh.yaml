@@ -1,0 +1,335 @@
+# 知识优先版草稿（Linux x86-64 为例）。出处仅供参考，按 Daniel 决定不做逐条核对。
+id: os/virtual-memory
+subject: os
+slug: virtual-memory
+order: 4
+status: published
+license: CC-BY-4.0
+title: 虚拟内存：程序看到的地址是怎么翻译的
+summary: 每个程序都以为自己独占一大片内存，其实背后有一层翻译。
+premise: 以 Linux 上一个程序读取自己内存中的一个变量为例，只讲概念。
+overview:
+  - key: 一句话总结
+    value: 程序用虚拟地址，硬件按页表翻译成物理地址
+  - key: 好处
+    value: 隔离、布局统一、物理内存可以不连续
+  - key: 页
+    value: Linux 在 x86-64 上通常以 4KB 为一页；大页（如 2MB）用来减少翻译开销
+  - key: 页表
+    value: 每个进程一套，由内核维护
+  - key: TLB
+    value: 最近翻译结果的缓存
+  - key: 权限位
+    value: 每页记着可读、可写、可执行、用户可访问，违反即触发异常
+  - key: 多级页表
+    value: x86-64 通常 4 级，只为用到的区域建表
+  - key: 写时复制
+    value: fork 后共享只读页，写时才复制
+  - key: swap
+    value: 不常用的页换到磁盘；频繁换页叫抖动
+  - key: 在终端里看一看
+    value: cat /proc/self/maps　看一个进程的内存布局（代码、堆、栈、共享库）；grep Huge /proc/meminfo　看大页使用情况
+visual: swimlane
+lanes:
+  - id: procs
+    label: 程序
+  - id: mmu
+    label: 地址翻译
+  - id: mem
+    label: 物理内存
+logColumns:
+  - key: mode
+    label: 当前状态
+  - key: event
+    label: 发生了什么
+steps:
+  - id: why-vm
+    title: 为什么不让程序直接用真实地址
+    tldr: 直接用物理地址，程序之间就能互相读写内存。
+    body: |-
+      如果程序直接访问物理内存，一个写错的地址就可能破坏别的程序，甚至内核。
+      虚拟内存给每个进程一套自己的地址空间，它只看得见自己那份。
+      就像每个网站有独立的 localStorage，看不到别的网站的数据。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: Address Spaces 一章
+        claim: 地址空间为每个进程提供隔离的内存视图
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: procs
+          id: p
+          label: 程序
+          highlight: true
+        - lane: mmu
+          id: m
+          label: 地址翻译（MMU）
+        - lane: mem
+          id: r
+          label: 物理内存
+      messages: []
+    log:
+      - mode: 用户态
+        event: 程序想读取一个变量
+  - id: layout
+    title: 每个进程的地址空间
+    tldr: 内核为进程划好区域：代码、堆、栈、共享库各在各的位置。
+    body: |-
+      进程的地址空间不是一整块乱用，而是分成几个区域，各有用途和权限，比如代码区只读可执行。
+      在 Linux 上，/proc/<pid>/maps 会把这些区域一行行列出来。
+      地址看起来很大很连续，但大部分并没有对应真实内存，用到才有。
+    derivation: original
+    sources:
+      - ref: linux-man-pages
+        locator: proc(5)，/proc/pid/maps
+        url: https://man7.org/linux/man-pages/man5/proc.5.html
+        claim: /proc/pid/maps 列出进程的内存映射区域及权限
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: procs
+          id: p
+          label: 程序
+          highlight: true
+        - lane: mmu
+          id: m
+          label: 地址翻译（MMU）
+        - lane: mem
+          id: r
+          label: 物理内存
+      messages:
+        - id: m-layout
+          from: p
+          to: m
+          label: 访问一个虚拟地址
+          active: true
+    log:
+      - mode: 用户态
+        event: 地址落在“堆”区域
+  - id: page-table
+    title: 按页查页表
+    tldr: 硬件以页为单位，按当前进程的页表把虚拟页换成物理页。
+    body: |-
+      内存被切成固定大小的页（x86-64 上通常 4KB），只记录“哪个虚拟页对应哪个物理页”，页内位置不变。
+      每个进程有自己的页表，由内核建立，程序自己改不了；切换进程时就换一套页表。
+      页表还记着权限，违反就会触发异常。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: Paging 一章
+        claim: 分页以固定大小页为单位映射并检查权限
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: procs
+          id: p
+          label: 程序
+        - lane: mmu
+          id: m
+          label: 地址翻译（MMU）
+          highlight: true
+        - lane: mem
+          id: r
+          label: 物理内存
+      messages:
+        - id: m-page-table
+          from: m
+          to: r
+          label: 按页表找到物理页
+          active: true
+    log:
+      - mode: 用户态
+        event: 查页表，得到物理地址
+  - id: multilevel
+    title: 多级页表：省下页表本身的空间
+    tldr: 地址空间很大但大部分没用，所以页表分层，只为用到的部分建表。
+    body: |-
+      如果给整个 64 位地址空间建一张平铺的大表，光页表就要占海量内存。
+      x86-64 Linux 通常用 4 级页表（新 CPU 可用 5 级）：像目录树一样一级级往下查，没用到的分支整片不建。
+      代价是一次翻译要查好几层，这正是下一步 TLB 要解决的问题。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: Address Spaces 一章
+        claim: 地址空间很大但大部分没用，所以页表分层，只为用到的部分建表。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: procs
+          id: p
+          label: 程序
+        - lane: mmu
+          id: m
+          label: 地址翻译（MMU）
+          highlight: true
+        - lane: mem
+          id: r
+          label: 物理内存
+      messages:
+        - id: m-multilevel
+          from: m
+          to: m
+          label: 逐级查表：4 级
+          active: true
+    log:
+      - mode: 翻译中
+        event: 逐级查找页表
+  - id: tlb
+    title: TLB 与大页：让翻译变快
+    tldr: TLB 缓存最近的翻译结果；大页让一次翻译覆盖更多内存。
+    body: |-
+      每次访问内存都去查页表会很慢，所以 CPU 里有个小缓存 TLB，记住最近的翻译。
+      程序访问往往集中在附近，绝大多数翻译都能直接命中，就像浏览器缓存让重复请求不用走网络。
+      对数据库这类大内存程序，Linux 支持大页（如 2MB），同样大小的 TLB 能覆盖更多内存。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: TLB 一章
+        claim: TLB 缓存地址翻译，利用局部性加速
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+      - ref: linux-kernel-docs
+        locator: admin-guide/mm/transhuge
+        url: https://docs.kernel.org/admin-guide/mm/transhuge.html
+        claim: Linux 透明大页机制
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: procs
+          id: p
+          label: 程序
+        - lane: mmu
+          id: m
+          label: 地址翻译（MMU）
+          highlight: true
+        - lane: mem
+          id: r
+          label: 物理内存
+      messages:
+        - id: m-tlb
+          from: p
+          to: m
+          label: 先查 TLB，命中就直接用
+          active: true
+    log:
+      - mode: 用户态
+        event: TLB 命中，翻译几乎零开销
+  - id: share-cow
+    title: 共享与写时复制
+    tldr: 同一块物理内存可以映射给多个进程，省内存，也让 fork 变快。
+    body: |-
+      每个进程都用 libc，但内存里只需要一份它的代码，各进程的页表都指向同一组物理页。
+      fork 时父子进程先共享所有页，并都标成只读；谁先写，就触发异常，内核这时才复制那一页，这叫写时复制（COW）。
+      进程间共享内存（mmap 共享映射）也是同一个机制：两个页表指向同一组物理页。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: Address Spaces 一章
+        claim: 同一块物理内存可以映射给多个进程，省内存，也让 fork 变快。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: procs
+          id: p
+          label: 程序
+        - lane: mmu
+          id: m
+          label: 地址翻译（MMU）
+        - lane: mem
+          id: r
+          label: 物理内存
+          highlight: true
+      messages:
+        - id: m-share-cow
+          from: m
+          to: r
+          label: 两个进程 → 同一物理页
+          active: true
+    log:
+      - mode: 共享
+        event: 多个页表指向同一页
+  - id: result
+    title: 拿到数据，以及翻译失败时
+    tldr: 翻译成功就读到数据；失败就交给内核。
+    body: |-
+      翻译完成后，CPU 按物理地址读出变量，程序毫无察觉。
+      如果页表说这一页还没有、或者没有权限，硬件触发“缺页异常”，陷入内核。
+      内核会借这个机会做很多聪明的事，下一个主题会讲。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: "Beyond Physical Memory: Mechanisms 一章"
+        claim: 翻译失败时触发异常交由操作系统处理
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: procs
+          id: p
+          label: 程序
+        - lane: mmu
+          id: m
+          label: 地址翻译（MMU）
+        - lane: mem
+          id: r
+          label: 物理内存
+          highlight: true
+      messages:
+        - id: m-result
+          from: r
+          to: p
+          label: 返回数据
+          active: true
+    log:
+      - mode: 用户态
+        event: 程序读到了变量的值
+  - id: swap
+    title: 内存不够时：换出到磁盘
+    tldr: 物理内存不够时，内核可以把不常用的页写到磁盘，腾出空间。
+    body: |-
+      虚拟内存让“程序以为有的内存”可以大于物理内存。
+      内核挑最近不常用的页写到交换区（swap）或丢掉可重新读取的文件页，并在页表里标记“不在内存”；再访问时触发缺页，再读回来。
+      读磁盘比读内存慢成千上万倍，所以频繁换进换出（抖动）时整台机器会变得非常卡。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: Address Spaces 一章
+        claim: 物理内存不够时，内核可以把不常用的页写到磁盘，腾出空间。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: procs
+          id: p
+          label: 程序
+        - lane: mmu
+          id: m
+          label: 地址翻译（MMU）
+        - lane: mem
+          id: r
+          label: 物理内存
+          highlight: true
+      messages:
+        - id: m-swap
+          from: r
+          to: r
+          label: 冷页写入 swap
+          active: true
+    log:
+      - mode: 换出
+        event: 腾出物理页

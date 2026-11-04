@@ -6,3 +6,28 @@
   title: "Operating Systems: Three Easy Pieces, Ch.6 Limited Direct Execution"
   url: https://pages.cs.wisc.edu/~remzi/OSTEP/cpu-mechanisms.pdf
   license: "见原文"
+
+- id: linux-man-pages
+  title: "Linux man-pages project"
+  url: https://man7.org/linux/man-pages/
+  license: "见原文"
+- id: linux-kernel-docs
+  title: "The Linux Kernel documentation"
+  url: https://docs.kernel.org/
+  license: "GPL-2.0（见原文）"
+- id: cs61c
+  title: "UC Berkeley CS61C: Great Ideas in Computer Architecture"
+  url: https://cs61c.org/
+  license: "见原文"
+- id: mit-6004
+  title: "MIT 6.004 Computation Structures (OCW)"
+  url: https://ocw.mit.edu/courses/6-004-computation-structures-spring-2017/
+  license: "CC BY-NC-SA 4.0（仅作参考链接，不引用内容）"
+- id: csapp
+  title: "Computer Systems: A Programmer's Perspective (CS:APP), Bryant & O'Hallaron"
+  url: http://csapp.cs.cmu.edu/
+  license: "版权书籍，仅引用章节"
+- id: mit-6006
+  title: "MIT 6.006 Introduction to Algorithms (OCW)"
+  url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+  license: "CC BY-NC-SA 4.0（仅作参考链接，不引用内容）"
