@@ -9,7 +9,7 @@ export const SourceCitation = z.object({
   locator: z.string().min(1, "locator 必填"),
   url: z.string().url().optional(),
   claim: z.string().min(1),
-  status: SourceStatus,
+  status: SourceStatus.optional(),
   checkedBy: z.string().optional(),
   checkedAt: isoDate.optional(),
   note: z.string().optional(),
@@ -32,7 +32,7 @@ export const Step = z.object({
   body: z.string().min(1),
   keyFields: z.array(KV).optional(),
   derivation: z.enum(["original", "adapted"]),
-  sources: z.array(SourceCitation),
+  sources: z.array(SourceCitation).default([]),
   canvas: CanvasState,
   log: z.array(z.record(z.string(), z.string())),
 });
@@ -64,22 +64,18 @@ export type SwimlaneState = z.infer<typeof SwimlaneState>;
 
 export type Issue = { level: "error" | "warn"; where: string; msg: string };
 
-/** §8.2 cross-field rules. Returns all issues (does not stop at first). */
-export function checkTopic(t: Topic, sources: Map<string, SourceDef>, today = new Date().toISOString().slice(0, 10)): Issue[] {
+/** Content integrity rules (source-verification gate removed 2026-11-04). Returns all issues. */
+export function checkTopic(t: Topic, sources: Map<string, SourceDef>): Issue[] {
   const out: Issue[] = [];
-  const pub = t.status === "published";
-  const soft = (where: string, msg: string) => out.push({ level: pub ? "error" : "warn", where, msg });
   const hard = (where: string, msg: string) => out.push({ level: "error", where, msg });
   const base = `${t.subject}/${t.slug}`;
   if (t.id !== base) hard(base, `id 应为 ${base}`);
-  if (pub && (t.steps.length < 1)) hard(base, "published 主题没有步骤");
-  if (pub && (!t.reviewedBy || !t.reviewedAt)) hard(base, "published 主题缺 reviewedBy/reviewedAt（Daniel 签字）");
+  if (t.status === "published" && t.steps.length < 1) hard(base, "published 主题没有步骤");
   const seen = new Set<string>();
   for (const s of t.steps) {
     const w = `${base} step ${s.id}`;
     if (seen.has(s.id)) hard(w, "步骤 id 重复");
     seen.add(s.id);
-    if (s.sources.length === 0) soft(w, "sources 为空");
     if (s.derivation === "adapted" && t.license !== "CC-BY-NC-SA-4.0") hard(w, "derivation=adapted 但主题未设 license: CC-BY-NC-SA-4.0");
     if (s.canvas.kind !== t.visual) hard(w, `canvas.kind=${s.canvas.kind} 与 visual=${t.visual} 不一致`);
     if (t.lanes && s.canvas.kind === "swimlane") {
@@ -89,15 +85,7 @@ export function checkTopic(t: Topic, sources: Map<string, SourceDef>, today = ne
       for (const m of s.canvas.messages) if (!actors.has(m.from) || !actors.has(m.to)) hard(w, `message ${m.id} 指向不存在的 actor`);
     }
     s.sources.forEach((c, i) => {
-      const cw = `${w} source#${i + 1}`;
-      if (!sources.has(c.ref)) hard(cw, `ref=${c.ref} 不在 sources.yaml`);
-      if (c.status === "verified") {
-        if (!c.checkedBy || !c.checkedAt) hard(cw, "verified 但缺 checkedBy/checkedAt");
-        else if (c.checkedAt > today) hard(cw, `checkedAt ${c.checkedAt} 在未来`);
-      }
-      if (c.status === "pending") soft(cw, "status=pending");
-      if (c.status === "disputed") soft(cw, "status=disputed");
-      if (c.status === "unverified" && !c.note) hard(cw, "unverified 必须有 note");
+      if (!sources.has(c.ref)) hard(`${w} source#${i + 1}`, `ref=${c.ref} 不在 sources.yaml`);
     });
   }
   return out;

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// §8.4 review checklist. Usage: npm run review -- [--topic os/syscall] [--stale 180] [--check-links]
+// Optional, informational source checklist (no longer a publish gate since 2026-11-04). Always exits 0 unless --check-links finds broken links. Usage: npm run review -- [--topic os/syscall] [--stale 180] [--check-links]
 import fs from "node:fs";
 import path from "node:path";
 import YAML from "yaml";
@@ -22,12 +22,10 @@ let blocking = 0;
 for (const f of walk(path.join(root, "topics")).sort()) {
   const t = YAML.parse(fs.readFileSync(f, "utf8"));
   if (onlyTopic && t.id !== onlyTopic) continue;
-  if (t.status === "published" && (!t.reviewedBy || !t.reviewedAt)) { rows.push([t.id, "—", "主题缺 Daniel 签字", "", "", "missing-signoff", ""]); blocking++; }
   for (const s of t.steps ?? []) {
     for (const c of s.sources ?? []) {
       const isStale = stale !== undefined && c.status === "verified" && c.checkedAt && daysSince(c.checkedAt) > stale;
-      if (c.status === "verified" && !isStale) continue;
-      if (c.status === "pending" || c.status === "disputed") blocking++;
+      if ((c.status ?? "verified") === "verified" && !isStale) continue;
       const src = sources.get(c.ref);
       rows.push([t.id, s.id, c.claim, `${src?.title ?? c.ref} · ${c.locator}`, c.url ?? src?.url ?? "", isStale ? "stale" : c.status, c.checkedAt ?? ""]);
     }

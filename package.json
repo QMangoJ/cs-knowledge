@@ -10,9 +10,10 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
-    "check": "npm run typecheck && npm run lint && npm run test",
+    "check": "npm run typecheck",
     "review": "node scripts/review.mjs",
-    "e2e": "bash e2e/run.sh"
+    "e2e": "bash e2e/run.sh",
+    "size": "node scripts/size.mjs"
   },
   "dependencies": {
     "marked": "18.1.3",

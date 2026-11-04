@@ -16,9 +16,7 @@ code{font-family:var(--font-mono)}
 .kv{display:grid;gap:var(--sp-1);margin:var(--sp-3) 0 0}
 .kv div{display:flex;gap:var(--sp-3)} .kv dt{color:var(--ink-muted);min-width:5em} .kv dd{margin:0}
 .badge{display:inline-block;border:1px solid var(--line-mid);border-radius:var(--radius);padding:0 var(--sp-2);font-size:var(--fs-xs);color:var(--ink-soft)}
-.badge.unverified{border-color:var(--unverified);color:var(--unverified)}
 .badge.pending{border-color:var(--warn);color:var(--warn)}
-.checked{color:var(--ok);font-size:var(--fs-xs);margin:0}
 
 /* home */
 .home{max-width:1100px;margin:0 auto;padding:var(--sp-6) var(--sp-5)}

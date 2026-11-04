@@ -4,7 +4,6 @@
   --ink-strong:#0a2a7a; --ink:#16358f; --ink-soft:#5b72a6; --ink-muted:#8597c2;
   --line:#7393c6; --line-mid:#cad7ea; --line-soft:#e5eaf3;
   --accent:#1a73e8; --active:#2459d6; --ok:#0a9f6a; --warn:#e0a100; --info:#0f8f9c; --kernel:#6d55d8; --neutral:#8a98b3;
-  --unverified:#c2410c;
   --font-mono:"JetBrains Mono","Iosevka",ui-monospace,SFMono-Regular,Menlo,monospace;
   --font-cjk:"PingFang SC","Hiragino Sans GB","Microsoft YaHei UI","Noto Sans SC","Source Han Sans SC",sans-serif;
   --fs-xs:11px; --fs-sm:12px; --fs-md:13.5px; --fs-lg:15px; --fs-xl:18px; --lh:1.6;
@@ -21,7 +20,6 @@
     --ink-strong:#e3ebff; --ink:#c9d6f5; --ink-soft:#91a3cf; --ink-muted:#6b7da8;
     --line:#5b78b0; --line-mid:#2a3a63; --line-soft:#1a2547;
     --accent:#5b9dff; --active:#7aa8ff; --ok:#34d399; --warn:#fbbf24; --info:#22b8c8; --kernel:#a28bff; --neutral:#7c8bab;
-    --unverified:#fb923c;
     color-scheme: dark;
   }
 }

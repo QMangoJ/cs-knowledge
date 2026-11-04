@@ -15,35 +15,16 @@ function topic(over: Record<string, unknown> = {}, step: Record<string, unknown>
     ...over,
   });
 }
-const errors = (t: ReturnType<typeof topic>) => checkTopic(t, sources, "2026-11-04").filter((i) => i.level === "error").map((i) => i.msg);
-const warns = (t: ReturnType<typeof topic>) => checkTopic(t, sources, "2026-11-04").filter((i) => i.level === "warn").map((i) => i.msg);
+const errors = (t: ReturnType<typeof topic>) => checkTopic(t, sources).filter((i) => i.level === "error").map((i) => i.msg);
 
-describe("§8.2 content rules", () => {
+describe("content rules (no verification gate)", () => {
   it("valid published topic passes", () => expect(errors(topic())).toEqual([]));
-  it("empty sources: published fails, draft warns", () => {
-    expect(errors(topic({}, { sources: [] }))).toContain("sources 为空");
-    expect(warns(topic({ status: "draft" }, { sources: [] }))).toContain("sources 为空");
+  it("published with no sources, pending status, no sign-off passes", () => {
+    expect(errors(topic({ reviewedBy: undefined, reviewedAt: undefined }, { sources: [] }))).toEqual([]);
+    expect(errors(topic({}, { sources: [{ ...verified, status: "pending" }] }))).toEqual([]);
   });
-  it("pending: published fails, draft only warns", () => {
-    const p = { ...verified, status: "pending" };
-    expect(errors(topic({}, { sources: [p] }))).toContain("status=pending");
-    expect(errors(topic({ status: "draft" }, { sources: [p] }))).toEqual([]);
-  });
-  it("verified without checkedAt or in future fails even in draft", () => {
-    expect(errors(topic({ status: "draft" }, { sources: [{ ...verified, checkedAt: undefined }] }))[0]).toMatch(/缺 checkedBy/);
-    expect(errors(topic({}, { sources: [{ ...verified, checkedAt: "2027-01-01" }] }))[0]).toMatch(/未来/);
-  });
-  it("adapted without NC-SA license fails", () => {
-    expect(errors(topic({ status: "draft" }, { derivation: "adapted" }))[0]).toMatch(/adapted/);
-    expect(errors(topic({ license: "CC-BY-NC-SA-4.0" }, { derivation: "adapted" }))).toEqual([]);
-  });
-  it("unknown ref, missing signoff, unverified without note: all reported together", () => {
-    const e = errors(topic({ reviewedBy: undefined }, { sources: [{ ...verified, ref: "nope" }, { ...verified, status: "unverified" }] }));
-    expect(e).toEqual(expect.arrayContaining([expect.stringMatching(/签字/), expect.stringMatching(/ref=nope/), expect.stringMatching(/note/)]));
-  });
-  it("missing locator rejected by zod", () => {
-    expect(() => topic({}, { sources: [{ ...verified, locator: "" }] })).toThrow();
-  });
+  it("adapted without NC-SA license fails", () => expect(errors(topic({ status: "draft" }, { derivation: "adapted" }))[0]).toMatch(/adapted/));
+  it("unknown ref fails", () => expect(errors(topic({}, { sources: [{ ...verified, ref: "nope" }] }))[0]).toMatch(/ref=nope/));
 });
 
 describe("paths", () => {

@@ -78,10 +78,11 @@ export function Player({ topic, sources, initialStep, nextTopic }: { topic: View
 }
 
 function SourceList({ citations, defs }: { citations: SourceCitation[]; defs: ViewSources }) {
+  if (citations.length === 0) return null;
   return (
     <div className="card sources">
       <h3>{t.sources}</h3>
-      {citations.length === 0 ? <p className="badge unverified">{t.unverified}</p> : (
+      {citations.length > 0 && (
         <ol>
           {citations.map((c, i) => {
             const d = defs[c.ref];
@@ -89,7 +90,6 @@ function SourceList({ citations, defs }: { citations: SourceCitation[]; defs: Vi
               <li key={i}>
                 <a href={c.url ?? d?.url} target="_blank" rel="noopener noreferrer">[{i + 1}] {d?.title ?? c.ref} · {c.locator} ↗</a>
                 <p className="claim">{c.claim}</p>
-                <Status c={c} />
               </li>
             );
           })}
@@ -99,8 +99,3 @@ function SourceList({ citations, defs }: { citations: SourceCitation[]; defs: Vi
   );
 }
 
-function Status({ c }: { c: SourceCitation }) {
-  if (c.status === "verified") return <p className="checked">{t.checked} · {c.checkedBy} · {c.checkedAt}</p>;
-  if (c.status === "unverified") return <p><span className="badge unverified">{t.unverified}</span> {c.note}</p>;
-  return <p><span className="badge pending">{c.status === "pending" ? t.pendingCheck : c.status}</span></p>;
-}
