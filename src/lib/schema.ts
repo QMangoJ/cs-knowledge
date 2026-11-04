@@ -37,7 +37,17 @@ export const Step = z.object({
   log: z.array(z.record(z.string(), z.string())),
 });
 
-export const Topic = z.object({
+export const TERMINAL_KEY = "在终端里看一看";
+export const TerminalItem = z.object({ cmd: z.string().min(1), note: z.string().optional() });
+/** "cmd　note；cmd2　note2" (full-width space between command and note, ； between items). */
+export function parseTerminal(v: string) {
+  return v.split("；").map((x) => x.trim()).filter(Boolean).map((x) => {
+    const i = x.indexOf("\u3000");
+    return i < 0 ? { cmd: x } : { cmd: x.slice(0, i).trim(), note: x.slice(i + 1).trim() || undefined };
+  });
+}
+
+const TopicBase = z.object({
   id: z.string(),
   subject: z.enum(["os", "co", "dsa"]),
   slug: z.string().regex(/^[a-z0-9-]+$/),
@@ -53,6 +63,13 @@ export const Topic = z.object({
   steps: z.array(Step),
   reviewedBy: z.string().optional(),
   reviewedAt: isoDate.optional(),
+  terminal: z.array(TerminalItem).optional(),
+});
+/** Accepts the sidebar section either as `terminal:` or as an overview entry keyed 在终端里看一看 (lifted out of overview). */
+export const Topic = TopicBase.transform((t) => {
+  const kv = t.overview.find((o) => o.key === TERMINAL_KEY);
+  if (!kv) return t;
+  return { ...t, overview: t.overview.filter((o) => o !== kv), terminal: [...(t.terminal ?? []), ...parseTerminal(kv.value)] };
 });
 
 export type SourceDef = z.infer<typeof SourceDef>;

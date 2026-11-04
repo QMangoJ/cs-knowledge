@@ -1,4 +1,4 @@
-# 知识优先版草稿。出处仅供参考，按 Daniel 决定不做逐条核对。
+# 知识优先版草稿（Linux x86-64 为例）。出处仅供参考，按 Daniel 决定不做逐条核对。
 id: os/virtual-memory
 subject: os
 slug: virtual-memory
@@ -6,19 +6,21 @@ order: 4
 status: published
 license: CC-BY-4.0
 title: 虚拟内存：程序看到的地址是怎么翻译的
-summary: 每个程序都以为自己独占一大片连续内存，其实背后有一层翻译。
-premise: 以一个程序读取自己内存中的一个变量为例，只讲概念，不讲具体位数和格式。
+summary: 每个程序都以为自己独占一大片内存，其实背后有一层翻译。
+premise: 以 Linux 上一个程序读取自己内存中的一个变量为例，只讲概念。
 overview:
   - key: 一句话总结
-    value: 程序用的是虚拟地址，硬件按页表把它翻译成物理地址
+    value: 程序用虚拟地址，硬件按页表翻译成物理地址
   - key: 好处
-    value: 隔离（互相看不到）、方便（每个程序地址都从同样的布局开始）、灵活（内存可以不连续）
+    value: 隔离、布局统一、物理内存可以不连续
   - key: 页
-    value: 内存按固定大小的块管理，翻译以页为单位
+    value: Linux 在 x86-64 上通常以 4KB 为一页；大页（如 2MB）用来减少翻译开销
   - key: 页表
-    value: 每个进程一张，记录“虚拟页 → 物理页”
+    value: 每个进程一套，由内核维护
   - key: TLB
-    value: 最近翻译结果的缓存，让翻译几乎不花时间
+    value: 最近翻译结果的缓存
+  - key: 在终端里看一看
+    value: cat /proc/self/maps　看一个进程的内存布局（代码、堆、栈、共享库）；grep Huge /proc/meminfo　看大页使用情况
 visual: swimlane
 lanes:
   - id: procs
@@ -35,11 +37,11 @@ logColumns:
 steps:
   - id: why-vm
     title: 为什么不让程序直接用真实地址
-    tldr: 如果程序直接用物理地址，就能互相读写对方的内存。
+    tldr: 直接用物理地址，程序之间就能互相读写内存。
     body: |-
-      早期系统里，程序直接访问物理内存，一个程序写错地址就可能破坏另一个程序，甚至内核。
-      虚拟内存给每个程序一套自己的“假地址”，它只能看见自己的那份。
-      就像每个网站有自己独立的 localStorage，看不到别的网站的数据。
+      如果程序直接访问物理内存，一个写错的地址就可能破坏别的程序，甚至内核。
+      虚拟内存给每个进程一套自己的地址空间，它只看得见自己那份。
+      就像每个网站有独立的 localStorage，看不到别的网站的数据。
     derivation: original
     sources:
       - ref: ostep
@@ -64,18 +66,19 @@ steps:
     log:
       - mode: 用户态
         event: 程序想读取一个变量
-  - id: pages
-    title: 按页管理
-    tldr: 内存被切成固定大小的“页”，翻译以页为单位进行。
+  - id: layout
+    title: 每个进程的地址空间
+    tldr: 内核为进程划好区域：代码、堆、栈、共享库各在各的位置。
     body: |-
-      如果逐个字节记录对应关系，表会大得放不下。
-      所以把内存切成一样大小的块（常见是 4KB），只记录“第几页对应哪一页”。
-      页内的位置保持不变，翻译时只换掉“哪一页”这部分。
+      进程的地址空间不是一整块乱用，而是分成几个区域，各有用途和权限，比如代码区只读可执行。
+      在 Linux 上，/proc/<pid>/maps 会把这些区域一行行列出来。
+      地址看起来很大很连续，但大部分并没有对应真实内存，用到才有。
     derivation: original
     sources:
-      - ref: ostep
-        locator: Paging 一章
-        claim: 分页将地址空间切成固定大小的页，以页为单位映射
+      - ref: linux-man-pages
+        locator: proc(5)，/proc/pid/maps
+        url: https://man7.org/linux/man-pages/man5/proc.5.html
+        claim: /proc/pid/maps 列出进程的内存映射区域及权限
         status: unverified
         note: 按 Daniel 决定不核对出处
     canvas:
@@ -84,34 +87,34 @@ steps:
         - lane: procs
           id: p
           label: 程序
+          highlight: true
         - lane: mmu
           id: m
           label: 地址翻译（MMU）
-          highlight: true
         - lane: mem
           id: r
           label: 物理内存
       messages:
-        - id: m-pages
+        - id: m-layout
           from: p
           to: m
-          label: 虚拟地址：第几页 + 页内位置
+          label: 访问一个虚拟地址
           active: true
     log:
       - mode: 用户态
-        event: 地址被拆成“页号 + 页内位置”
+        event: 地址落在“堆”区域
   - id: page-table
-    title: 查页表
-    tldr: 硬件按当前进程的页表，把虚拟页换成物理页。
+    title: 按页查页表
+    tldr: 硬件以页为单位，按当前进程的页表把虚拟页换成物理页。
     body: |-
-      每个进程有自己的页表，由内核建立和维护，程序自己改不了。
-      切换进程时，内核让硬件改用另一张页表，所以同一个虚拟地址在不同进程里指向不同地方。
-      页表里还记着权限，比如这一页能不能写，违反就会触发异常。
+      内存被切成固定大小的页（x86-64 上通常 4KB），只记录“哪个虚拟页对应哪个物理页”，页内位置不变。
+      每个进程有自己的页表，由内核建立，程序自己改不了；切换进程时就换一套页表。
+      页表还记着权限，违反就会触发异常。
     derivation: original
     sources:
-      - ref: xv6-book
-        locator: 页表章节
-        claim: 每个进程有自己的页表，硬件据此翻译地址并检查权限
+      - ref: ostep
+        locator: Paging 一章
+        claim: 分页以固定大小页为单位映射并检查权限
         status: unverified
         note: 按 Daniel 决定不核对出处
     canvas:
@@ -137,17 +140,23 @@ steps:
       - mode: 用户态
         event: 查页表，得到物理地址
   - id: tlb
-    title: TLB：翻译结果的缓存
-    tldr: 硬件把最近的翻译结果存进 TLB，下次直接命中。
+    title: TLB 与大页：让翻译变快
+    tldr: TLB 缓存最近的翻译结果；大页让一次翻译覆盖更多内存。
     body: |-
-      页表放在内存里，每次访问内存都先查一遍页表，会让速度慢好几倍。
-      TLB 是 CPU 里的一个小缓存，记住最近用过的翻译结果。
-      程序访问内存往往集中在附近区域，所以绝大多数翻译都能直接命中，就像浏览器缓存让重复请求不用再走网络。
+      每次访问内存都去查页表会很慢，所以 CPU 里有个小缓存 TLB，记住最近的翻译。
+      程序访问往往集中在附近，绝大多数翻译都能直接命中，就像浏览器缓存让重复请求不用走网络。
+      对数据库这类大内存程序，Linux 支持大页（如 2MB），同样大小的 TLB 能覆盖更多内存。
     derivation: original
     sources:
       - ref: ostep
         locator: TLB 一章
-        claim: TLB 缓存地址翻译结果，利用局部性加速
+        claim: TLB 缓存地址翻译，利用局部性加速
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+      - ref: linux-kernel-docs
+        locator: admin-guide/mm/transhuge
+        url: https://docs.kernel.org/admin-guide/mm/transhuge.html
+        claim: Linux 透明大页机制
         status: unverified
         note: 按 Daniel 决定不核对出处
     canvas:
@@ -174,16 +183,16 @@ steps:
         event: TLB 命中，翻译几乎零开销
   - id: result
     title: 拿到数据，以及翻译失败时
-    tldr: 翻译成功就读到数据；页不存在或没权限，就交给内核处理。
+    tldr: 翻译成功就读到数据；失败就交给内核。
     body: |-
-      翻译完成后，CPU 按物理地址读出变量，整个过程程序毫无察觉。
-      如果页表说这一页不存在或不允许访问，硬件会触发“缺页异常”，陷入内核。
-      内核可以借这个机会做很多聪明的事，下一个主题会讲。
+      翻译完成后，CPU 按物理地址读出变量，程序毫无察觉。
+      如果页表说这一页还没有、或者没有权限，硬件触发“缺页异常”，陷入内核。
+      内核会借这个机会做很多聪明的事，下一个主题会讲。
     derivation: original
     sources:
       - ref: ostep
-        locator: Paging / Beyond Physical Memory 相关章节
-        claim: 地址翻译失败时触发异常交由操作系统处理
+        locator: "Beyond Physical Memory: Mechanisms 一章"
+        claim: 翻译失败时触发异常交由操作系统处理
         status: unverified
         note: 按 Daniel 决定不核对出处
     canvas:

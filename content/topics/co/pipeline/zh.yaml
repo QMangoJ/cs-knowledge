@@ -1,0 +1,211 @@
+# 知识优先版草稿（Linux x86-64 为例）。出处仅供参考，按 Daniel 决定不做逐条核对。
+id: co/pipeline
+subject: co
+slug: pipeline
+order: 3
+status: published
+license: CC-BY-4.0
+title: 流水线和冒险：让 CPU 同时处理多条指令
+summary: 把指令执行拆成几个阶段并叠起来做，速度大增，但也带来“冒险”。
+premise: 沿用五阶段模型，看几条指令在流水线里怎样前后衔接。
+overview:
+  - key: 一句话总结
+    value: 流水线提高吞吐量，冒险会打断它，CPU 用转发、暂停、分支预测来应对
+  - key: 三类冒险
+    value: 结构冒险（抢硬件）、数据冒险（等结果）、控制冒险（不知道往哪跳）
+  - key: 分支预测
+    value: 猜下一步往哪走，猜错就作废重来
+  - key: 对写代码的启发
+    value: 可预测的分支跑得更快
+  - key: 在终端里看一看
+    value: perf stat -e branches,branch-misses ls　看分支预测失败率（需安装 perf）
+visual: swimlane
+lanes:
+  - id: pipe
+    label: 流水线
+  - id: ctl
+    label: 控制
+  - id: mem
+    label: 存储
+logColumns:
+  - key: mode
+    label: 当前状态
+  - key: event
+    label: 发生了什么
+steps:
+  - id: why
+    title: 为什么要流水线
+    tldr: 一条指令要走五个阶段，如果做完一条再做下一条，大部分电路都在闲着。
+    body: |-
+      每条指令的五个阶段用的是不同的电路。
+      流水线让它们像工厂流水线一样叠起来：第一条在执行时，第二条在译码，第三条在取指。
+      单条指令没变快，但理想情况下每个时钟周期都有一条指令完成，吞吐量大大提高。
+    derivation: original
+    sources:
+      - ref: cs61c
+        locator: 流水线相关讲义
+        url: https://cs61c.org/
+        claim: 流水线通过阶段重叠提高吞吐量
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: pipe
+          id: p
+          label: 流水线
+          highlight: true
+        - lane: ctl
+          id: c
+          label: 冒险检测
+        - lane: mem
+          id: m
+          label: 寄存器与内存
+      messages: []
+    log:
+      - mode: 流水线运行
+        event: 多条指令同时处在不同阶段
+  - id: structural
+    title: 结构冒险：抢同一个硬件
+    tldr: 两条指令同一时刻要用同一块电路，就得有一条等。
+    body: |-
+      比如取指和访存都要访问内存，同时发生就会冲突。
+      解决办法是多准备一份硬件，例如把指令缓存和数据缓存分开。
+      这和前端限制并发请求数类似：资源不够时就得排队。
+    derivation: original
+    sources:
+      - ref: cs61c
+        locator: 流水线冒险相关讲义
+        url: https://cs61c.org/
+        claim: 结构冒险由硬件资源冲突引起
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: pipe
+          id: p
+          label: 流水线
+        - lane: ctl
+          id: c
+          label: 冒险检测
+          highlight: true
+        - lane: mem
+          id: m
+          label: 寄存器与内存
+      messages:
+        - id: m-structural
+          from: c
+          to: p
+          label: 资源冲突：一条指令等待
+          active: true
+    log:
+      - mode: 检测到冲突
+        event: 通过分离缓存避免
+  - id: data
+    title: 数据冒险：要用的结果还没算出来
+    tldr: 后一条指令需要前一条的结果，可那条还没写回。
+    body: |-
+      比如第一条算出 x，第二条马上要用 x。
+      CPU 会“转发”：结果一算出来就直接送给下一条，不必等写回。
+      实在来不及（比如要等内存读回），只能暂停一拍，插入一个“气泡”。
+    derivation: original
+    sources:
+      - ref: cs61c
+        locator: 流水线冒险相关讲义
+        url: https://cs61c.org/
+        claim: 数据冒险可通过转发或暂停解决
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: pipe
+          id: p
+          label: 流水线
+        - lane: ctl
+          id: c
+          label: 冒险检测
+        - lane: mem
+          id: m
+          label: 寄存器与内存
+          highlight: true
+      messages:
+        - id: m-data
+          from: m
+          to: p
+          label: 转发：结果直接送给下一条
+          active: true
+    log:
+      - mode: 转发
+        event: 第二条拿到了 x，继续执行
+  - id: control
+    title: 控制冒险：不知道往哪跳
+    tldr: 遇到 if 这类分支时，结果出来前不知道下一条该取哪里。
+    body: |-
+      流水线不能干等，否则会空出好几拍。
+      于是 CPU 做“分支预测”：根据历史猜一个方向先取指令执行。
+      猜对了白赚，猜错了就把按猜测方向取进来、做到一半的指令作废，从正确的地方重来。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 4 章、第 5 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 分支预测与预测失败的处罚
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: pipe
+          id: p
+          label: 流水线
+        - lane: ctl
+          id: c
+          label: 冒险检测
+          highlight: true
+        - lane: mem
+          id: m
+          label: 寄存器与内存
+      messages:
+        - id: m-control
+          from: c
+          to: p
+          label: 预测：走 if 分支
+          active: true
+    log:
+      - mode: 预测执行
+        event: 先按猜测方向执行
+  - id: lesson
+    title: 代价与启示
+    tldr: 冒险让流水线时不时停顿；分支猜错的代价尤其大。
+    body: |-
+      现代 CPU 流水线很深，一次分支预测失败通常要浪费十几到二十几个时钟周期。
+      （真实的 x86-64 远比五阶段复杂：会乱序执行、每个周期发射多条指令，但冒险和预测的道理相同。）
+      所以有规律的分支跑得快，随机的分支跑得慢，同样的循环处理排好序的数据可能明显更快。
+      日常写代码不必为此操心，但在性能热点里，这是值得知道的原理。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 5 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 分支预测失败对程序性能有显著影响
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: pipe
+          id: p
+          label: 流水线
+          highlight: true
+        - lane: ctl
+          id: c
+          label: 冒险检测
+        - lane: mem
+          id: m
+          label: 寄存器与内存
+      messages: []
+    log:
+      - mode: 恢复流水
+        event: 猜错的指令作废，从正确位置继续

@@ -68,6 +68,12 @@ export function Player({ topic, sources, initialStep, nextTopic }: { topic: View
             ))}
           </ol>
         </nav>
+        {topic.terminal && topic.terminal.length > 0 && (
+          <details className="terminal more">
+            <summary>{t.terminal}</summary>
+            <ul>{topic.terminal.map((c, i) => <li key={i}><code>{c.cmd}</code>{c.note && <p>{c.note}</p>}</li>)}</ul>
+          </details>
+        )}
         <SourceList citations={step.sources} defs={sources} />
         <a className="report" href={issueUrl(REPO_URL, topic.id, index + 1, step.title)} target="_blank" rel="noopener noreferrer">{t.reportError} ↗</a>
       </aside>

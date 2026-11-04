@@ -1,0 +1,219 @@
+# 知识优先版草稿（Linux x86-64 为例）。出处仅供参考，按 Daniel 决定不做逐条核对。
+id: co/number-representation
+subject: co
+slug: number-representation
+order: 6
+status: published
+license: CC-BY-4.0
+title: 数字在内存里长什么样：补码与浮点数
+summary: 整数用补码存，小数用浮点数存。这解释了为什么整数会溢出，为什么 0.1 + 0.2 不等于 0.3。
+premise: 以 C 语言的 int、double 和 JavaScript 的 Number 为例。
+overview:
+  - key: 一句话总结
+    value: 一切都是固定位数的二进制，位数有限就有边界和误差
+  - key: 整数
+    value: 用补码表示负数，加减法电路统一，超出范围会溢出
+  - key: 浮点数
+    value: 按 IEEE 754 标准存成“符号 + 指数 + 尾数”，类似二进制的科学计数法
+  - key: JS 的 Number
+    value: 就是 64 位双精度浮点数（double）
+  - key: 实用建议
+    value: 比较浮点数要允许小误差；算钱用整数分或十进制库
+  - key: 在终端里看一看
+    value: python3 -c 'print(0.1+0.2)'　看到 0.30000000000000004；node -e 'console.log(Number.MAX_SAFE_INTEGER)'
+visual: swimlane
+lanes:
+  - id: value
+    label: 数值
+  - id: bits
+    label: 二进制
+  - id: calc
+    label: 结果
+logColumns:
+  - key: mode
+    label: 当前状态
+  - key: event
+    label: 发生了什么
+steps:
+  - id: bits
+    title: 一切都是固定位数的二进制
+    tldr: 内存里只有 0 和 1，而且每种类型的位数是固定的。
+    body: |-
+      一个 int 通常占 32 位，一个 double 占 64 位。
+      位数固定，意味着能表示的数有限：要么有最大最小值，要么有精度损失。
+      后面所有“奇怪现象”，都源于这一点。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 2 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 数据以固定长度的位序列表示
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: value
+          id: v
+          label: 数值
+        - lane: bits
+          id: b
+          label: 二进制表示
+          highlight: true
+        - lane: calc
+          id: c
+          label: 运算结果
+      messages: []
+    log:
+      - mode: 存储
+        event: 数值被存成固定长度的二进制
+  - id: twos-complement
+    title: 补码：负数怎么存
+    tldr: 整数用补码表示负数，好处是加减法可以用同一套电路。
+    body: |-
+      补码把最高位当成“负的大数”，于是正负数的加法规则完全一样，CPU 不用为减法单独设计电路。
+      代价是范围有限：32 位整数加到最大再加 1，硬件上会“绕回”成最小的负数，这叫溢出。
+      注意：在 C 里有符号整数溢出是“未定义行为”，编译器不保证会绕回，不能依赖它；无符号整数才保证绕回。
+      很多安全漏洞就出在没想到整数会溢出。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 2 章 整数表示
+        url: http://csapp.cs.cmu.edu/
+        claim: 补码表示及其溢出行为
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+      - ref: cs61c
+        locator: Number Representation 讲义
+        url: https://cs61c.org/
+        claim: 补码统一了加减法运算
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: value
+          id: v
+          label: 数值
+        - lane: bits
+          id: b
+          label: 二进制表示
+          highlight: true
+        - lane: calc
+          id: c
+          label: 运算结果
+      messages:
+        - id: m-twos-complement
+          from: v
+          to: b
+          label: 负数 → 补码
+          active: true
+    log:
+      - mode: 整数
+        event: 用补码表示，超范围会溢出
+  - id: float
+    title: 浮点数：二进制的科学计数法
+    tldr: 小数用“符号 + 指数 + 尾数”存，像科学计数法，只不过底数是 2。
+    body: |-
+      浮点数能表示极大和极小的数，因为指数可以浮动。
+      但尾数位数有限，大多数小数只能存一个最接近的近似值。
+      JavaScript 的 Number 就是 64 位双精度浮点数，所以 JS 里的普通数字都遵守这套规则（BigInt 除外）。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 2 章 浮点数
+        url: http://csapp.cs.cmu.edu/
+        claim: IEEE 754 浮点表示由符号、指数、尾数组成
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: value
+          id: v
+          label: 数值
+        - lane: bits
+          id: b
+          label: 二进制表示
+          highlight: true
+        - lane: calc
+          id: c
+          label: 运算结果
+      messages:
+        - id: m-float
+          from: v
+          to: b
+          label: 小数 → 浮点格式
+          active: true
+    log:
+      - mode: 浮点
+        event: 存成近似值
+  - id: point-one
+    title: 为什么 0.1 + 0.2 != 0.3
+    tldr: 0.1 在二进制里是无限循环小数，只能存近似值，误差加起来就露出来了。
+    body: |-
+      就像 1/3 在十进制里写不完，0.1 在二进制里也写不完，只能截断。
+      0.1 和 0.2 各带一点误差，相加后的结果和 0.3 的近似值不是同一个数，于是得到 0.30000000000000004。
+      这不是 JS 的 bug，C、Python、Java 用 double 都一样。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 2 章 浮点数
+        url: http://csapp.cs.cmu.edu/
+        claim: 十进制小数在二进制浮点中通常无法精确表示
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: value
+          id: v
+          label: 数值
+        - lane: bits
+          id: b
+          label: 二进制表示
+        - lane: calc
+          id: c
+          label: 运算结果
+          highlight: true
+      messages:
+        - id: m-point-one
+          from: b
+          to: c
+          label: 0.1 + 0.2 ≈ 0.30000000000000004
+          active: true
+    log:
+      - mode: 运算
+        event: 结果与 0.3 存在微小误差
+  - id: lesson
+    title: 实际写代码怎么办
+    tldr: 了解边界和误差，按场景选合适的表示。
+    body: |-
+      比较浮点数时，判断两者之差是否足够小，而不是直接用 ==。
+      算钱用整数“分”来存，或者用十进制库，不要用浮点数。
+      JS 里超过 Number.MAX_SAFE_INTEGER 的整数会失去精度，需要用 BigInt，后端传来的 64 位 ID 最好当字符串处理。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 2 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 浮点舍入误差与整数精度限制
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: value
+          id: v
+          label: 数值
+        - lane: bits
+          id: b
+          label: 二进制表示
+        - lane: calc
+          id: c
+          label: 运算结果
+          highlight: true
+      messages: []
+    log:
+      - mode: 总结
+        event: 按场景选择表示方式

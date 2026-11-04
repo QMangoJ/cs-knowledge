@@ -1,0 +1,218 @@
+# 知识优先版草稿（Linux x86-64 为例）。出处仅供参考，按 Daniel 决定不做逐条核对。
+id: co/stack-frame
+subject: co
+slug: stack-frame
+order: 5
+status: published
+license: CC-BY-4.0
+title: 函数调用时，栈发生了什么
+summary: 每次调用函数，就在栈上压一块“栈帧”；返回时弹掉。递归太深就会栈溢出。
+premise: 以 Linux x86-64 上 main 调用 add(a, b) 为例。
+overview:
+  - key: 一句话总结
+    value: 调用时压栈帧，返回时弹栈帧，后进先出
+  - key: 栈帧里有什么
+    value: 返回地址、放不进寄存器的局部变量、需要保存的寄存器
+  - key: 参数怎么传
+    value: x86-64 Linux 上前 6 个整数/指针参数用寄存器传，多的放栈上
+  - key: 栈溢出
+    value: 递归太深把栈用完，程序崩溃
+  - key: 类比
+    value: 浏览器 DevTools 里的 Call Stack 面板；JS 的 Maximum call stack size exceeded
+  - key: 在终端里看一看
+    value: ulimit -s　看栈大小上限；gdb 里用 bt　看当前调用栈
+visual: swimlane
+lanes:
+  - id: code
+    label: 代码
+  - id: stack
+    label: 栈
+  - id: regs
+    label: 寄存器
+logColumns:
+  - key: mode
+    label: 当前状态
+  - key: event
+    label: 发生了什么
+steps:
+  - id: why
+    title: 为什么需要栈
+    tldr: 函数要能被调用、返回，还要各自有局部变量，互不干扰。
+    body: |-
+      main 调用 add，add 做完要回到 main 刚才停下的地方继续。
+      每次调用都需要地方存“回哪里”和自己的局部变量，而且最后调用的最先返回。
+      “后进先出”正好就是栈。你在 DevTools 的 Call Stack 面板里看到的，就是这个结构。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 3 章 过程调用
+        url: http://csapp.cs.cmu.edu/
+        claim: 运行时栈支持过程调用的后进先出特性
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: code
+          id: f
+          label: 函数
+        - lane: stack
+          id: s
+          label: 栈
+          highlight: true
+        - lane: regs
+          id: r
+          label: 寄存器
+      messages: []
+    log:
+      - mode: main 运行中
+        event: main 准备调用 add
+  - id: call
+    title: 调用：传参数，压返回地址
+    tldr: 参数放进寄存器，call 指令把“回哪里”压到栈上，然后跳进 add。
+    body: |-
+      按 x86-64 Linux 的约定，前几个参数用寄存器传，比放内存快。
+      call 指令做两件事：把下一条指令的地址（返回地址）压栈，然后跳到 add 的开头。
+      这个约定叫“调用约定”，不同语言编译的代码靠它互相调用。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 3 章 过程调用
+        url: http://csapp.cs.cmu.edu/
+        claim: call 指令压入返回地址并跳转，参数通过寄存器传递
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: code
+          id: f
+          label: 函数
+          highlight: true
+        - lane: stack
+          id: s
+          label: 栈
+        - lane: regs
+          id: r
+          label: 寄存器
+      messages:
+        - id: m-call
+          from: f
+          to: s
+          label: 压入返回地址
+          active: true
+    log:
+      - mode: 进入 add
+        event: 返回地址已压栈
+  - id: frame
+    title: 建立栈帧：放局部变量
+    tldr: add 在栈上划出一块自己的区域，存局部变量和要保存的东西。
+    body: |-
+      这一块就是 add 的“栈帧”。局部变量放在这里，函数返回时整块释放。
+      所以局部变量用完就消失，不需要手动释放，也不需要垃圾回收。
+      如果 add 又调用别的函数，就在下面再压一块新的栈帧（x86-64 上栈向低地址增长）。
+      注意：开了优化后，像 add 这样的简单函数常把变量直接放在寄存器里，甚至不建栈帧。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 3 章 过程调用
+        url: http://csapp.cs.cmu.edu/
+        claim: 每次调用在栈上分配栈帧存放局部状态
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: code
+          id: f
+          label: 函数
+        - lane: stack
+          id: s
+          label: 栈
+          highlight: true
+        - lane: regs
+          id: r
+          label: 寄存器
+      messages:
+        - id: m-frame
+          from: f
+          to: s
+          label: 分配栈帧
+          active: true
+    log:
+      - mode: add 运行中
+        event: add 的栈帧建立
+  - id: return
+    title: 返回：弹出栈帧，回到调用者
+    tldr: add 把结果放进约定的寄存器，释放栈帧，ret 跳回返回地址。
+    body: |-
+      返回值按约定放在一个固定的寄存器里，调用者从那里取。
+      ret 指令从栈上弹出返回地址并跳回去，main 从调用的下一行继续。
+      栈恢复成调用之前的样子，就像什么都没发生过。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 3 章 过程调用
+        url: http://csapp.cs.cmu.edu/
+        claim: ret 弹出返回地址，返回值通过寄存器传回
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: code
+          id: f
+          label: 函数
+        - lane: stack
+          id: s
+          label: 栈
+        - lane: regs
+          id: r
+          label: 寄存器
+          highlight: true
+      messages:
+        - id: m-return
+          from: s
+          to: f
+          label: 弹出返回地址，回到 main
+          active: true
+    log:
+      - mode: 回到 main
+        event: main 拿到返回值
+  - id: overflow
+    title: 栈的边界：递归与栈溢出
+    tldr: 栈的大小有限，递归太深会把它用完。
+    body: |-
+      Linux 上主线程的栈默认通常是 8MB 左右，用 ulimit -s 能看到。
+      递归每调用一层就压一个栈帧，没有终止条件就会一直压下去，直到越界崩溃（Segmentation fault）。
+      JS 里看到 Maximum call stack size exceeded，是同一个道理。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 3 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 栈空间有限，过深的递归会导致栈溢出
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: code
+          id: f
+          label: 函数
+        - lane: stack
+          id: s
+          label: 栈
+          highlight: true
+        - lane: regs
+          id: r
+          label: 寄存器
+      messages:
+        - id: m-overflow
+          from: f
+          to: s
+          label: 栈帧不断压入，直到用完
+          active: true
+    log:
+      - mode: 栈溢出
+        event: 程序崩溃

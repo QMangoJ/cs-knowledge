@@ -1,4 +1,4 @@
-# 知识优先版草稿。出处仅供参考，按 Daniel 决定不做逐条核对。
+# 知识优先版草稿（Linux x86-64 为例）。出处仅供参考，按 Daniel 决定不做逐条核对。
 id: os/context-switch
 subject: os
 slug: context-switch
@@ -6,19 +6,21 @@ order: 3
 status: published
 license: CC-BY-4.0
 title: 时钟中断与上下文切换：多个程序为什么能“同时”运行
-summary: 一个 CPU 核心同一时刻只能跑一个程序，操作系统靠快速轮换制造“同时运行”的效果。
+summary: 一个 CPU 核心同一时刻只能跑一个程序，Linux 靠快速轮换制造“同时运行”的效果。
 premise: 以一个 CPU 核心上轮流运行两个程序为例。
 overview:
   - key: 一句话总结
     value: 时钟定期打断程序，内核保存现场、换另一个程序上场
   - key: 为什么需要时钟
     value: 程序不会自愿让出 CPU，必须有外力把控制权拿回内核
-  - key: 上下文
-    value: 程序停下时的运行现场，保存好就能原样接着跑
+  - key: Linux 调度器
+    value: 长期用 CFS（完全公平调度），6.6 版起换成 EEVDF
   - key: 代价
-    value: 切换本身要花时间，切得太频繁会浪费 CPU
+    value: 切换要花时间，还会让 CPU 缓存变冷
   - key: 类比
-    value: JS 事件循环是任务主动让出；操作系统是强制轮换
+    value: JS 事件循环靠任务主动让出；操作系统是强制轮换
+  - key: 在终端里看一看
+    value: vmstat 1　看 cs 列（每秒上下文切换次数）；grep ctxt /proc/$$/status　看当前 shell 主动/被动切换次数
 visual: swimlane
 lanes:
   - id: procs
@@ -35,11 +37,11 @@ logColumns:
 steps:
   - id: illusion
     title: 问题：一个 CPU 怎么跑多个程序
-    tldr: CPU 一次只能执行一个程序，“同时运行”其实是轮流运行得足够快。
+    tldr: “同时运行”其实是轮流运行得足够快。
     body: |-
-      你的电脑同时开着几十个程序，但 CPU 核心远没有那么多。
-      操作系统让每个程序轮流用一小段时间，切换快到人感觉不出来。
-      这叫“分时”：把 CPU 时间切成小片，分给大家。
+      电脑上有几百个进程，CPU 核心却只有几个。
+      操作系统让它们轮流使用 CPU，每次只用一小段时间，快到人感觉不出来。
+      这叫“分时”：把 CPU 时间切成小片分给大家。
     derivation: original
     sources:
       - ref: ostep
@@ -69,10 +71,10 @@ steps:
         event: 程序 A 正在使用 CPU
   - id: timer
     title: 时钟中断：把控制权拿回来
-    tldr: 硬件时钟每隔一小段时间发出中断，强制让内核接手。
+    tldr: 硬件定时器定期发出中断，强制让内核接手。
     body: |-
-      程序正在运行时，内核根本没在执行，它没办法“主动”把 CPU 抢回来。
-      所以要靠硬件：内核事先设好一个定时器，时间一到就触发中断，CPU 自动陷入内核。
+      程序在跑时，内核并没有在执行，没法“主动”把 CPU 抢回来。
+      所以内核事先设好硬件定时器，时间一到就产生中断，CPU 自动陷入内核。
       这样即使程序写了死循环，也霸占不了整台机器。
     derivation: original
     sources:
@@ -110,14 +112,14 @@ steps:
     title: 保存现场
     tldr: 内核把程序 A 停下时的运行现场保存起来。
     body: |-
-      所谓“现场”（上下文），就是程序运行到哪一步、手头的中间结果是什么。
-      内核把这些保存到 A 自己的记录里，就像游戏存档。
-      只要存档完整，A 以后可以从同一位置继续，完全察觉不到自己被打断过。
+      “现场”（上下文）就是程序运行到哪一步、手头的中间结果是什么。
+      内核把它存进 A 自己的记录里，就像游戏存档。
+      存档完整，A 以后就能原样接着跑，察觉不到自己被打断过。
     derivation: original
     sources:
-      - ref: xv6-book
-        locator: 调度章节，上下文切换
-        claim: 切换时内核保存当前进程的寄存器等上下文
+      - ref: ostep
+        locator: Limited Direct Execution 一章，上下文切换
+        claim: 切换时内核保存当前进程的上下文
         status: unverified
         note: 按 Daniel 决定不核对出处
     canvas:
@@ -149,14 +151,15 @@ steps:
     title: 调度：选下一个上场的程序
     tldr: 调度器从“准备好运行”的程序里挑一个。
     body: |-
-      不是所有程序都在等 CPU：有的在等键盘输入，有的在等网络，这些先跳过。
-      调度器从就绪的程序中选一个，最简单的做法是大家排队轮流。
-      更复杂的策略会照顾交互程序，让你打字、点鼠标时反应更快。
+      在等键盘、等网络的程序先跳过，只看准备好运行的。
+      Linux 的 CFS 会挑“目前用 CPU 最少”的那个，力求公平；6.6 版起换成 EEVDF，在公平之外更照顾需要快速响应的任务。
+      用 nice 调整优先级，就是在影响这个选择。
     derivation: original
     sources:
-      - ref: ostep
-        locator: 调度相关章节（如 MLFQ）
-        claim: 调度器决定下一个运行的进程，策略影响响应时间与公平性
+      - ref: linux-kernel-docs
+        locator: scheduler/sched-design-CFS、sched-eevdf
+        url: https://docs.kernel.org/scheduler/sched-eevdf.html
+        claim: CFS 按虚拟运行时间公平调度；EEVDF 在 6.6 中取代 CFS
         status: unverified
         note: 按 Daniel 决定不核对出处
     canvas:
@@ -181,16 +184,17 @@ steps:
         event: 调度器选中程序 B
   - id: restore
     title: 恢复另一个程序，以及切换的代价
-    tldr: 内核载入 B 的存档，回到用户态，B 从上次停下的地方继续。
+    tldr: 内核载入 B 的存档并回到用户态；但切换并不免费。
     body: |-
-      内核恢复 B 的现场并返回用户态，B 接着跑，直到下一次时钟中断。
-      每次切换都要存档、读档，还会让 CPU 缓存“变冷”，所以并不免费。
-      时间片太短浪费在切换上，太长又让程序反应迟钝，这是一种权衡。
+      内核恢复 B 的现场并返回用户态，B 接着跑，直到下一次被打断或自己去等待。
+      每次切换都要存档、读档，还会让 CPU 缓存“变冷”。
+      切换分两种：程序自己去等 I/O 是“主动”的，时间片用完被换下是“被动”的，/proc 里能分别看到。
     derivation: original
     sources:
-      - ref: ostep
-        locator: Limited Direct Execution 一章，上下文切换
-        claim: 上下文切换恢复另一进程的状态并返回用户态，有性能开销
+      - ref: linux-man-pages
+        locator: proc(5)，/proc/pid/status 中 voluntary_ctxt_switches
+        url: https://man7.org/linux/man-pages/man5/proc.5.html
+        claim: Linux 分别统计主动与被动上下文切换次数
         status: unverified
         note: 按 Daniel 决定不核对出处
     canvas:

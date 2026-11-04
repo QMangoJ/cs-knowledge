@@ -1,4 +1,4 @@
-# OS1 正式内容 v2（知识优先版）。出处仅供参考，按 Daniel 决定不做逐条核对。
+# 知识优先版草稿（Linux x86-64 为例）。出处仅供参考，按 Daniel 决定不做逐条核对。
 id: os/syscall
 subject: os
 slug: syscall
@@ -6,120 +6,220 @@ order: 1
 status: published
 license: CC-BY-4.0
 title: 系统调用：程序怎样请内核帮忙
-summary: 程序不能直接碰硬件，想读写文件、上网、打印，都得通过"系统调用"这扇门请内核代办。
-premise: 以一次"往屏幕打印一行字"为例，看程序、内核、硬件之间发生了什么。
+summary: 程序不能直接碰硬件，想读写文件、上网、打印，都得通过“系统调用”这扇门请内核代办。
+premise: 以 Linux（x86-64）上一个程序往终端打印一行字为例。
 overview:
-  - { key: 一句话总结, value: 系统调用是程序进入内核的唯一受控入口 }
-  - { key: 为什么需要, value: 保护硬件和其他程序，不让一个程序为所欲为 }
-  - { key: 两种模式, value: 用户态（权限受限）和内核态（完全权限） }
-  - { key: 常见系统调用, value: "read、write、open、fork、exec" }
-  - { key: 代价, value: 每次进出内核都有开销，所以要尽量批量处理 }
+  - key: 一句话总结
+    value: 系统调用是程序进入内核的唯一受控入口
+  - key: 为什么需要
+    value: 保护硬件和其他程序，不让一个程序为所欲为
+  - key: 两种模式
+    value: 用户态（权限受限）和内核态（完全权限）
+  - key: 常见系统调用
+    value: read、write、openat、clone、execve、mmap
+  - key: 代价
+    value: 每次进出内核都有开销，所以要尽量批量处理
+  - key: 在终端里看一看
+    value: strace -e trace=write echo hi　看到 echo 发出的 write 调用；strace -c ls　统计 ls 用了哪些系统调用
 visual: swimlane
 lanes:
-  - { id: app, label: 程序 }
-  - { id: kernel, label: 内核 }
-  - { id: hw, label: 硬件 }
+  - id: app
+    label: 程序
+  - id: kernel
+    label: 内核
+  - id: hw
+    label: 硬件
 logColumns:
-  - { key: mode, label: 当前模式 }
-  - { key: event, label: 发生了什么 }
+  - key: mode
+    label: 当前状态
+  - key: event
+    label: 发生了什么
 steps:
   - id: need-kernel
     title: 程序想做一件只有内核能做的事
     tldr: 程序不能直接操作硬件，这是为了保护整台机器。
-    body: |
-      程序想在屏幕上打印一行字，但它没有权限直接操作显示器、磁盘或网卡。
+    body: |-
+      程序想在终端上打印一行字，但它没有权限直接操作屏幕、磁盘或网卡。
       如果谁都能直接碰硬件，一个出错的程序就可能写坏磁盘，或者偷看别的程序的数据。
       这就像网页里的 JavaScript 不能随便读你电脑上的文件，只能通过浏览器提供的接口。
     derivation: original
     sources:
-      - { ref: ostep, locator: "Limited Direct Execution 一章", claim: "用户程序不能直接执行 I/O 等受限操作", status: unverified, note: "按 Daniel 决定不核对出处" }
+      - ref: ostep
+        locator: Limited Direct Execution 一章
+        claim: 用户程序不能直接执行 I/O 等受限操作
+        status: unverified
+        note: 按 Daniel 决定不核对出处
     canvas:
       kind: swimlane
       actors:
-        - { lane: app, id: p, label: 程序, highlight: true }
-        - { lane: kernel, id: k, label: 内核 }
-        - { lane: hw, id: h, label: 屏幕 }
+        - lane: app
+          id: p
+          label: 程序
+          highlight: true
+        - lane: kernel
+          id: k
+          label: 内核
+        - lane: hw
+          id: h
+          label: 硬件（终端）
       messages:
-        - { id: m1, from: p, to: h, label: "直接访问？不允许", active: true }
+        - id: m-need-kernel
+          from: p
+          to: h
+          label: 直接访问？不允许
+          active: true
     log:
-      - { mode: 用户态, event: 程序想打印文字，但无权直接操作硬件 }
+      - mode: 用户态
+        event: 程序想打印文字，但无权直接操作硬件
   - id: syscall-door
     title: 发起系统调用：敲响内核的门
     tldr: 系统调用是程序进入内核的唯一受控入口。
-    body: |
-      程序调用 write() 之类的函数，C 库会执行一条特殊指令（RISC-V 上叫 ecall，x86-64 上叫 syscall），并带上"我要哪种服务"的编号。
-      这条指令会触发"陷入"（trap），把控制权交给内核。
-      程序只能说"我要什么"，不能决定跳到内核的哪段代码，入口由内核事先定好。
+    body: |-
+      程序调用 printf，最终由 C 库（glibc）执行 x86-64 的 syscall 指令，并带上“我要哪种服务”的编号。
+      这条指令触发“陷入”，把控制权交给内核。
+      程序只能说“我要什么”，跳到内核的哪段代码由内核事先定好；用 strace 就能看到一个程序发出的全部系统调用。
     derivation: original
     sources:
-      - { ref: xv6-book, locator: "系统调用章节", url: "https://github.com/mit-pdos/xv6-riscv", claim: "用户程序通过 ecall 指令陷入内核", status: unverified, note: "按 Daniel 决定不核对出处" }
+      - ref: linux-man-pages
+        locator: syscall(2)、strace(1)
+        url: https://man7.org/linux/man-pages/man2/syscall.2.html
+        claim: x86-64 Linux 通过 syscall 指令进入内核；strace 可跟踪系统调用
+        status: unverified
+        note: 按 Daniel 决定不核对出处
     canvas:
       kind: swimlane
       actors:
-        - { lane: app, id: p, label: 程序, highlight: true }
-        - { lane: kernel, id: k, label: 内核入口 }
-        - { lane: hw, id: h, label: 屏幕 }
+        - lane: app
+          id: p
+          label: 程序
+          highlight: true
+        - lane: kernel
+          id: k
+          label: 内核
+        - lane: hw
+          id: h
+          label: 硬件（终端）
       messages:
-        - { id: m2, from: p, to: k, label: 系统调用：请帮我写屏幕, active: true }
+        - id: m-syscall-door
+          from: p
+          to: k
+          label: 系统调用：请帮我写终端
+          active: true
     log:
-      - { mode: 用户态, event: 程序发起系统调用 }
+      - mode: 用户态
+        event: 程序发起 write 系统调用
   - id: mode-switch
     title: 切到内核态
     tldr: CPU 有两种模式，陷入时从用户态切到内核态。
-    body: |
-      CPU 自己记着当前是"用户态"还是"内核态"。用户态里很多操作会被硬件直接拦下，内核态则拥有全部权限。
-      陷入发生时，CPU 先记下程序停在哪里，再切换到内核态，从内核指定的入口开始执行。
+    body: |-
+      CPU 自己记着当前是“用户态”还是“内核态”，用户态里很多操作会被硬件直接拦下。
+      陷入发生时，CPU 记下程序停在哪里，切换到内核态，从内核指定的入口开始执行。
       这种切换由硬件保证，程序没法自己把自己变成内核态。
     derivation: original
     sources:
-      - { ref: ostep, locator: "Limited Direct Execution 一章，用户模式与内核模式", claim: "处理器区分用户模式和内核模式，trap 时切换到内核模式", status: unverified, note: "按 Daniel 决定不核对出处" }
+      - ref: ostep
+        locator: Limited Direct Execution 一章，用户模式与内核模式
+        claim: 处理器区分用户模式和内核模式，trap 时切换到内核模式
+        status: unverified
+        note: 按 Daniel 决定不核对出处
     canvas:
       kind: swimlane
       actors:
-        - { lane: app, id: p, label: 程序（暂停） }
-        - { lane: kernel, id: k, label: 内核, highlight: true }
-        - { lane: hw, id: h, label: CPU }
+        - lane: app
+          id: p
+          label: 程序
+        - lane: kernel
+          id: k
+          label: 内核
+          highlight: true
+        - lane: hw
+          id: h
+          label: 硬件（终端）
       messages:
-        - { id: m3, from: h, to: k, label: 切换到内核态, active: true }
+        - id: m-mode-switch
+          from: p
+          to: k
+          label: 切换到内核态
+          active: true
     log:
-      - { mode: "用户态 → 内核态", event: CPU 切换模式，内核接手 }
+      - mode: 用户态 → 内核态
+        event: CPU 切换模式，内核接手
   - id: check-and-do
     title: 内核检查参数，然后代办
     tldr: 内核不信任程序传来的任何东西，先检查再干活。
-    body: |
-      内核先确认请求合理：这个文件你打开过吗？你给的内存地址真的属于你吗？
-      不合法就返回错误，而不是让整个系统崩溃。这和后端从不信任前端传来的参数是同一个道理。
-      检查通过后，内核才通过驱动程序把文字交给硬件显示出来。
+    body: |-
+      内核先确认请求合理：这个文件描述符你打开过吗？你给的内存地址真的属于你吗？
+      不合法就返回错误（比如 EBADF、EFAULT），而不是让整个系统崩溃，这和后端从不信任前端参数是同一个道理。
+      检查通过后，内核才通过驱动把文字交给终端。
     derivation: original
     sources:
-      - { ref: xv6-book, locator: "系统调用参数小节", claim: "内核在使用用户传入的指针前会检查并安全复制", status: unverified, note: "按 Daniel 决定不核对出处" }
+      - ref: linux-man-pages
+        locator: write(2) 的 ERRORS 部分
+        url: https://man7.org/linux/man-pages/man2/write.2.html
+        claim: write 对非法文件描述符或地址返回 EBADF、EFAULT 等错误
+        status: unverified
+        note: 按 Daniel 决定不核对出处
     canvas:
       kind: swimlane
       actors:
-        - { lane: app, id: p, label: 程序（暂停） }
-        - { lane: kernel, id: k, label: 内核：检查后执行, highlight: true }
-        - { lane: hw, id: h, label: 屏幕, highlight: true }
+        - lane: app
+          id: p
+          label: 程序
+        - lane: kernel
+          id: k
+          label: 内核
+        - lane: hw
+          id: h
+          label: 硬件（终端）
+          highlight: true
       messages:
-        - { id: m4, from: k, to: h, label: 输出文字, active: true }
+        - id: m-check-and-do
+          from: k
+          to: h
+          label: 输出文字
+          active: true
     log:
-      - { mode: 内核态, event: 检查参数，通过后驱动硬件完成输出 }
+      - mode: 内核态
+        event: 检查参数，通过后驱动硬件完成输出
   - id: return-and-cost
     title: 返回用户态，以及这一趟的代价
-    tldr: 内核带着结果切回用户态，程序继续运行；但每次进出内核都不便宜。
-    body: |
-      内核做完后切回用户态，程序从刚才停下的地方继续，并拿到结果（比如写了几个字节）。
-      进出内核要保存和恢复现场、切换权限，比普通函数调用慢得多。
-      所以 printf 会先把文字攒在缓冲区里，攒够了再一次性调用 write，就像前端把多次请求合并成一次批量请求。
+    tldr: 内核带着结果切回用户态；但每次进出内核都不便宜。
+    body: |-
+      内核做完后切回用户态，程序从停下的地方继续，并拿到结果（写了几个字节）。
+      进出内核比普通函数调用慢得多，所以 printf 会先把文字攒在缓冲区，攒够了再调用一次 write，就像前端把多个请求合并成一次。
+      用 strace 对比一下“逐字写”和“缓冲后写”，系统调用次数差别很明显。
     derivation: original
     sources:
-      - { ref: ostep, locator: "Limited Direct Execution 一章，return-from-trap", claim: "内核通过 return-from-trap 返回用户程序", status: unverified, note: "按 Daniel 决定不核对出处" }
+      - ref: ostep
+        locator: Limited Direct Execution 一章
+        claim: 系统调用有切换开销
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+      - ref: linux-man-pages
+        locator: setvbuf(3)
+        url: https://man7.org/linux/man-pages/man3/setvbuf.3.html
+        claim: stdio 对输出进行缓冲
+        status: unverified
+        note: 按 Daniel 决定不核对出处
     canvas:
       kind: swimlane
       actors:
-        - { lane: app, id: p, label: 程序（继续运行）, highlight: true }
-        - { lane: kernel, id: k, label: 内核 }
-        - { lane: hw, id: h, label: 屏幕 }
+        - lane: app
+          id: p
+          label: 程序
+          highlight: true
+        - lane: kernel
+          id: k
+          label: 内核
+        - lane: hw
+          id: h
+          label: 硬件（终端）
       messages:
-        - { id: m5, from: k, to: p, label: 返回结果，切回用户态, active: true }
+        - id: m-return-and-cost
+          from: k
+          to: p
+          label: 返回结果，切回用户态
+          active: true
     log:
-      - { mode: "内核态 → 用户态", event: 带着结果返回，程序继续执行 }
+      - mode: 内核态 → 用户态
+        event: 带着结果返回，程序继续执行

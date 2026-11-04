@@ -66,6 +66,8 @@ export function Swimlane({ state, lanes }: { state: SwimlaneState; lanes?: Lane[
         );
       })}
       {state.messages.map((m) => {
+        /** Rough label width at 13px (CJK ≈ 13px, others ≈ 7.5px); keeps start-anchored labels inside the viewBox. */
+        const fit = (x: number, label: string) => Math.max(LABEL_W, Math.min(x, W - 6 - [...label].reduce((n, c) => n + (c.charCodeAt(0) > 0x2e7f ? 13 : 7.5), 0)));
         const a = boxes.get(m.from), b = boxes.get(m.to);
         if (!a || !b) return null;
         const sameLane = Math.abs(a.y - b.y) < 1;
@@ -89,7 +91,7 @@ export function Swimlane({ state, lanes }: { state: SwimlaneState; lanes?: Lane[
           return (
             <g key={m.id} className={`sl-msg${m.active ? " active" : ""}`}>
               <path d={`M${a.x + a.w} ${ya} H${xr} V${yb} H${b.x + b.w}`} markerEnd="url(#arrow)" />
-              <text x={xr + 8} y={(ya + yb) / 2} dominantBaseline="middle" paintOrder="stroke" className="sl-msg-label">{m.label}</text>
+              <text x={fit(xr + 8, m.label)} y={(ya + yb) / 2} dominantBaseline="middle" paintOrder="stroke" className="sl-msg-label">{m.label}</text>
             </g>
           );
         }
@@ -99,7 +101,7 @@ export function Swimlane({ state, lanes }: { state: SwimlaneState; lanes?: Lane[
         return (
           <g key={m.id} className={`sl-msg${m.active ? " active" : ""}`}>
             <line x1={x1} y1={y1} x2={x2} y2={y2} markerEnd="url(#arrow)" />
-            <text x={sameLane ? lx : lx + 8} y={sameLane ? ly + 31 : ly} textAnchor={sameLane ? "middle" : "start"} dominantBaseline="middle" paintOrder="stroke" className="sl-msg-label">{m.label}</text>
+            <text x={sameLane ? lx : fit(lx + 8, m.label)} y={sameLane ? ly + 31 : ly} textAnchor={sameLane ? "middle" : "start"} dominantBaseline="middle" paintOrder="stroke" className="sl-msg-label">{m.label}</text>
           </g>
         );
       })}
