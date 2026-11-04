@@ -3,7 +3,7 @@ id: co/number-representation
 subject: co
 slug: number-representation
 order: 6
-status: draft
+status: published
 license: CC-BY-4.0
 title: 数字在内存里长什么样：补码与浮点数
 summary: 整数用补码存，小数用浮点数存。这解释了为什么整数会溢出，为什么 0.1 + 0.2 不等于 0.3。
