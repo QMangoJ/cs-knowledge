@@ -37,15 +37,19 @@ code{font-family:var(--font-mono)}
 .canvas-wrap{border:1px solid var(--line-mid);border-radius:var(--radius);background:var(--panel);padding:var(--sp-3)}
 .swimlane{width:100%;height:auto;display:block}
 .sl-lane-bg{fill:var(--panel)} .sl-lane-bg.alt{fill:var(--line-soft)}
-.sl-lane-label{fill:var(--ink-soft);font-size:12px}
+.sl-lane-label{height:100%;display:flex;align-items:center;color:var(--ink-soft);font-size:12px;line-height:1.3}
 .sl-actor{transition:transform var(--dur-move) var(--ease-out)}
 .sl-actor rect{fill:var(--panel);stroke:var(--line);stroke-width:1;transition:fill var(--dur-fast),stroke var(--dur-fast)}
 .sl-actor.hl rect{fill:var(--line-soft);stroke:var(--active);stroke-width:2}
-.sl-actor-label{fill:var(--ink-strong);font-size:13px}
-.sl-actor-state{fill:var(--ink-muted);font-size:11px}
-.sl-msg line{stroke:var(--line);stroke-width:1.5}
-.sl-msg.active line{stroke:var(--active);stroke-width:2;stroke-dasharray:6 4;animation:dash var(--dur-slow) linear infinite}
-.sl-msg text{fill:var(--active);font-size:12px}
+.sl-actor-box{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 4px;line-height:1.25;overflow:hidden}
+.sl-actor-label{color:var(--ink-strong);font-size:12.5px}
+.sl-actor-state{color:var(--ink-muted);font-size:11px}
+.sl-msg line,.sl-msg path{stroke:var(--line);stroke-width:1.5}
+.sl-msg.active line,.sl-msg.active path{stroke:var(--active);stroke-width:2;stroke-dasharray:6 4;animation:dash var(--dur-slow) linear infinite}
+.sl-msg-label{fill:var(--ink-soft);font-size:11.5px;stroke:var(--panel);stroke-width:4px}
+.sl-msg.active .sl-msg-label{fill:var(--active)}
+.legend{list-style:none;padding:0;margin:var(--sp-3) 0 0;display:grid;gap:var(--sp-1);color:var(--ink-soft);font-size:var(--fs-xs)}
+.legend b{color:var(--ink-strong);margin-right:var(--sp-2)}
 .sl-arrowhead{fill:var(--active)}
 @keyframes dash{to{stroke-dashoffset:-20}}
 .regs{list-style:none;padding:0;margin:var(--sp-3) 0 0;display:flex;flex-wrap:wrap;gap:var(--sp-2)}
