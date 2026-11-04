@@ -1,0 +1,123 @@
+# 样例草稿（repo eng 为验证播放器而写）。正式内容由产品策划提供，所有出处待 Daniel 核对。
+id: os/syscall
+subject: os
+slug: syscall
+order: 1
+status: draft
+title: 一次系统调用：write() 进内核再返回
+summary: 用户程序调用 write()，CPU 如何切到内核、执行、再回到用户态。
+premise: 以 xv6 / RISC-V 为例
+overview:
+  - { key: 架构, value: RISC-V（xv6） }
+  - { key: 切换指令, value: "ecall / sret" }
+  - { key: 参与方, value: 用户进程、内核、硬件 }
+visual: swimlane
+lanes:
+  - { id: user, label: 用户进程 }
+  - { id: kernel, label: 内核 }
+  - { id: hw, label: 硬件 }
+logColumns:
+  - { key: t, label: 时间 }
+  - { key: who, label: 执行者 }
+  - { key: event, label: 事件 }
+  - { key: state, label: 关键状态 }
+steps:
+  - id: user-stub
+    title: 用户态调用 write()
+    tldr: 库函数把系统调用号放进 a7，然后执行 ecall。
+    body: |
+      用户程序调用 `write(fd, buf, n)`。xv6 的用户库桩代码（usys.S）把参数留在 a0–a2，
+      把系统调用号 `SYS_write` 放进寄存器 **a7**，然后执行 `ecall`。
+    derivation: original
+    keyFields: [{ key: a7, value: SYS_write }]
+    sources:
+      - { ref: xv6-book, locator: "第 2 章 / 第 4 章（页码待核对）", claim: "用户桩代码把系统调用号放入 a7 后执行 ecall", status: pending }
+    canvas:
+      kind: swimlane
+      actors:
+        - { lane: user, id: app, label: "write()", highlight: true, state: U-mode }
+        - { lane: kernel, id: k, label: 内核 }
+        - { lane: hw, id: cpu, label: CPU }
+      messages: []
+      registers: [{ name: a7, value: SYS_write, changed: true }, { name: mode, value: U }]
+    log:
+      - { t: "1", who: 用户进程, event: "调用 write()，a7 ← SYS_write", state: "U-mode" }
+  - id: ecall
+    title: ecall 陷入
+    tldr: ecall 让 CPU 切到 supervisor 模式并跳到 stvec 指向的入口。
+    body: |
+      `ecall` 是一条普通指令，但它触发异常：硬件把当前 pc 存进 **sepc**，
+      在 **scause** 记下原因（来自 U 模式的环境调用），切到 S 模式，跳到 **stvec**。
+    derivation: original
+    sources:
+      - { ref: xv6-book, locator: "第 4 章（节号待核对）", claim: "ecall 时硬件保存 sepc、设置 scause、跳转到 stvec", status: pending }
+    canvas:
+      kind: swimlane
+      actors:
+        - { lane: user, id: app, label: "write()", state: 暂停 }
+        - { lane: kernel, id: k, label: 内核 }
+        - { lane: hw, id: cpu, label: CPU, highlight: true, state: 陷入 }
+      messages: [{ id: m1, from: app, to: cpu, label: ecall, active: true }]
+      registers: [{ name: sepc, value: "ecall 的地址", changed: true }, { name: scause, value: "8", changed: true }, { name: mode, value: S, changed: true }]
+    log:
+      - { t: "2", who: 硬件, event: "ecall：保存 sepc，scause=8，跳到 stvec", state: "S-mode" }
+  - id: uservec
+    title: 保存现场
+    tldr: trampoline 里的 uservec 把用户寄存器存进 trapframe，再进入 usertrap()。
+    body: |
+      stvec 指向 trampoline 页里的 `uservec`。它把 32 个用户寄存器保存到进程的 **trapframe**，
+      切换到内核页表和内核栈，然后跳到 C 函数 `usertrap()`。
+    derivation: original
+    sources:
+      - { ref: xv6-book, locator: "第 4 章 trap 相关小节（待核对）", claim: "uservec 保存用户寄存器到 trapframe 并切换到内核页表", status: pending }
+    canvas:
+      kind: swimlane
+      actors:
+        - { lane: user, id: app, label: "write()", state: 暂停 }
+        - { lane: kernel, id: k, label: "uservec → usertrap()", highlight: true }
+        - { lane: hw, id: cpu, label: CPU }
+      messages: [{ id: m2, from: cpu, to: k, label: "跳到 stvec", active: true }]
+      registers: [{ name: satp, value: 内核页表, changed: true }]
+    log:
+      - { t: "3", who: 内核, event: "uservec 保存寄存器到 trapframe", state: "satp=内核页表" }
+  - id: dispatch
+    title: 分发到 sys_write
+    tldr: syscall() 读 a7，查表调用 sys_write，返回值写回 a0。
+    body: |
+      `usertrap()` 看 scause 确认是系统调用，把保存的 epc 加 4（返回时跳过 ecall），
+      再调用 `syscall()`。它从 trapframe 读出 a7，在系统调用表里找到 `sys_write` 执行，
+      结果写进 trapframe 的 **a0**。
+    derivation: original
+    sources:
+      - { ref: xv6-book, locator: "第 4 章 系统调用小节（待核对）", claim: "syscall() 用 a7 查表，返回值存入 trapframe->a0", status: pending }
+      - { ref: ostep, locator: "第 6 章 6.2 节（待核对）", claim: "系统调用通过陷入表/系统调用号分发", status: pending }
+    canvas:
+      kind: swimlane
+      actors:
+        - { lane: user, id: app, label: "write()", state: 暂停 }
+        - { lane: kernel, id: k, label: "syscall() → sys_write", highlight: true }
+        - { lane: hw, id: cpu, label: CPU }
+      messages: []
+      registers: [{ name: epc, value: "sepc + 4", changed: true }, { name: a0, value: 写入字节数, changed: true }]
+    log:
+      - { t: "4", who: 内核, event: "syscall()：a7 → sys_write，结果写入 a0", state: "epc += 4" }
+  - id: return
+    title: 返回用户态
+    tldr: usertrapret / userret 恢复寄存器，sret 回到 ecall 的下一条指令。
+    body: |
+      内核调用 `usertrapret()`，重新设置 stvec，跳到 trampoline 里的 `userret`：
+      切回用户页表、从 trapframe 恢复寄存器，最后执行 **sret** 回到 U 模式，
+      从 ecall 后一条指令继续，`write()` 拿到 a0 里的返回值。
+    derivation: original
+    sources:
+      - { ref: xv6-book, locator: "第 4 章（待核对）", claim: "userret 恢复寄存器并用 sret 返回用户态", status: pending }
+    canvas:
+      kind: swimlane
+      actors:
+        - { lane: user, id: app, label: "write() 返回", highlight: true, state: U-mode }
+        - { lane: kernel, id: k, label: "usertrapret → userret" }
+        - { lane: hw, id: cpu, label: CPU }
+      messages: [{ id: m3, from: k, to: app, label: sret, active: true }]
+      registers: [{ name: mode, value: U, changed: true }, { name: satp, value: 用户页表, changed: true }]
+    log:
+      - { t: "5", who: 内核→硬件, event: "userret 恢复寄存器，sret", state: "U-mode，a0=返回值" }

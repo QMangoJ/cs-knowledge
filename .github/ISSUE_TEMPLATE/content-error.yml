@@ -1,0 +1,20 @@
+name: 内容纠错
+description: 报告某个主题、某一步的内容错误
+title: "[内容纠错] "
+labels: ["content-error"]
+body:
+  - type: input
+    id: topic
+    attributes: { label: 主题, placeholder: os/syscall }
+    validations: { required: true }
+  - type: input
+    id: step
+    attributes: { label: 第几步, placeholder: "3" }
+    validations: { required: true }
+  - type: textarea
+    id: problem
+    attributes: { label: 哪里不对 }
+    validations: { required: true }
+  - type: textarea
+    id: source
+    attributes: { label: 依据（书名、章节/页码、链接） }

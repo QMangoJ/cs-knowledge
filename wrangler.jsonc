@@ -1,0 +1,6 @@
+{
+  // Static-only Worker (no main). NOT deployed yet: needs Daniel's approval.
+  "name": "cs-knowledge",
+  "compatibility_date": "2026-11-04",
+  "assets": { "directory": "./out", "not_found_handling": "404-page" }
+}

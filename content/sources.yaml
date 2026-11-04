@@ -1,0 +1,8 @@
+- id: xv6-book
+  title: "xv6: a simple, Unix-like teaching operating system (RISC-V), MIT 6.1810"
+  url: https://pdos.csail.mit.edu/6.1810/2024/xv6/book-riscv-rev4.pdf
+  license: "见原文"
+- id: ostep
+  title: "Operating Systems: Three Easy Pieces, Ch.6 Limited Direct Execution"
+  url: https://pages.cs.wisc.edu/~remzi/OSTEP/cpu-mechanisms.pdf
+  license: "见原文"
