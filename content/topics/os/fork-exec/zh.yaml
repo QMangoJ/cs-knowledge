@@ -1,0 +1,210 @@
+# 知识优先版草稿。出处仅供参考，按 Daniel 决定不做逐条核对。
+id: os/fork-exec
+subject: os
+slug: fork-exec
+order: 2
+status: published
+license: CC-BY-4.0
+title: 进程的诞生：fork + exec + wait
+summary: 在终端敲下一个命令，shell 是怎样把它变成一个新运行的程序的。
+premise: 以在 shell 里输入 ls 为例，看一个进程如何诞生、换上新程序、结束并被回收。
+overview:
+  - key: 一句话总结
+    value: fork 复制自己，exec 换成新程序，wait 等它结束
+  - key: 什么是进程
+    value: 正在运行的程序：代码 + 内存 + 打开的文件 + 运行状态
+  - key: 为什么分两步
+    value: fork 和 exec 之间，可以先调整子进程（如重定向输出）
+  - key: 常见用法
+    value: shell 运行命令、管道 a | b、Node.js 的 child_process
+  - key: 收尾
+    value: 父进程用 wait 回收子进程，否则会留下僵尸进程
+visual: swimlane
+lanes:
+  - id: parent
+    label: 父进程
+  - id: kernel
+    label: 内核
+  - id: child
+    label: 子进程
+logColumns:
+  - key: mode
+    label: 当前状态
+  - key: event
+    label: 发生了什么
+steps:
+  - id: why-process
+    title: 为什么需要“进程”
+    tldr: 进程让每个程序都以为自己独占机器，彼此互不干扰。
+    body: |-
+      一台电脑同时跑着浏览器、编辑器、终端，它们各自需要内存、文件和 CPU 时间。
+      操作系统把“一个正在运行的程序”包装成进程，给它独立的内存空间和资源账本。
+      就像浏览器给每个标签页单独开进程：一个页面崩了，其他页面不受影响。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: Processes 一章
+        claim: 进程是操作系统对运行中程序的抽象
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: parent
+          id: sh
+          label: shell（父进程）
+          highlight: true
+        - lane: kernel
+          id: k
+          label: 内核
+        - lane: child
+          id: c
+          label: 子进程
+      messages: []
+    log:
+      - mode: shell 运行中
+        event: 用户输入 ls，shell 需要启动一个新程序
+  - id: fork
+    title: fork：复制出一个自己
+    tldr: fork 让内核把当前进程复制一份，得到一个几乎一模一样的子进程。
+    body: |-
+      shell 调用 fork，内核为子进程复制一份内存和打开的文件。
+      fork 返回两次：父进程拿到子进程的编号，子进程拿到 0，靠这个区分“我是谁”。
+      现代系统用“写时复制”，真正有人修改内存时才复制，所以 fork 并不慢。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: Process API 一章，fork()
+        claim: fork 创建一个与父进程几乎相同的子进程，父子得到不同的返回值
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: parent
+          id: sh
+          label: shell（父进程）
+        - lane: kernel
+          id: k
+          label: 内核
+          highlight: true
+        - lane: child
+          id: c
+          label: 子进程
+      messages:
+        - id: m-fork
+          from: sh
+          to: c
+          label: fork：复制一份
+          active: true
+    log:
+      - mode: 父子两个进程
+        event: 内核复制出子进程
+  - id: exec
+    title: exec：换上新程序
+    tldr: 子进程调用 exec，把自己的内容整个换成 ls 程序。
+    body: |-
+      exec 不创建新进程，而是把当前进程的代码和内存替换成另一个程序，从它的开头运行。
+      进程编号和打开的文件保留下来，所以 shell 可以在 exec 之前先把输出重定向到文件。
+      这就是拆成 fork 和 exec 两步的好处：中间留出了“布置环境”的机会。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: Process API 一章，exec() 与重定向
+        claim: exec 用新程序替换当前进程映像；fork 与 exec 分离便于 shell 实现重定向
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: parent
+          id: sh
+          label: shell（父进程）
+        - lane: kernel
+          id: k
+          label: 内核
+        - lane: child
+          id: c
+          label: 子进程
+          highlight: true
+      messages:
+        - id: m-exec
+          from: c
+          to: k
+          label: exec：换成 ls
+          active: true
+    log:
+      - mode: 子进程运行 ls
+        event: 子进程变成了 ls
+  - id: wait
+    title: wait：父进程等孩子结束
+    tldr: shell 调用 wait 暂停自己，直到 ls 运行完。
+    body: |-
+      如果 shell 不等，ls 的输出就会和下一个提示符混在一起。
+      wait 让父进程睡眠，内核在子进程结束时把它唤醒。
+      这有点像前端 await 一个 Promise：不占着 CPU 空转，结果来了再继续。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: Process API 一章，wait()
+        claim: wait 让父进程等待子进程结束
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: parent
+          id: sh
+          label: shell（父进程）
+          highlight: true
+        - lane: kernel
+          id: k
+          label: 内核
+        - lane: child
+          id: c
+          label: 子进程
+      messages:
+        - id: m-wait
+          from: sh
+          to: k
+          label: wait：等它结束
+          active: true
+    log:
+      - mode: shell 等待中
+        event: 父进程睡眠，等待子进程
+  - id: exit-reap
+    title: exit 与回收：进程的结束
+    tldr: 子进程退出后留下一个退出码，由父进程的 wait 取走，资源才被彻底释放。
+    body: |-
+      ls 运行完调用 exit，内核释放它的大部分资源，但保留退出码等父进程来读。
+      父进程的 wait 拿到退出码（0 表示成功），子进程这才彻底消失。
+      如果父进程一直不 wait，子进程就成了“僵尸”，占着进程表的位置。
+    derivation: original
+    sources:
+      - ref: xv6-book
+        locator: 第 1 章 进程与内存
+        claim: 子进程 exit 后由父进程通过 wait 获取退出状态
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: parent
+          id: sh
+          label: shell（父进程）
+          highlight: true
+        - lane: kernel
+          id: k
+          label: 内核
+        - lane: child
+          id: c
+          label: 子进程
+      messages:
+        - id: m-exit-reap
+          from: c
+          to: sh
+          label: exit：退出码交给父进程
+          active: true
+    log:
+      - mode: shell 继续运行
+        event: 子进程被回收，shell 显示下一个提示符

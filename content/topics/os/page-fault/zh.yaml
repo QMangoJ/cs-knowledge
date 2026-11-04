@@ -1,0 +1,210 @@
+# 知识优先版草稿。出处仅供参考，按 Daniel 决定不做逐条核对。
+id: os/page-fault
+subject: os
+slug: page-fault
+order: 5
+status: published
+license: CC-BY-4.0
+title: 缺页异常：用到时才分配
+summary: 内核故意不提前准备内存，等程序真正用到时再补上，这就是懒加载。
+premise: 以程序申请一大块内存、之后第一次写入为例。
+overview:
+  - key: 一句话总结
+    value: 访问还没准备好的页 → 陷入内核 → 内核补上 → 重新执行那条指令
+  - key: 核心思想
+    value: 按需分配：不用就不花
+  - key: 常见用途
+    value: 懒分配内存、按需加载程序、写时复制、把内存换到磁盘
+  - key: 程序视角
+    value: 完全透明，只是那一次访问稍慢
+  - key: 类比
+    value: 前端的图片懒加载、路由按需加载代码
+visual: swimlane
+lanes:
+  - id: procs
+    label: 程序
+  - id: kernel
+    label: 内核
+  - id: mem
+    label: 内存 / 磁盘
+logColumns:
+  - key: mode
+    label: 当前状态
+  - key: event
+    label: 发生了什么
+steps:
+  - id: why-lazy
+    title: 为什么不一次分配好
+    tldr: 程序申请的内存，很多根本不会用到，提前分配是浪费。
+    body: |-
+      程序常常先申请一大块内存“备用”，实际只用一小部分。
+      内核于是只在账本上记下“这段地址归你了”，暂时不给真实内存。
+      这和前端图片懒加载一样：滚动到了再加载，没看到的就不花流量。
+    derivation: original
+    sources:
+      - ref: xv6-book
+        locator: 页错误章节，懒分配
+        claim: 内核可以推迟分配物理内存，直到进程真正访问
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: procs
+          id: p
+          label: 程序
+          highlight: true
+        - lane: kernel
+          id: k
+          label: 内核
+        - lane: mem
+          id: r
+          label: 内存 / 磁盘
+      messages:
+        - id: m-why-lazy
+          from: p
+          to: k
+          label: 申请一大块内存
+          active: true
+    log:
+      - mode: 用户态
+        event: 内核只记账，不分配真实内存
+  - id: fault
+    title: 第一次访问：触发缺页异常
+    tldr: 程序访问这块内存时，页表里没有对应的页，硬件触发异常。
+    body: |-
+      程序第一次往这块内存写数据，地址翻译发现这一页还没有映射。
+      硬件不会直接报错，而是陷入内核，告诉它“哪个地址出了问题”。
+      这次异常并不意味着程序有错，它是内核和硬件约好的一个信号。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: "Beyond Physical Memory: Mechanisms 一章"
+        claim: 访问不在内存中的页会触发缺页异常交由操作系统处理
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: procs
+          id: p
+          label: 程序
+        - lane: kernel
+          id: k
+          label: 内核
+          highlight: true
+        - lane: mem
+          id: r
+          label: 内存 / 磁盘
+      messages:
+        - id: m-fault
+          from: p
+          to: k
+          label: 缺页！陷入内核
+          active: true
+    log:
+      - mode: 进入内核态
+        event: 访问未映射的页，陷入内核
+  - id: decide
+    title: 内核判断：合法还是越界
+    tldr: 内核查账本，看这个地址是不是程序有权使用的。
+    body: |-
+      如果地址属于程序申请过的范围，说明只是还没分配，内核就来补上。
+      如果地址根本不属于程序，那才是真正的错误，内核会终止它，也就是常见的“段错误”。
+      同一种异常，内核根据账本给出完全不同的处理。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: "Beyond Physical Memory: Mechanisms 一章"
+        claim: 操作系统区分合法的缺页与非法访问
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: procs
+          id: p
+          label: 程序
+        - lane: kernel
+          id: k
+          label: 内核
+          highlight: true
+        - lane: mem
+          id: r
+          label: 内存 / 磁盘
+      messages: []
+    log:
+      - mode: 内核态
+        event: 确认地址合法，只是尚未分配
+  - id: fill
+    title: 补上这一页
+    tldr: 内核找一页空闲内存（必要时从磁盘读回内容），填进页表。
+    body: |-
+      对懒分配的内存，内核拿一页空闲物理内存，清零后映射到这个地址。
+      如果这一页之前被换到了磁盘上，内核就要先从磁盘读回来，这会慢很多。
+      内存不够时，内核还得先挑一页“不常用的”腾出来。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: Beyond Physical Memory 相关章节
+        claim: 缺页处理会分配物理页或从磁盘读回页面并更新页表
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: procs
+          id: p
+          label: 程序
+        - lane: kernel
+          id: k
+          label: 内核
+        - lane: mem
+          id: r
+          label: 内存 / 磁盘
+          highlight: true
+      messages:
+        - id: m-fill
+          from: k
+          to: r
+          label: 分配一页 / 从磁盘读回
+          active: true
+    log:
+      - mode: 内核态
+        event: 新页映射进页表
+  - id: retry
+    title: 重新执行那条指令
+    tldr: 内核返回后，程序重新执行刚才失败的那次访问，这次成功了。
+    body: |-
+      内核返回用户态时，让程序从出错的那条指令重来，而不是跳过它。
+      这一次翻译成功，程序继续运行，完全不知道中间发生过什么。
+      代价只是第一次访问慢一点，换来的是内存只花在真正用到的地方。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: "Beyond Physical Memory: Mechanisms 一章"
+        claim: 处理完缺页后重新执行引发异常的指令
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: procs
+          id: p
+          label: 程序
+          highlight: true
+        - lane: kernel
+          id: k
+          label: 内核
+        - lane: mem
+          id: r
+          label: 内存 / 磁盘
+      messages:
+        - id: m-retry
+          from: k
+          to: p
+          label: 返回，重试那条指令
+          active: true
+    log:
+      - mode: 用户态
+        event: 重试成功，程序继续运行
