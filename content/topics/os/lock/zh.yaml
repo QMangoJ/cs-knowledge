@@ -19,6 +19,12 @@ overview:
     value: pthread_mutex 基于 futex：没人抢时不进内核，抢不到才请内核让自己睡
   - key: 代价
     value: 锁让线程排队，锁住的范围越小越好
+  - key: 死锁
+    value: 四个条件同时成立才会发生；固定加锁顺序是最常用的预防
+  - key: 自旋锁
+    value: 等待时间极短时空转比睡眠更划算，内核里常用
+  - key: 其他同步
+    value: 条件变量、读写锁、信号量、原子变量
   - key: 在终端里看一看
     value: strace -f -e trace=futex <程序>　看线程何时因抢锁进入内核
 visual: swimlane
@@ -238,3 +244,81 @@ steps:
     log:
       - mode: 线程 2 睡眠 → 被唤醒
         event: 线程 2 拿到锁，两次加 1 都生效
+  - id: deadlock
+    title: 死锁：互相等对方的锁
+    tldr: 两个线程各拿一把锁、又等对方那把，谁都走不动了。
+    body: |-
+      线程 1 拿着锁 A 等锁 B，线程 2 拿着锁 B 等锁 A，就永远卡住，这叫死锁。
+      它需要四个条件同时成立：互斥、拿着不放还要更多、不能抢、形成循环等待。
+      最实用的预防办法是规定全局加锁顺序（比如总是先 A 后 B），打破循环等待。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: "Concurrency: An Introduction 一章"
+        claim: 两个线程各拿一把锁、又等对方那把，谁都走不动了。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: threads
+          id: t1
+          label: 线程 1
+        - lane: threads
+          id: t2
+          label: 线程 2
+        - lane: shared
+          id: c
+          label: 共享计数器 / 锁
+          highlight: true
+        - lane: kernel
+          id: k
+          label: 内核
+      messages:
+        - id: m-deadlock
+          from: t1
+          to: c
+          label: 拿着 A，等 B
+          active: true
+    log:
+      - mode: 死锁
+        event: 两个线程都在等
+  - id: beyond-mutex
+    title: 锁之外的工具
+    tldr: 不同场景有更合适的同步方式：条件变量、读写锁、原子变量。
+    body: |-
+      一个线程要等“队列不空”这样的条件时，用条件变量：没条件就睡，有人改了条件再叫醒它，不用反复检查。
+      读多写少的数据用读写锁，多个读者可以同时进。
+      只是一个计数器时，直接用原子操作（如 atomic_fetch_add）就够了，不必加锁。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: "Concurrency: An Introduction 一章"
+        claim: 不同场景有更合适的同步方式：条件变量、读写锁、原子变量。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: threads
+          id: t1
+          label: 线程 1
+        - lane: threads
+          id: t2
+          label: 线程 2
+        - lane: shared
+          id: c
+          label: 共享计数器 / 锁
+          highlight: true
+        - lane: kernel
+          id: k
+          label: 内核
+      messages:
+        - id: m-beyond-mutex
+          from: t2
+          to: c
+          label: atomic 加 1，无需加锁
+          active: true
+    log:
+      - mode: 同步
+        event: 选择合适的工具

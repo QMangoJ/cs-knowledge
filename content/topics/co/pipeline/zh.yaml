@@ -17,6 +17,12 @@ overview:
     value: 猜下一步往哪走，猜错就作废重来
   - key: 对写代码的启发
     value: 可预测的分支跑得更快
+  - key: 理想加速
+    value: n 级流水线理想情况下吞吐提高约 n 倍，实际受冒险、各级不均衡限制
+  - key: 转发
+    value: 结果算出后直接送给后面的指令
+  - key: 现代 CPU
+    value: 超标量、多发射、乱序执行、推测执行
   - key: 在终端里看一看
     value: perf stat -e branches,branch-misses ls　看分支预测失败率（需安装 perf）
 visual: swimlane
@@ -209,3 +215,40 @@ steps:
     log:
       - mode: 恢复流水
         event: 猜错的指令作废，从正确位置继续
+  - id: superscalar
+    title: 现代 CPU：多发射与乱序执行
+    tldr: 现代 CPU 每个周期能发射多条指令，还会打乱顺序先做已经准备好的。
+    body: |-
+      超标量：CPU 有好几套运算单元，一个周期可以同时开始几条互不相干的指令。
+      乱序执行：前面一条在等内存时，后面不依赖它的指令先做，最后再按原顺序“提交”结果，所以程序看到的效果和顺序执行一样。
+      能并行多少，取决于指令之间的依赖：一长串彼此依赖的计算，再强的 CPU 也只能一步步来。
+    derivation: original
+    sources:
+      - ref: cs61c
+        locator: 流水线相关讲义
+        url: https://cs61c.org/
+        claim: 现代 CPU 每个周期能发射多条指令，还会打乱顺序先做已经准备好的。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: pipe
+          id: p
+          label: 流水线
+          highlight: true
+        - lane: ctl
+          id: c
+          label: 冒险检测
+        - lane: mem
+          id: m
+          label: 寄存器与内存
+      messages:
+        - id: m-superscalar
+          from: p
+          to: p
+          label: 同周期发射多条、乱序完成
+          active: true
+    log:
+      - mode: 乱序
+        event: 按原顺序提交结果

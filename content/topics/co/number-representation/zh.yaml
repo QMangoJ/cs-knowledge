@@ -19,6 +19,14 @@ overview:
     value: 就是 64 位双精度浮点数（double）
   - key: 实用建议
     value: 比较浮点数要允许小误差；算钱用整数分或十进制库
+  - key: 无符号 vs 有符号
+    value: 同样的位，解释方式不同；比较混用时容易出错
+  - key: 字节序
+    value: x86-64 小端；网络字节序大端
+  - key: 特殊值
+    value: Infinity、NaN（NaN !== NaN）、-0
+  - key: 类型转换
+    value: 大整数转 double、double 转 int 都可能丢精度或截断
   - key: 在终端里看一看
     value: python3 -c 'print(0.1+0.2)'　看到 0.30000000000000004；node -e 'console.log(Number.MAX_SAFE_INTEGER)'
 visual: swimlane
@@ -67,6 +75,43 @@ steps:
     log:
       - mode: 存储
         event: 数值被存成固定长度的二进制
+  - id: unsigned-endian
+    title: 无符号整数、十六进制和字节序
+    tldr: 同样一串位，当无符号数和有符号数读，含义不同；多字节数据在内存里还有先后顺序。
+    body: |-
+      n 位无符号整数表示 0 到 2ⁿ−1；写二进制太长，所以常用十六进制，每一位正好对应 4 个二进制位。
+      一个 4 字节整数在内存里占 4 个字节，x86-64 和大多数 ARM 设备把低位字节放在前面，这叫小端序；网络协议传输则约定大端序。
+      所以读网络数据或二进制文件时，必须知道它是哪种字节序。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 2 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 同样一串位，当无符号数和有符号数读，含义不同；多字节数据在内存里还有先后顺序。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: value
+          id: v
+          label: 数值
+        - lane: bits
+          id: b
+          label: 二进制表示
+          highlight: true
+        - lane: calc
+          id: c
+          label: 运算结果
+      messages:
+        - id: m-unsigned-endian
+          from: v
+          to: b
+          label: 低位字节放在低地址（小端）
+          active: true
+    log:
+      - mode: 存储
+        event: 多字节按小端存放
   - id: twos-complement
     title: 补码：负数怎么存
     tldr: 整数用补码表示负数，好处是加减法可以用同一套电路。
@@ -185,6 +230,43 @@ steps:
     log:
       - mode: 运算
         event: 结果与 0.3 存在微小误差
+  - id: float-special
+    title: 浮点数的特殊值
+    tldr: 浮点数里有正负无穷、NaN 和 -0，还有“越大越稀疏”的精度。
+    body: |-
+      除以 0 得到 Infinity，0/0 得到 NaN（不是数），而且 NaN 不等于任何值，连它自己也不等于。
+      浮点数的精度是相对的：数越大，相邻两个可表示的数之间间隔越大，所以 2⁵³ 以上的整数在 double 里就不能一一表示了。
+      这就是 JS 的 Number.MAX_SAFE_INTEGER 是 2⁵³−1 的原因。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 2 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 浮点数里有正负无穷、NaN 和 -0，还有“越大越稀疏”的精度。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: value
+          id: v
+          label: 数值
+        - lane: bits
+          id: b
+          label: 二进制表示
+        - lane: calc
+          id: c
+          label: 运算结果
+          highlight: true
+      messages:
+        - id: m-float-special
+          from: b
+          to: c
+          label: 0/0 → NaN；NaN ≠ NaN
+          active: true
+    log:
+      - mode: 特殊值
+        event: 无穷、NaN、-0
   - id: lesson
     title: 实际写代码怎么办
     tldr: 了解边界和误差，按场景选合适的表示。

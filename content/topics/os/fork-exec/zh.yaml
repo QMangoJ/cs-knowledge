@@ -19,6 +19,12 @@ overview:
     value: shell 运行命令、管道 a | b、Node.js 的 child_process
   - key: 收尾
     value: 父进程不 wait，子进程会变成僵尸进程
+  - key: 进程状态
+    value: 运行（R）、睡眠（S/D）、停止（T）、僵尸（Z）
+  - key: 进程 vs 线程
+    value: Linux 上都用 clone 创建：线程共享地址空间，进程各有一份
+  - key: posix_spawn / vfork
+    value: 不需要在中间布置时，可一步创建并执行，开销更小
   - key: 在终端里看一看
     value: pstree -p $$　看当前 shell 和它的子进程；ps -eo pid,ppid,stat,cmd | grep Z　找僵尸进程（状态 Z）
 visual: swimlane
@@ -214,3 +220,39 @@ steps:
     log:
       - mode: bash 继续运行
         event: 子进程被回收，显示下一个提示符
+  - id: orphan-signal
+    title: 孤儿进程与信号
+    tldr: 父进程先走了，孩子由别的进程收养；进程之间还能用信号打招呼。
+    body: |-
+      如果父进程先退出，子进程就成了“孤儿”，内核把它过继给 init（systemd，PID 1）或指定的“收养者”，由它负责 wait 回收。
+      进程之间可以发信号：Ctrl+C 发 SIGINT，kill 默认发 SIGTERM，子进程结束时父进程会收到 SIGCHLD。
+      进程可以自己处理大多数信号，但 SIGKILL 无法捕获，一定会被杀掉。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: Processes 一章
+        claim: 父进程先走了，孩子由别的进程收养；进程之间还能用信号打招呼。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: parent
+          id: sh
+          label: bash（父进程）
+        - lane: kernel
+          id: k
+          label: 内核
+          highlight: true
+        - lane: child
+          id: c
+          label: 子进程
+      messages:
+        - id: m-orphan-signal
+          from: k
+          to: c
+          label: 收养：新父进程 = PID 1
+          active: true
+    log:
+      - mode: 回收
+        event: 孤儿被 init 收养并回收

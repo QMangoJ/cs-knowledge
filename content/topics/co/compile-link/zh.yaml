@@ -17,6 +17,12 @@ overview:
     value: 目标文件和可执行文件都是 ELF 格式
   - key: 类比
     value: 前端的 TypeScript 编译 + 打包（webpack/Vite）+ 浏览器加载
+  - key: 四个阶段
+    value: 预处理（.i）→ 编译（.s）→ 汇编（.o）→ 链接（可执行文件）
+  - key: 静态 vs 动态链接
+    value: 静态把库拷进来、独立好部署；动态共享库、体积小、可单独升级
+  - key: 常见报错
+    value: undefined reference = 缺定义；multiple definition = 定义重复
   - key: 在终端里看一看
     value: gcc -S hello.c　生成 hello.s 看汇编；ldd ./a.out　看程序依赖哪些动态库
 visual: swimlane
@@ -102,6 +108,43 @@ steps:
     log:
       - mode: 编译
         event: 生成汇编代码
+  - id: preprocess-opt
+    title: 预处理与优化
+    tldr: 编译前先做文本替换，编译时还会大胆改写代码，只要结果不变。
+    body: |-
+      预处理器把 #include 的头文件原样展开、把宏替换掉、按 #ifdef 删掉不用的代码，得到一个大的纯 C 文件。
+      编译器优化时，会把常量提前算好、删掉没用的代码、把小函数直接内联进调用处，-O2 比 -O0 快得多。
+      这像前端打包时的 tree shaking 和压缩：产物看起来面目全非，但行为不变。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 1 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 编译前先做文本替换，编译时还会大胆改写代码，只要结果不变。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: tools
+          id: t
+          label: 工具链（编译器/汇编器/链接器）
+          highlight: true
+        - lane: files
+          id: f
+          label: 文件
+        - lane: os
+          id: o
+          label: 操作系统（加载器）
+      messages:
+        - id: m-preprocess-opt
+          from: t
+          to: f
+          label: hello.c → hello.i → hello.s
+          active: true
+    log:
+      - mode: 编译
+        event: 展开、优化、生成汇编
   - id: assemble
     title: 汇编：变成机器码
     tldr: 汇编器把汇编逐条翻译成二进制机器码，得到目标文件。
@@ -139,6 +182,43 @@ steps:
     log:
       - mode: 汇编
         event: 生成目标文件，外部引用待填
+  - id: symbols
+    title: 符号与重定位
+    tldr: 目标文件里有一张符号表：我提供什么、我缺什么。
+    body: |-
+      每个目标文件都会列出自己定义的函数和全局变量，以及引用了但没定义的名字（比如 printf）。
+      引用处的地址先空着，旁边记一条“重定位”说明：将来把某个符号的地址填到这里。
+      链接时最常见的两个错误就源于此：undefined reference（缺定义）和 multiple definition（重复定义）。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 1 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 目标文件里有一张符号表：我提供什么、我缺什么。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: tools
+          id: t
+          label: 工具链（编译器/汇编器/链接器）
+        - lane: files
+          id: f
+          label: 文件
+          highlight: true
+        - lane: os
+          id: o
+          label: 操作系统（加载器）
+      messages:
+        - id: m-symbols
+          from: f
+          to: f
+          label: 符号表：定义 main，缺 printf
+          active: true
+    log:
+      - mode: 目标文件
+        event: 记录符号与重定位
   - id: link
     title: 链接：把零件拼起来
     tldr: 链接器把多个目标文件和库拼成一个完整的可执行文件。

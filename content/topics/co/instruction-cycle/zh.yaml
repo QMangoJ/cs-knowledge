@@ -17,6 +17,12 @@ overview:
     value: CPU 内部极快的小存储，运算用的数据和结果大多放在这里
   - key: 说明
     value: 五阶段是教学模型；真实的 x86-64 会先把复杂指令拆成更简单的微操作，再乱序、并行地执行
+  - key: 指令集
+    value: x86-64（CISC）、ARM、RISC-V（RISC）；机器码互不通用
+  - key: 性能公式
+    value: CPU 时间 = 指令数 × CPI × 时钟周期
+  - key: 控制流
+    value: 跳转和函数调用就是改写 PC
   - key: 在终端里看一看
     value: objdump -d ./a.out | less　看程序的机器指令
 visual: swimlane
@@ -218,3 +224,77 @@ steps:
     log:
       - mode: 写回
         event: 指令完成，开始下一条
+  - id: isa
+    title: 指令集：软件和硬件之间的约定
+    tldr: 指令集（ISA）规定 CPU 认哪些指令，同一份机器码只能在同一指令集的 CPU 上跑。
+    body: |-
+      x86-64 和 ARM（如手机、Apple M 系列芯片）是两种不同的指令集，编译出来的机器码互不通用。
+      RISC 风格的指令格式整齐、每条只做简单的事；x86-64 属于 CISC，一条指令能做较复杂的事，长度也不固定。
+      指令集就像接口文档：只要约定不变，CPU 内部怎么实现都可以随便改。
+    derivation: original
+    sources:
+      - ref: cs61c
+        locator: CPU datapath 相关讲义
+        url: https://cs61c.org/
+        claim: 指令集（ISA）规定 CPU 认哪些指令，同一份机器码只能在同一指令集的 CPU 上跑。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: ctl
+          id: c
+          label: 控制（取指/译码）
+          highlight: true
+        - lane: alu
+          id: a
+          label: 运算单元
+        - lane: mem
+          id: m
+          label: 寄存器与内存
+      messages:
+        - id: m-isa
+          from: c
+          to: c
+          label: x86-64 机器码 ≠ ARM 机器码
+          active: true
+    log:
+      - mode: 约定
+        event: ISA 决定能执行哪些指令
+  - id: clock-perf
+    title: 时钟与性能：什么决定快慢
+    tldr: 程序耗时 = 指令条数 × 每条平均周期数 × 每周期时长。
+    body: |-
+      CPU 由时钟驱动，主频 3GHz 表示每秒 30 亿个周期。
+      程序快慢取决于三件事：要执行多少条指令（算法和编译器决定）、平均每条要几个周期（CPI，受流水线和缓存影响）、一个周期多长（主频）。
+      所以只比主频不够：缓存命中差、分支总猜错的程序，主频再高也慢。
+    derivation: original
+    sources:
+      - ref: cs61c
+        locator: CPU datapath 相关讲义
+        url: https://cs61c.org/
+        claim: 程序耗时 = 指令条数 × 每条平均周期数 × 每周期时长。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: ctl
+          id: c
+          label: 控制（取指/译码）
+        - lane: alu
+          id: a
+          label: 运算单元
+          highlight: true
+        - lane: mem
+          id: m
+          label: 寄存器与内存
+      messages:
+        - id: m-clock-perf
+          from: c
+          to: a
+          label: 耗时 = 指令数 × CPI × 周期
+          active: true
+    log:
+      - mode: 性能
+        event: 三个因素相乘

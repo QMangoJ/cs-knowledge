@@ -19,6 +19,12 @@ overview:
     value: 任务调度器、定时器、Top K、Dijkstra 最短路径、React 调度器的任务队列
   - key: 和排序的区别
     value: 堆只保证“谁最小”，不保证整体有序，所以更便宜
+  - key: 堆排序
+    value: 建堆 O(n) + n 次取出，共 O(n log n)，原地、不稳定
+  - key: 不支持
+    value: 按值查找任意元素是 O(n)；改优先级需要额外记下标
+  - key: 最大堆
+    value: 把比较反过来即可
 visual: datastate
 logColumns:
   - key: mode
@@ -172,6 +178,52 @@ steps:
     log:
       - mode: 取出完成
         event: 新的最急任务来到堆顶
+  - id: heapify
+    title: 一次性建堆：为什么是 O(n)
+    tldr: 已有 n 个元素时，从最后一个非叶子节点往前逐个下沉，总共只要 O(n)。
+    body: |-
+      逐个插入建堆要 O(n log n)；更好的办法是先把数组看成一棵树，从最后一个有孩子的节点开始，往前依次对每个节点做下沉。
+      树里一半的节点是叶子，根本不用动；越靠上的节点越少，虽然下沉得深，但加起来总工作量只是 O(n)。
+      建好堆后反复取出堆顶，就是堆排序：O(n log n)、原地，但不稳定。
+    derivation: original
+    sources:
+      - ref: mit-6006
+        locator: 二叉堆相关讲义
+        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+        claim: 已有 n 个元素时，从最后一个非叶子节点往前逐个下沉，总共只要 O(n)。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: datastate
+      structure: tree
+      caption: "[7, 5, 8, 2, 4, 3] 从最后一个有孩子的位置 2 往前逐个下沉，得到 [2, 4, 3, 5, 7, 8]"
+      tree:
+        nodes:
+          - v: 2
+            mark: found
+          - v: 4
+            mark: done
+          - v: 3
+            mark: done
+          - v: 5
+            mark: muted
+          - v: 7
+            mark: muted
+          - v: 8
+            mark: muted
+        showArray: true
+      aux:
+        - label: 过程
+          items:
+            - 位置 2：8 > 3，交换
+            - 位置 1：5 > 2，交换
+            - 位置 0：7 > 2 交换，再 7 > 4 交换
+        - label: 叶子（位置 3–5）
+          items:
+            - 不用动
+    log:
+      - mode: 建堆
+        event: 自底向上调整
   - id: engineering
     title: 工程里的优先队列
     tldr: 调度器、定时器、Top K 问题，背后常常是一个堆。

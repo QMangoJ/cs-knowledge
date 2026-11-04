@@ -19,6 +19,14 @@ overview:
     value: V8 自 7.0（2018 年）起 Array.prototype.sort 用 TimSort，一种稳定的归并变体
   - key: 为什么不用冒泡
     value: 冒泡、插入排序是 O(n²)，数据大了慢得多
+  - key: 复杂度
+    value: 归并：最好/平均/最坏都 O(n log n)；快排：平均 O(n log n)，最坏 O(n²)
+  - key: 原地
+    value: 快排原地（只用递归栈）；数组归并需要 O(n) 额外空间
+  - key: 下限
+    value: 比较排序最坏至少约 n log n 次比较；计数、基数排序不靠比较
+  - key: 小数组
+    value: 标准库在小区间常切换到插入排序
 visual: datastate
 logColumns:
   - key: mode
@@ -46,7 +54,8 @@ steps:
       structure: array
       caption: 分而治之：拆小、排好、再组合
       rows:
-        - label: 待排序
+        - display: bars
+          label: 待排序
           cells:
             - v: 5
             - v: 2
@@ -55,7 +64,8 @@ steps:
             - v: 9
             - v: 3
       aux:
-        - label: 比较次数
+        - display: bars
+          label: 比较次数
           items:
             - 冒泡 ≈ n²/2
             - 分治 ≈ n log n
@@ -82,7 +92,8 @@ steps:
       structure: array
       caption: 拆 log n 层，直到每份只剩一个元素
       rows:
-        - label: 第 0 层
+        - display: bars
+          label: 第 0 层
           cells:
             - v: 5
             - v: 2
@@ -90,7 +101,8 @@ steps:
             - v: 1
             - v: 9
             - v: 3
-        - label: 第 1 层
+        - display: bars
+          label: 第 1 层
           cells:
             - v: 5
             - v: 2
@@ -100,7 +112,8 @@ steps:
             - v: 3
           breaks:
             - 3
-        - label: 第 2 层
+        - display: bars
+          label: 第 2 层
           cells:
             - v: 5
             - v: 2
@@ -112,7 +125,8 @@ steps:
             - 1
             - 3
             - 4
-        - label: 第 3 层
+        - display: bars
+          label: 第 3 层
           cells:
             - v: 5
               mark: active
@@ -155,7 +169,8 @@ steps:
       structure: array
       caption: 两边各取最前面的，谁小取谁；相等先取左边（稳定）
       rows:
-        - label: 单个元素
+        - display: bars
+          label: 单个元素
           cells:
             - v: 5
             - v: 2
@@ -169,7 +184,8 @@ steps:
             - 3
             - 4
             - 5
-        - label: 合并一层
+        - display: bars
+          label: 合并一层
           cells:
             - v: 2
               mark: active
@@ -185,7 +201,8 @@ steps:
               mark: active
           breaks:
             - 3
-        - label: 合并完成
+        - display: bars
+          label: 合并完成
           cells:
             - v: 1
               mark: done
@@ -222,7 +239,8 @@ steps:
       structure: array
       caption: 选 5 为基准：比它小的放左边，大的放右边；5 已在最终位置
       rows:
-        - label: 原数组
+        - display: bars
+          label: 原数组
           cells:
             - v: 5
               mark: pivot
@@ -234,7 +252,8 @@ steps:
           pointers:
             - at: 0
               label: 基准
-        - label: 分区后
+        - display: bars
+          label: 分区后
           cells:
             - v: 2
             - v: 1
@@ -249,6 +268,122 @@ steps:
     log:
       - mode: 分区
         event: 左边都小于 5，右边都大于 5
+  - id: quick-detail
+    title: 快排的细节：分区、基准和递归深度
+    tldr: 快排好坏取决于基准选得好不好；递归深度也要控制住。
+    body: |-
+      分区就是一趟扫描，把比基准小的换到左边、大的换到右边，原地完成。
+      随机选基准后，最坏情况仍可能出现，但概率极低，期望复杂度是 O(n log n)；大量重复元素时，用“三路分区”把等于基准的放中间，避免退化。
+      每次先递归较短的一边、较长的一边用循环处理，可以把递归栈深度控制在 O(log n)。
+    derivation: original
+    sources:
+      - ref: mit-6006
+        locator: 排序相关讲义
+        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+        claim: 快排好坏取决于基准选得好不好；递归深度也要控制住。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: datastate
+      structure: array
+      caption: 三路分区：以 3 为基准，一趟扫描分成 < 3、= 3、> 3 三段
+      rows:
+        - label: 分区前
+          cells:
+            - v: 3
+              mark: pivot
+            - v: 5
+            - v: 1
+            - v: 3
+            - v: 8
+            - v: 3
+            - v: 2
+          pointers:
+            - at: 0
+              label: 基准 3
+        - label: 分区后
+          cells:
+            - v: 2
+            - v: 1
+            - v: 3
+              mark: pivot
+            - v: 3
+              mark: pivot
+            - v: 3
+              mark: pivot
+            - v: 8
+            - v: 5
+          breaks:
+            - 2
+            - 5
+      aux:
+        - label: 接下来
+          items:
+            - 中间三个 3 已就位，不再处理
+            - 只递归 [2, 1] 和 [8, 5]
+            - 先递归短的一边，栈深 O(log n)
+    log:
+      - mode: 分区
+        event: 原地分成三段
+  - id: lower-bound
+    title: 排序的下限：比较排序最快只能 O(n log n)
+    tldr: 只靠两两比较来排序，最坏情况下至少要 n log n 量级的比较次数。
+    body: |-
+      n 个元素有 n! 种可能的排列，每次比较最多把可能性分成两半，要区分全部排列，至少需要约 log₂(n!) ≈ n log n 次比较。
+      所以归并、快排、堆排序在“比较排序”里已经是最优量级了。
+      如果不靠比较，而是利用值的范围，比如计数排序、基数排序，可以做到 O(n)，但只适用于整数这类有限范围的键。
+    derivation: original
+    sources:
+      - ref: mit-6006
+        locator: 排序相关讲义
+        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+        claim: 只靠两两比较来排序，最坏情况下至少要 n log n 量级的比较次数。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: datastate
+      structure: array
+      caption: 3 个元素有 3! = 6 种排列；每次比较最多排除一半，至少要 ⌈log₂6⌉ = 3 次
+      rows:
+        - label: 所有可能
+          cells:
+            - v: abc
+              mark: active
+            - v: acb
+              mark: active
+            - v: bac
+              mark: active
+            - v: bca
+              mark: active
+            - v: cab
+              mark: active
+            - v: cba
+              mark: active
+        - label: 比较 a<b 后
+          cells:
+            - v: abc
+              mark: active
+            - v: acb
+              mark: active
+            - v: bac
+              mark: muted
+            - v: bca
+              mark: muted
+            - v: cab
+              mark: active
+            - v: cba
+              mark: muted
+      aux:
+        - label: 一般地
+          items:
+            - log₂(n!) ≈ n log n
+        - label: 不靠比较
+          items:
+            - 计数排序：数一数每个值出现几次
+            - "[3,1,2,1,0] → [0,1,1,2,3]"
+    log:
+      - mode: 理论
+        event: 比较排序的下限
   - id: engineering
     title: 工程里怎么选
     tldr: 需要稳定选归并类，追求原地和速度选快排类；标准库已经帮你选好了。
@@ -269,7 +404,8 @@ steps:
       structure: array
       caption: 排序结果
       rows:
-        - label: 有序
+        - display: bars
+          label: 有序
           cells:
             - v: 1
               mark: done
@@ -284,10 +420,12 @@ steps:
             - v: 9
               mark: done
       aux:
-        - label: V8 ≥ 7.0
+        - display: bars
+          label: V8 ≥ 7.0
           items:
             - TimSort（稳定）
-        - label: C++ std::sort
+        - display: bars
+          label: C++ std::sort
           items:
             - 内省排序
     log:

@@ -19,6 +19,10 @@ overview:
     value: lodash 的 sortedIndex、数据库 B+ 树索引、git bisect 找出引入 bug 的提交
   - key: 易错点
     value: 边界条件（左闭右开还是闭区间）、取中间时整数溢出
+  - key: 变体
+    value: lower_bound / upper_bound、在单调的答案上二分
+  - key: 不变式
+    value: 目标若存在，一定在当前区间内
 visual: datastate
 logColumns:
   - key: mode
@@ -179,6 +183,221 @@ steps:
     log:
       - mode: 找到
         event: 第 2 次比较命中
+  - id: boundary
+    title: 写对边界：循环不变式
+    tldr: 二分最容易错的是边界，先想清楚“目标一定在哪个范围里”。
+    body: |-
+      选一种区间写法并坚持到底：比如左闭右开 [lo, hi)，循环条件就是 lo < hi，缩小时 hi = mid 或 lo = mid + 1。
+      每一轮都要保证“如果目标存在，一定还在区间里”，这叫循环不变式；每轮区间都严格变小，循环才一定会结束。
+      取中间用 lo + (hi - lo) / 2，避免 lo + hi 在固定位数整数里溢出，这个 bug 曾在 Java 标准库里存在多年。
+    derivation: original
+    sources:
+      - ref: mit-6006
+        locator: 二分查找相关讲义
+        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+        claim: 二分最容易错的是边界，先想清楚“目标一定在哪个范围里”。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: datastate
+      structure: array
+      caption: 左闭右开 [lo, hi) 找第一个 ≥ 23 的位置：每轮目标都还在区间里，区间严格变小
+      rows:
+        - label: 第 1 轮 [0, 8)
+          cells:
+            - v: 2
+              sub: "0"
+            - v: 5
+              sub: "1"
+            - v: 8
+              sub: "2"
+            - v: 12
+              sub: "3"
+            - v: 16
+              mark: active
+              sub: "4"
+            - v: 23
+              sub: "5"
+            - v: 38
+              sub: "6"
+            - v: 56
+              sub: "7"
+          range:
+            from: 0
+            to: 7
+          pointers:
+            - at: 0
+              label: lo
+            - at: 4
+              label: mid：16 < 23 → lo = 5
+        - label: 第 2 轮 [5, 8)
+          cells:
+            - v: 2
+              mark: muted
+              sub: "0"
+            - v: 5
+              mark: muted
+              sub: "1"
+            - v: 8
+              mark: muted
+              sub: "2"
+            - v: 12
+              mark: muted
+              sub: "3"
+            - v: 16
+              mark: muted
+              sub: "4"
+            - v: 23
+              sub: "5"
+            - v: 38
+              mark: active
+              sub: "6"
+            - v: 56
+              sub: "7"
+          range:
+            from: 5
+            to: 7
+          pointers:
+            - at: 5
+              label: lo
+            - at: 6
+              label: mid：38 ≥ 23 → hi = 6
+        - label: 第 3 轮 [5, 6)
+          cells:
+            - v: 2
+              mark: muted
+              sub: "0"
+            - v: 5
+              mark: muted
+              sub: "1"
+            - v: 8
+              mark: muted
+              sub: "2"
+            - v: 12
+              mark: muted
+              sub: "3"
+            - v: 16
+              mark: muted
+              sub: "4"
+            - v: 23
+              mark: active
+              sub: "5"
+            - v: 38
+              mark: muted
+              sub: "6"
+            - v: 56
+              mark: muted
+              sub: "7"
+          range:
+            from: 5
+            to: 5
+          pointers:
+            - at: 5
+              label: lo = mid：23 ≥ 23 → hi = 5
+        - label: lo = hi = 5，结束
+          cells:
+            - v: 2
+              sub: "0"
+            - v: 5
+              sub: "1"
+            - v: 8
+              sub: "2"
+            - v: 12
+              sub: "3"
+            - v: 16
+              sub: "4"
+            - v: 23
+              mark: found
+              sub: "5"
+            - v: 38
+              sub: "6"
+            - v: 56
+              sub: "7"
+          pointers:
+            - at: 5
+              label: 答案 5
+      aux:
+        - label: 取中间
+          items:
+            - mid = lo + (hi - lo) / 2
+            - 不写 (lo + hi) / 2，防溢出
+    log:
+      - mode: 查找
+        event: 区间保持不变式
+  - id: variants
+    title: 二分的变体：找边界、在答案上二分
+    tldr: 有重复元素时可以找“第一个 ≥ x”的位置；只要有单调性，就能二分。
+    body: |-
+      数组里有多个 23 时，“找第一个不小于 23 的位置”（lower_bound）和“第一个大于 23 的位置”（upper_bound）相减，就得到 23 出现的次数。
+      更广的用法是在答案上二分：只要“答案为 k 时是否可行”随 k 单调变化，就能二分找最小可行的 k，比如找最小的带宽让任务按时完成。
+      git bisect 也是这个思路：提交按时间有序，“有没有这个 bug”在某个提交前后发生改变。
+    derivation: original
+    sources:
+      - ref: mit-6006
+        locator: 二分查找相关讲义
+        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+        claim: 有重复元素时可以找“第一个 ≥ x”的位置；只要有单调性，就能二分。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: datastate
+      structure: array
+      caption: 有重复的 23：upper_bound − lower_bound = 5 − 2 = 3 个
+      rows:
+        - label: 有序数组
+          cells:
+            - v: 5
+              sub: "0"
+            - v: 12
+              sub: "1"
+            - v: 23
+              mark: found
+              sub: "2"
+            - v: 23
+              mark: found
+              sub: "3"
+            - v: 23
+              mark: found
+              sub: "4"
+            - v: 38
+              sub: "5"
+            - v: 56
+              sub: "6"
+            - v: 70
+              sub: "7"
+          pointers:
+            - at: 2
+              label: lower_bound：第一个 ≥ 23
+            - at: 5
+              label: upper_bound：第一个 > 23
+        - label: 在答案上二分
+          cells:
+            - v: 不可行
+              mark: muted
+              sub: k=1
+            - v: 不可行
+              mark: muted
+              sub: k=2
+            - v: 不可行
+              mark: muted
+              sub: k=3
+            - v: 可行
+              mark: found
+              sub: k=4
+            - v: 可行
+              sub: k=5
+            - v: 可行
+              sub: k=6
+          pointers:
+            - at: 3
+              label: 最小可行的 k
+      aux:
+        - label: 前提
+          items:
+            - “是否可行”随 k 单调：一旦可行，更大的 k 也可行
+    log:
+      - mode: 变体
+        event: 找左边界
   - id: complexity
     title: 为什么是 O(log n)
     tldr: 每次减半，n 个元素最多减半 log₂n 次就只剩一个。

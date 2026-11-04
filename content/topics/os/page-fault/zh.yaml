@@ -19,6 +19,10 @@ overview:
     value: 内存真的不够时，内核挑一个进程杀掉
   - key: 类比
     value: 前端的图片懒加载、路由按需加载代码
+  - key: 三种结果
+    value: 次要缺页（补一页）、主要缺页（读磁盘）、非法访问（段错误）
+  - key: 其他用途
+    value: 写时复制、文件映射 mmap、换出页读回
   - key: 在终端里看一看
     value: /usr/bin/time -v ls　看 Minor/Major page faults；dmesg | grep -i oom　看 OOM killer 记录（可能需要 sudo）
 visual: swimlane
@@ -175,6 +179,43 @@ steps:
     log:
       - mode: 内核态 → 用户态
         event: 新页映射进页表，重试成功
+  - id: cow-mmap
+    title: 缺页的其他用途：写时复制和文件映射
+    tldr: 缺页不只用来按需分配，内核还靠它实现写时复制和按需读文件。
+    body: |-
+      fork 之后父子共享只读页，子进程一写就触发缺页，内核复制出一份私有页，再让它重做写入。
+      mmap 映射一个文件，也不是立刻读进来，而是访问到哪一页才从磁盘读哪一页；程序本身的代码也是这样按需加载的。
+      所以“缺页”是内核偷懒和省内存的通用开关，不是错误。
+    derivation: original
+    sources:
+      - ref: linux-man-pages
+        locator: malloc(3) NOTES、mmap(2)
+        url: https://man7.org/linux/man-pages/man3/malloc.3.html
+        claim: 缺页不只用来按需分配，内核还靠它实现写时复制和按需读文件。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: procs
+          id: p
+          label: 程序
+        - lane: kernel
+          id: k
+          label: 内核
+          highlight: true
+        - lane: mem
+          id: r
+          label: 物理内存
+      messages:
+        - id: m-cow-mmap
+          from: k
+          to: r
+          label: 复制出私有页 / 从文件读入
+          active: true
+    log:
+      - mode: 缺页
+        event: 写时复制或文件页读入
   - id: overcommit
     title: 超卖的代价：OOM killer
     tldr: 因为是按需分配，Linux 敢“超卖”内存；真不够时只能杀进程。

@@ -19,6 +19,14 @@ overview:
     value: 用优先队列（堆）快速找出最近的点
   - key: 工程里
     value: 地图导航、网络路由（如 OSPF）、游戏寻路（A* 是它的加速版）
+  - key: 路径
+    value: 记录前驱，最后回溯
+  - key: 提前结束
+    value: 只要一个终点时，终点确定即可停
+  - key: 负权边
+    value: 用 Bellman-Ford，O(V·E)，还能发现负环
+  - key: 实现细节
+    value: 常用“懒删除”：同一点可多次入堆，取出时跳过过期的
 visual: datastate
 logColumns:
   - key: mode
@@ -157,14 +165,30 @@ steps:
           - from: E
             to: D
             w: 7
-      aux:
-        - label: 距离
-          items:
-            - A 0
-            - B ∞
-            - C ∞
-            - D ∞
-            - E ∞
+      table:
+        title: 距离表
+        columns:
+          - 点
+          - 距离
+          - 前驱
+        rows:
+          - - A
+            - 0
+            - —
+          - - B
+            - ∞
+            - —
+          - - C
+            - ∞
+            - —
+          - - D
+            - ∞
+            - —
+          - - E
+            - ∞
+            - —
+        highlight:
+          - 0
     log:
       - mode: 确定 A
         event: A 的最短距离确定为 0
@@ -235,14 +259,30 @@ steps:
           - from: E
             to: D
             w: 7
-      aux:
-        - label: 距离
-          items:
-            - A 0
-            - B 3
-            - C 6
-            - E 8
-            - D ∞
+      table:
+        title: 距离表
+        columns:
+          - 点
+          - 距离
+          - 前驱
+        rows:
+          - - A
+            - 0
+            - —
+          - - B
+            - 3
+            - A
+          - - C
+            - 10 → 6
+            - A → B
+          - - D
+            - ∞
+            - —
+          - - E
+            - 8
+            - B
+        highlight:
+          - 2
     log:
       - mode: 更新中
         event: C 的距离被改进
@@ -311,14 +351,103 @@ steps:
           - from: E
             to: D
             w: 7
-      aux:
-        - label: 最小堆
-          items:
-            - C 6
-            - E 8
+      table:
+        title: 最小堆
+        columns:
+          - 点
+          - 距离
+        rows:
+          - - C
+            - 6
+          - - E
+            - 8
+        highlight:
+          - 0
     log:
       - mode: 重复
         event: 直到所有点都确定
+  - id: path
+    title: 记录路径，而不只是距离
+    tldr: 每次松弛成功时，记下“我是从谁过来的”，最后倒着走就是完整路线。
+    body: |-
+      导航不只要知道多远，还要知道怎么走。
+      更新 C 的距离时，同时记下 C 的前驱是 B；最后从终点沿着前驱一路回溯到起点，反过来就是最短路径。
+      如果只关心到某一个终点的距离，终点被确定时就可以提前结束，不必算完所有点。
+    derivation: original
+    sources:
+      - ref: mit-6006
+        locator: 最短路径相关讲义
+        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+        claim: 每次松弛成功时，记下“我是从谁过来的”，最后倒着走就是完整路线。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: datastate
+      structure: graph
+      caption: 每个点记下前驱；从 D 沿前驱回溯：D ← C ← B ← A
+      graph:
+        nodes:
+          - id: A
+            x: 3
+            y: 60
+            mark: found
+            note: 0（起点）
+          - id: B
+            x: 35
+            y: 6
+            mark: found
+            note: 3，前驱 A
+          - id: C
+            x: 58
+            y: 70
+            mark: found
+            note: 6，前驱 B
+          - id: D
+            x: 97
+            y: 92
+            mark: found
+            note: 8，前驱 C
+          - id: E
+            x: 82
+            y: 6
+            mark: done
+            note: 8，前驱 B
+        edges:
+          - from: A
+            to: B
+            w: 3
+            mark: found
+          - from: B
+            to: C
+            w: 3
+            mark: found
+          - from: A
+            to: C
+            w: 10
+          - from: B
+            to: E
+            w: 5
+          - from: C
+            to: D
+            w: 2
+            mark: found
+          - from: E
+            to: D
+            w: 7
+      aux:
+        - label: 前驱
+          items:
+            - B ← A
+            - C ← B
+            - D ← C
+            - E ← B
+        - label: A 到 D
+          items:
+            - A → B → C → D
+            - 3 + 3 + 2 = 8
+    log:
+      - mode: 回溯
+        event: 得到完整路径
   - id: limits
     title: 负权边与工程应用
     tldr: 有负权边时，“先确定的就是最终的”不再成立，要换别的算法。
@@ -388,14 +517,29 @@ steps:
           - from: E
             to: D
             w: 7
-      aux:
-        - label: 距离
-          items:
-            - A 0
-            - B 3
-            - C 6
-            - D 8
-            - E 8
+      table:
+        title: 距离表
+        columns:
+          - 点
+          - 距离
+          - 前驱
+        rows:
+          - - A
+            - 0
+            - —
+          - - B
+            - 3
+            - A
+          - - C
+            - 6
+            - B
+          - - D
+            - 8
+            - C
+          - - E
+            - 8
+            - B
+        highlight: []
     log:
       - mode: 完成
         event: 得到从 A 到所有地点的最短距离

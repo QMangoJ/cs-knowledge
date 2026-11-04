@@ -19,6 +19,16 @@ overview:
     value: 时间局部性（刚用过的还会用）、空间局部性（用了这个，附近的也会用）
   - key: 类比
     value: 浏览器 HTTP 缓存、CDN、React 的 useMemo
+  - key: 映射方式
+    value: 直接映射、组相联（最常用）、全相联
+  - key: 替换
+    value: LRU 或其近似
+  - key: 写策略
+    value: 写回（标记脏行）与写直达
+  - key: 未命中三类
+    value: 冷未命中、容量未命中、冲突未命中
+  - key: 一致性
+    value: 多核用 MESI 类协议；注意伪共享
   - key: 在终端里看一看
     value: lscpu | grep -i cache　看本机各级缓存大小
 visual: swimlane
@@ -146,6 +156,80 @@ steps:
     log:
       - mode: 命中
         event: 从缓存读到数据
+  - id: mapping
+    title: 数据放在缓存的哪里
+    tldr: 每个内存地址只能放进缓存里固定的几个位置，这叫组相联。
+    body: |-
+      最简单的是直接映射：每个地址只有一个固定位置，查得快，但两个常用地址撞到同一位置就会互相挤掉（冲突未命中）。
+      全相联可以放任意位置，冲突最少，但查找要比较所有位置，硬件太贵。
+      实际 CPU 折中用“组相联”：地址先决定放哪一组，组内若干个位置任选，查找时只比这一组。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 6 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 每个内存地址只能放进缓存里固定的几个位置，这叫组相联。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: cpu
+          id: c
+          label: CPU
+        - lane: cache
+          id: k
+          label: 缓存
+          highlight: true
+        - lane: mem
+          id: m
+          label: 内存
+      messages:
+        - id: m-mapping
+          from: c
+          to: k
+          label: 地址 → 第几组 → 组内找
+          active: true
+    log:
+      - mode: 查找
+        event: 按组定位缓存行
+  - id: replace-write
+    title: 满了淘汰谁，写了怎么办
+    tldr: 组满了要淘汰一行，通常淘汰最久没用的；写数据时还要决定何时写回内存。
+    body: |-
+      淘汰策略常用 LRU（最近最少使用）或它的近似：最久没碰过的，最可能以后也不用。
+      写数据时，写直达是同时写缓存和内存，简单但慢；写回是只改缓存、标记为“脏”，被淘汰时才写回内存，现代 CPU 一般用写回。
+      未命中可以分三类：第一次访问（冷）、容量不够、位置冲突，改进方向各不相同。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 6 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 组满了要淘汰一行，通常淘汰最久没用的；写数据时还要决定何时写回内存。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: cpu
+          id: c
+          label: CPU
+        - lane: cache
+          id: k
+          label: 缓存
+        - lane: mem
+          id: m
+          label: 内存
+          highlight: true
+      messages:
+        - id: m-replace-write
+          from: k
+          to: m
+          label: 淘汰脏行 → 写回内存
+          active: true
+    log:
+      - mode: 淘汰
+        event: 写回被替换的脏行
   - id: locality
     title: 局部性：缓存为什么有效
     tldr: 程序访问数据有规律：刚用过的还会再用，用了这个附近的也会用。
@@ -210,3 +294,40 @@ steps:
     log:
       - mode: 总结
         event: 访问顺序影响性能
+  - id: coherence
+    title: 多核：缓存一致性
+    tldr: 每个核心有自己的缓存，一个核心改了数据，其他核心的旧副本必须作废。
+    body: |-
+      L1、L2 通常每个核心私有，L3 多核共享。
+      硬件用一致性协议（如 MESI）保证：一个核心写某行时，其他核心缓存里的这一行会被作废，下次读要重新取。
+      副作用是“伪共享”：两个线程改的是不同变量，但它们在同一缓存行里，这一行会在核心之间来回搬，性能大降。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 6 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 每个核心有自己的缓存，一个核心改了数据，其他核心的旧副本必须作废。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: cpu
+          id: c
+          label: CPU
+          highlight: true
+        - lane: cache
+          id: k
+          label: 缓存
+        - lane: mem
+          id: m
+          label: 内存
+      messages:
+        - id: m-coherence
+          from: c
+          to: k
+          label: 写入 → 其他核心副本作废
+          active: true
+    log:
+      - mode: 一致性
+        event: 多核看到同一份数据

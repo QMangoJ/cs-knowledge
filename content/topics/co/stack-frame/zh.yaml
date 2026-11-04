@@ -19,6 +19,14 @@ overview:
     value: 递归太深把栈用完，程序崩溃
   - key: 类比
     value: 浏览器 DevTools 里的 Call Stack 面板；JS 的 Maximum call stack size exceeded
+  - key: 寄存器保存
+    value: 调用者保存 / 被调用者保存，由调用约定规定
+  - key: 栈 vs 堆
+    value: 栈自动随函数释放；堆手动或 GC 管理
+  - key: 安全
+    value: 栈缓冲区溢出可覆盖返回地址；有 canary、NX 等防护
+  - key: 尾调用
+    value: 有的编译器可把尾递归优化成循环，不压新栈帧
   - key: 在终端里看一看
     value: ulimit -s　看栈大小上限；gdb 里用 bt　看当前调用栈
 visual: swimlane
@@ -179,6 +187,43 @@ steps:
     log:
       - mode: 回到 main
         event: main 拿到返回值
+  - id: callee-saved
+    title: 寄存器谁来保存
+    tldr: 寄存器只有一套，调用约定规定哪些由调用者保存、哪些由被调用者保存。
+    body: |-
+      add 也要用寄存器，可能把 main 正在用的值覆盖掉。
+      约定把寄存器分成两类：调用者保存的，main 自己负责在调用前存好；被调用者保存的，add 要用就得先存到栈帧里、返回前恢复。
+      这样双方不用互相了解内部实现，只要都守约定就能安全调用。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 3 章 过程调用
+        url: http://csapp.cs.cmu.edu/
+        claim: 寄存器只有一套，调用约定规定哪些由调用者保存、哪些由被调用者保存。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: code
+          id: f
+          label: 函数
+        - lane: stack
+          id: s
+          label: 栈
+        - lane: regs
+          id: r
+          label: 寄存器
+          highlight: true
+      messages:
+        - id: m-callee-saved
+          from: f
+          to: s
+          label: 保存要用的寄存器
+          active: true
+    log:
+      - mode: 保存
+        event: 按约定保存寄存器
   - id: overflow
     title: 栈的边界：递归与栈溢出
     tldr: 栈的大小有限，递归太深会把它用完。
@@ -216,3 +261,40 @@ steps:
     log:
       - mode: 栈溢出
         event: 程序崩溃
+  - id: stack-vs-heap
+    title: 栈和堆的区别，以及栈上的安全问题
+    tldr: 栈自动管理但只活到函数返回；堆要手动或由 GC 管理，可以活得更久。
+    body: |-
+      栈上的局部变量随栈帧一起消失，所以不能返回指向局部变量的指针，那块内存很快会被别的调用覆盖。
+      要让数据活过函数调用，就用 malloc 放在堆上（JS 里对象都在堆上，由垃圾回收管理）。
+      栈上数组写越界会覆盖返回地址，这是经典的“栈溢出攻击”；编译器加的栈保护（canary）和不可执行栈就是为了防它。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 3 章 过程调用
+        url: http://csapp.cs.cmu.edu/
+        claim: 栈自动管理但只活到函数返回；堆要手动或由 GC 管理，可以活得更久。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: code
+          id: f
+          label: 函数
+        - lane: stack
+          id: s
+          label: 栈
+          highlight: true
+        - lane: regs
+          id: r
+          label: 寄存器
+      messages:
+        - id: m-stack-vs-heap
+          from: f
+          to: s
+          label: 越界写 → 覆盖返回地址
+          active: true
+    log:
+      - mode: 安全
+        event: 栈保护检测到破坏

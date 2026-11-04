@@ -19,6 +19,14 @@ overview:
     value: 遍历所有可能、检测环、拓扑排序
   - key: 工程里
     value: React 用深度优先方式遍历组件树；社交网络“几度好友”是 BFS；依赖分析是 DFS
+  - key: 存储
+    value: 邻接表 O(V + E)，邻接矩阵 O(V²)
+  - key: DFS 三色
+    value: 白（未访问）、灰（在路径上，遇到即有环）、黑（完成）
+  - key: 连通分量
+    value: 从每个未访问点出发遍历一次，就能数出有几块
+  - key: 注意
+    value: 递归 DFS 图很深时可能栈溢出，可改用显式栈
 visual: datastate
 logColumns:
   - key: mode
@@ -240,6 +248,76 @@ steps:
     log:
       - mode: DFS 完成
         event: 一条路走到底再回溯
+  - id: representation
+    title: 图怎么存：邻接表和邻接矩阵
+    tldr: 稀疏图用邻接表，省空间；稠密图或要快速判断“有没有边”时用邻接矩阵。
+    body: |-
+      邻接表给每个节点存一串邻居，空间是 O(V + E)，大多数真实的图（社交网络、网页）都很稀疏，用它最合适。
+      邻接矩阵是一张 V×V 的表，判断两点是否相连只要一步，但空间是 O(V²)。
+      前面说的 O(V + E) 是按邻接表算的；用邻接矩阵时，找邻居要扫整行，BFS/DFS 会变成 O(V²)。
+    derivation: original
+    sources:
+      - ref: mit-6006
+        locator: 图搜索相关讲义
+        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+        claim: 稀疏图用邻接表，省空间；稠密图或要快速判断“有没有边”时用邻接矩阵。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: datastate
+      structure: graph
+      caption: 同一张图的两种存法：6 个点、5 条边
+      graph:
+        nodes:
+          - id: A
+            x: 50
+            y: 5
+          - id: B
+            x: 25
+            y: 45
+          - id: C
+            x: 75
+            y: 45
+          - id: D
+            x: 10
+            y: 90
+          - id: E
+            x: 60
+            y: 90
+          - id: F
+            x: 90
+            y: 90
+        edges:
+          - from: A
+            to: B
+          - from: A
+            to: C
+          - from: B
+            to: D
+          - from: C
+            to: E
+          - from: C
+            to: F
+      aux:
+        - label: 邻接表 O(V + E)
+          items:
+            - "A: B, C"
+            - "B: A, D"
+            - "C: A, E, F"
+            - "D: B"
+            - "E: C"
+            - "F: C"
+        - label: 邻接矩阵 O(V²)（列 A–F）
+          items:
+            - "A: 0 1 1 0 0 0"
+            - "B: 1 0 0 1 0 0"
+            - "C: 1 0 0 0 1 1"
+            - "D: 0 1 0 0 0 0"
+            - "E: 0 0 1 0 0 0"
+            - "F: 0 0 1 0 0 0"
+    log:
+      - mode: 存储
+        event: 按邻接表读取邻居
   - id: complexity
     title: 为什么是 O(V + E)
     tldr: 每个节点只访问一次，每条边只检查常数次。
@@ -311,6 +389,76 @@ steps:
     log:
       - mode: 分析
         event: 耗时与图的大小成正比
+  - id: topo
+    title: DFS 的拿手好戏：环检测与拓扑排序
+    tldr: DFS 走到一个“还在当前路径上”的点，说明有环；按完成顺序倒过来，就是依赖顺序。
+    body: |-
+      DFS 时给节点三种状态：没访问、正在访问（在当前递归路径上）、已完成。
+      如果走到一个“正在访问”的点，就说明有环，比如模块循环依赖。
+      在没有环的有向图里，把节点按完成的先后倒过来排，每条边都从前指向后，这就是拓扑排序，npm 安装、构建任务都按它决定先后。
+    derivation: original
+    sources:
+      - ref: mit-6006
+        locator: 图搜索相关讲义
+        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+        claim: DFS 走到一个“还在当前路径上”的点，说明有环；按完成顺序倒过来，就是依赖顺序。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: datastate
+      structure: graph
+      caption: 箭头 X → Y 表示 X 要先于 Y。从 utils 做 DFS，完成顺序倒过来就是拓扑序
+      graph:
+        directed: true
+        nodes:
+          - id: utils
+            x: 10
+            y: 50
+            mark: done
+            note: 第 4 个完成
+          - id: api
+            x: 50
+            y: 15
+            mark: done
+            note: 第 2 个完成
+          - id: ui
+            x: 50
+            y: 85
+            mark: done
+            note: 第 3 个完成
+          - id: app
+            x: 90
+            y: 50
+            mark: done
+            note: 第 1 个完成
+        edges:
+          - from: utils
+            to: api
+          - from: utils
+            to: ui
+          - from: api
+            to: app
+          - from: ui
+            to: app
+      aux:
+        - label: 完成顺序
+          items:
+            - app
+            - api
+            - ui
+            - utils
+        - label: 拓扑序（倒过来）
+          items:
+            - utils
+            - ui
+            - api
+            - app
+        - label: 环检测
+          items:
+            - 走到“正在访问”的点 → 有环
+    log:
+      - mode: 拓扑排序
+        event: 得到依赖顺序
   - id: engineering
     title: 工程里怎么选
     tldr: 找最少步数用 BFS；要穷尽、检测环或排依赖顺序用 DFS。

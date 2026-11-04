@@ -19,6 +19,12 @@ overview:
     value: read、write、openat、clone、execve、mmap
   - key: 代价
     value: 每次进出内核都有开销，所以要尽量批量处理
+  - key: 出错时
+    value: 返回 -1，原因在 errno（如 ENOENT、EACCES）
+  - key: vDSO
+    value: clock_gettime 等调用通常不进内核
+  - key: 系统调用表
+    value: 内核按调用号查表，找到对应的处理函数；调用号是 ABI 的一部分，不随便改
   - key: 在终端里看一看
     value: strace -e trace=write echo hi　看到 echo 发出的 write 调用；strace -c ls　统计 ls 用了哪些系统调用
 visual: swimlane
@@ -181,6 +187,42 @@ steps:
     log:
       - mode: 内核态
         event: 检查参数，通过后驱动硬件完成输出
+  - id: errno
+    title: 返回值与 errno：失败怎么告诉程序
+    tldr: 系统调用失败时返回 -1，具体原因放在 errno 里。
+    body: |-
+      内核把结果当返回值交回：成功时是有意义的数（比如写了几个字节），失败时 C 库包装函数返回 -1。
+      具体原因记在全局变量 errno 里，比如 ENOENT 表示文件不存在、EACCES 表示没权限，用 perror 或 strerror 能变成人读的话。
+      所以写系统级代码要养成习惯：每次调用都检查返回值，就像前端每次 fetch 都要看 response.ok。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: Limited Direct Execution 一章
+        claim: 系统调用失败时返回 -1，具体原因放在 errno 里。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: app
+          id: p
+          label: 程序
+          highlight: true
+        - lane: kernel
+          id: k
+          label: 内核
+        - lane: hw
+          id: h
+          label: 硬件（终端）
+      messages:
+        - id: m-errno
+          from: k
+          to: p
+          label: 返回 -1，errno = ENOENT
+          active: true
+    log:
+      - mode: 内核态
+        event: 请求不合法，返回错误码
   - id: return-and-cost
     title: 返回用户态，以及这一趟的代价
     tldr: 内核带着结果切回用户态；但每次进出内核都不便宜。
@@ -223,3 +265,39 @@ steps:
     log:
       - mode: 内核态 → 用户态
         event: 带着结果返回，程序继续执行
+  - id: vdso
+    title: 不进内核的“系统调用”：vDSO
+    tldr: 有些只读的小请求，内核干脆把答案放到用户态，省掉一趟切换。
+    body: |-
+      像“现在几点”这种调用非常频繁，每次都陷入内核太亏。
+      Linux 把一小段内核提供的代码和数据映射进每个进程（叫 vDSO），clock_gettime、gettimeofday 通常直接在用户态读出结果。
+      这就像前端把不常变的数据放在本地缓存，不必每次都请求后端。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: Limited Direct Execution 一章
+        claim: 有些只读的小请求，内核干脆把答案放到用户态，省掉一趟切换。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: app
+          id: p
+          label: 程序
+          highlight: true
+        - lane: kernel
+          id: k
+          label: 内核
+        - lane: hw
+          id: h
+          label: 硬件（终端）
+      messages:
+        - id: m-vdso
+          from: p
+          to: p
+          label: clock_gettime：用户态直接读
+          active: true
+    log:
+      - mode: 用户态
+        event: 不陷入内核也拿到时间

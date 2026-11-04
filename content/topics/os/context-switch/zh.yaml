@@ -19,6 +19,12 @@ overview:
     value: 切换要花时间，还会让 CPU 缓存变冷
   - key: 类比
     value: JS 事件循环靠任务主动让出；操作系统是强制轮换
+  - key: 进程状态
+    value: 运行、就绪（等 CPU）、阻塞（等 I/O）三态之间转换
+  - key: 抢占
+    value: 时间片用完或更高优先级任务就绪时，内核强制换人
+  - key: 线程切换
+    value: 同一进程的线程切换不用换页表，比进程切换便宜
   - key: 在终端里看一看
     value: vmstat 1　看 cs 列（每秒上下文切换次数）；grep ctxt /proc/$$/status　看当前 shell 主动/被动切换次数
 visual: swimlane
@@ -182,6 +188,45 @@ steps:
     log:
       - mode: 内核态
         event: 调度器选中程序 B
+  - id: policy
+    title: 调度要权衡什么
+    tldr: 调度器要在吞吐、响应速度和公平之间取舍，没有一种策略全都最好。
+    body: |-
+      后台批处理任务希望少被打断、整体做得快（吞吐）；交互程序希望一按键就有反应（响应时间）。
+      时间片短，响应快但切换多；时间片长，切换少但交互会卡。
+      教科书里的先来先服务、短作业优先、轮转、多级反馈队列，都是在这几者之间做不同的取舍；Linux 的 CFS/EEVDF 按“谁用得少谁先上”来兼顾。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: CPU 虚拟化 / Limited Direct Execution 一章
+        claim: 调度器要在吞吐、响应速度和公平之间取舍，没有一种策略全都最好。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: procs
+          id: a
+          label: 程序 A
+        - lane: procs
+          id: b
+          label: 程序 B
+        - lane: kernel
+          id: k
+          label: 内核（调度器）
+          highlight: true
+        - lane: hw
+          id: t
+          label: CPU 与时钟
+      messages:
+        - id: m-policy
+          from: k
+          to: k
+          label: 权衡：吞吐 / 响应 / 公平
+          active: true
+    log:
+      - mode: 调度
+        event: 按策略挑选下一个
   - id: restore
     title: 恢复另一个程序，以及切换的代价
     tldr: 内核载入 B 的存档并回到用户态；但切换并不免费。
@@ -222,3 +267,42 @@ steps:
     log:
       - mode: B 运行中
         event: 切回用户态，程序 B 继续运行
+  - id: multicore
+    title: 多核：每个核心各自轮转
+    tldr: 有多个核心时，每个核心有自己的运行队列，调度器还要在核心之间搬任务。
+    body: |-
+      多核上，几个程序是真的同时在跑，但每个核心内部仍然在分时轮换。
+      Linux 给每个核心一条运行队列，忙的核心会把任务“分”给闲的核心（负载均衡）。
+      但任务搬到别的核心后，原来缓存里的数据用不上了，所以调度器倾向让任务留在原核心（亲和性），taskset 可以手动指定。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: CPU 虚拟化 / Limited Direct Execution 一章
+        claim: 有多个核心时，每个核心有自己的运行队列，调度器还要在核心之间搬任务。
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: procs
+          id: a
+          label: 程序 A
+        - lane: procs
+          id: b
+          label: 程序 B
+        - lane: kernel
+          id: k
+          label: 内核（调度器）
+        - lane: hw
+          id: t
+          label: CPU 与时钟
+          highlight: true
+      messages:
+        - id: m-multicore
+          from: k
+          to: t
+          label: 核心 0 的任务迁到核心 1
+          active: true
+    log:
+      - mode: 负载均衡
+        event: 在核心间迁移任务

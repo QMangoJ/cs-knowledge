@@ -137,3 +137,14 @@ details.terminal p{margin:6px 0 0;font-size:var(--fs-sm);color:var(--ink-muted);
 .ds-aux ol{display:flex;flex-wrap:wrap;gap:6px;list-style:none;margin:0;padding:0}
 .ds-aux li{border:1px solid var(--line-mid);border-radius:4px;padding:1px 8px;font-family:var(--font-mono),var(--font-cjk);color:var(--ink)}
 .ds-aux li.empty{border-style:dashed;color:var(--ink-muted)}
+.ds-barval{font-size:12px;fill:var(--ink-soft)!important}
+.ds-cell.hot rect,.ds-node.hot circle{stroke:#c77700;stroke-width:3}
+.ds-cell,.ds-node{cursor:default}
+.datastate.with-table{display:grid;grid-template-columns:1fr;gap:18px;justify-items:center}
+.datastate.with-table .ds-main{width:100%}
+.ds-table{border-collapse:collapse;font-size:13px;font-family:var(--font-mono),var(--font-cjk);min-width:120px}
+.ds-table caption{color:var(--ink-muted);text-align:left;padding-bottom:6px;font-family:var(--font-cjk)}
+.ds-table th,.ds-table td{border-bottom:1px solid var(--line-soft);padding:5px 10px;text-align:left;white-space:nowrap}
+.ds-table th{color:var(--ink-muted);font-weight:400}
+.ds-table tr.hot td{background:var(--line-soft);color:var(--active);font-weight:600}
+.lab-missing,.lab-loading{color:var(--ink-muted);text-align:center;padding:40px 0}

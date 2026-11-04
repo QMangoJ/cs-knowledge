@@ -26,9 +26,13 @@ export const SwimlaneState = z.object({
 /** Per-element highlight for datastate canvases. */
 export const Mark = z.enum(["active", "visited", "done", "found", "pivot", "muted", "new"]);
 const Val = z.union([z.string(), z.number()]);
-const Cell = z.object({ v: Val, sub: z.string().optional(), mark: Mark.optional() });
+const Cell = z.object({ v: Val, sub: z.string().optional(), mark: Mark.optional(),
+  /** Hash-table chaining: nodes linked below this cell. */
+  chain: z.array(z.object({ v: Val, mark: Mark.optional() })).optional() });
 export const ArrayRow = z.object({
   label: z.string().optional(),
+  /** boxes (default) or bars (height ∝ numeric value, for sorting). */
+  display: z.enum(["boxes", "bars"]).optional(),
   cells: z.array(Cell).min(1),
   /** Insert a visual gap before these indices (sub-arrays, partitions). */
   breaks: z.array(z.number().int()).optional(),
@@ -49,11 +53,23 @@ export const DatastateState = z.object({
     nodes: z.array(z.object({ id: z.string(), label: z.string().optional(), x: z.number().min(0).max(100), y: z.number().min(0).max(100), note: z.string().optional(), mark: Mark.optional() })).min(1),
     edges: z.array(z.object({ from: z.string(), to: z.string(), w: Val.optional(), mark: Mark.optional() })),
   }).optional(),
+  /** Side table next to the drawing (distance table, heap contents…). */
+  table: z.object({ title: z.string().optional(), columns: z.array(z.string()).min(1), rows: z.array(z.array(Val)), highlight: z.array(z.number().int()).optional() }).optional(),
   /** Side panels: queue, stack, distance table, notes. */
   aux: z.array(z.object({ label: z.string(), items: z.array(Val) })).optional(),
   registers: z.array(z.object({ name: z.string(), value: z.string(), changed: z.boolean().optional() })).optional(),
 });
-export const CanvasState = z.discriminatedUnion("kind", [SwimlaneState, DatastateState]);
+/** Reader-driven mini experiment; component is lazy-loaded by id (src/components/labs). */
+export const LabState = z.object({
+  kind: z.literal("lab"),
+  lab: z.string().regex(/^[a-z0-9-]+$/),
+  caption: z.string().optional(),
+  params: z.record(z.string(), z.unknown()).optional(),
+  /** Fixed cases the lab must reproduce, matching the prose (input → expected). */
+  cases: z.array(z.object({ input: z.record(z.string(), z.unknown()), expect: z.record(z.string(), z.unknown()) })).optional(),
+  registers: z.array(z.object({ name: z.string(), value: z.string(), changed: z.boolean().optional() })).optional(),
+});
+export const CanvasState = z.discriminatedUnion("kind", [SwimlaneState, DatastateState, LabState]);
 
 export const Step = z.object({
   id: z.string().regex(/^[a-z0-9-]+$/),
@@ -86,7 +102,7 @@ const TopicBase = z.object({
   license: z.enum(["CC-BY-4.0", "CC-BY-NC-SA-4.0"]).default("CC-BY-4.0"),
   title: z.string(), summary: z.string(), premise: z.string(),
   overview: z.array(KV),
-  visual: z.enum(["swimlane", "datapath", "datastate"]),
+  visual: z.enum(["swimlane", "datapath", "datastate", "lab"]),
   lanes: z.array(z.object({ id: z.string(), label: z.string() })).optional(),
   logColumns: z.array(z.object({ key: z.string(), label: z.string() })),
   legend: z.array(z.object({ key: z.string(), label: z.string(), token: z.string().optional() })).optional(),
@@ -109,6 +125,7 @@ export type Topic = z.infer<typeof Topic>;
 export type CanvasState = z.infer<typeof CanvasState>;
 export type SwimlaneState = z.infer<typeof SwimlaneState>;
 export type DatastateState = z.infer<typeof DatastateState>;
+export type LabState = z.infer<typeof LabState>;
 
 export type Issue = { level: "error" | "warn"; where: string; msg: string };
 
@@ -125,7 +142,7 @@ export function checkTopic(t: Topic, sources: Map<string, SourceDef>): Issue[] {
     if (seen.has(s.id)) hard(w, "步骤 id 重复");
     seen.add(s.id);
     if (s.derivation === "adapted" && t.license !== "CC-BY-NC-SA-4.0") hard(w, "derivation=adapted 但主题未设 license: CC-BY-NC-SA-4.0");
-    if (s.canvas.kind !== t.visual) hard(w, `canvas.kind=${s.canvas.kind} 与 visual=${t.visual} 不一致`);
+    if (s.canvas.kind !== t.visual && s.canvas.kind !== "lab") hard(w, `canvas.kind=${s.canvas.kind} 与 visual=${t.visual} 不一致`);
     if (t.lanes && s.canvas.kind === "swimlane") {
       const lanes = new Set(t.lanes.map((l) => l.id));
       const actors = new Set(s.canvas.actors.map((a) => a.id));
@@ -139,7 +156,12 @@ export function checkTopic(t: Topic, sources: Map<string, SourceDef>): Issue[] {
         const ids = new Set(c.graph.nodes.map((n) => n.id));
         for (const e of c.graph.edges) if (!ids.has(e.from) || !ids.has(e.to)) hard(w, `edge ${e.from}-${e.to} 指向不存在的节点`);
       }
-      for (const r of c.rows ?? []) for (const p of r.pointers ?? []) if (p.at < 0 || p.at >= r.cells.length) hard(w, `pointer ${p.label} 越界`);
+      for (const r of c.rows ?? []) {
+        for (const p of r.pointers ?? []) if (p.at < 0 || p.at >= r.cells.length) hard(w, `pointer ${p.label} 越界`);
+        if (r.range && (r.range.from < 0 || r.range.to >= r.cells.length || r.range.from > r.range.to)) hard(w, "range 越界");
+        if (r.display === "bars" && r.cells.some((x) => typeof x.v !== "number")) hard(w, "bars 的值必须是数字");
+      }
+      if (c.table) c.table.rows.forEach((r, i) => { if (r.length !== c.table!.columns.length) hard(w, `table 第 ${i + 1} 行列数不对`); });
     }
     s.sources.forEach((c, i) => {
       if (!sources.has(c.ref)) hard(`${w} source#${i + 1}`, `ref=${c.ref} 不在 sources.yaml`);
