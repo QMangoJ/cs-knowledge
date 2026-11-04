@@ -45,6 +45,7 @@ export function Player({ topic, sources, initialStep, nextTopic }: { topic: View
             <thead><tr>{topic.logColumns.map((c) => <th key={c.key}>{c.label}</th>)}</tr></thead>
             <tbody>{rows.map(({ r, key, fresh }) => <tr key={key} className={fresh ? "fresh" : ""}>{topic.logColumns.map((c) => <td key={c.key}>{r[c.key] ?? ""}</td>)}</tr>)}</tbody>
           </table>
+          {topic.legend && <ul className="legend">{topic.legend.map((l) => <li key={l.key}><b>{l.key}</b>{l.label}</li>)}</ul>}
         </div>
       </section>
 
