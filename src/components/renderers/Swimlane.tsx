@@ -2,7 +2,8 @@ import type { SwimlaneState } from "@/lib/schema";
 
 type Lane = { id: string; label: string };
 type Box = { x: number; y: number; w: number; h: number };
-const LANE_H = 92, TOP = 8, LABEL_W = 132, W = 760, BOX_H = 46, GAP = 16, MAX_BOX_W = 200;
+const TOP = 8, LABEL_W = 84, W = 560, BOX_H = 52, GAP = 20, MAX_BOX_W = 180;
+const laneH = (n: number) => (n <= 3 ? 120 : 92);
 
 /** Point where the segment from the box centre towards (tx,ty) leaves the box. */
 function edge(b: Box, tx: number, ty: number): [number, number] {
@@ -14,6 +15,7 @@ function edge(b: Box, tx: number, ty: number): [number, number] {
 
 /** Lays actors of one lane side by side; returns a box per actor id. */
 export function layoutSwimlane(state: SwimlaneState, lanes: Lane[]): Map<string, Box> {
+  const LANE_H = laneH(lanes.length);
   const boxes = new Map<string, Box>();
   const avail = W - LABEL_W - GAP;
   lanes.forEach((l, li) => {
@@ -32,6 +34,7 @@ export function layoutSwimlane(state: SwimlaneState, lanes: Lane[]): Map<string,
 export function Swimlane({ state, lanes }: { state: SwimlaneState; lanes?: Lane[] }) {
   const ls = lanes ?? [...new Set(state.actors.map((a) => a.lane))].map((id) => ({ id, label: id }));
   const boxes = layoutSwimlane(state, ls);
+  const LANE_H = laneH(ls.length);
   const H = TOP * 2 + ls.length * LANE_H;
   return (
     <svg className="swimlane" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="泳道时序图" preserveAspectRatio="xMidYMid meet">
@@ -75,6 +78,18 @@ export function Swimlane({ state, lanes }: { state: SwimlaneState; lanes?: Lane[
             <g key={m.id} className={`sl-msg${m.active ? " active" : ""}`}>
               <path d={`M${x1} ${y} Q${(x1 + x2) / 2} ${cy} ${x2} ${y}`} fill="none" markerEnd="url(#arrow)" />
               <text x={(x1 + x2) / 2} y={cy + 6} textAnchor="middle" dominantBaseline="middle" paintOrder="stroke" className="sl-msg-label">{m.label}</text>
+            </g>
+          );
+        }
+        const crosses = !sameLane && [...boxes.values()].some((o) => o !== a && o !== b && o.y > Math.min(a.y, b.y) && o.y < Math.max(a.y, b.y) && o.x < Math.max(a.x + a.w, b.x + b.w) && o.x + o.w > Math.min(a.x, b.x));
+        if (crosses) {
+          // Route around the right side of the boxes in between.
+          const xr = Math.max(...[...boxes.values()].filter((o) => o.y >= Math.min(a.y, b.y) && o.y <= Math.max(a.y, b.y)).map((o) => o.x + o.w)) + 28;
+          const ya = a.y + a.h / 2, yb = b.y + b.h / 2;
+          return (
+            <g key={m.id} className={`sl-msg${m.active ? " active" : ""}`}>
+              <path d={`M${a.x + a.w} ${ya} H${xr} V${yb} H${b.x + b.w}`} markerEnd="url(#arrow)" />
+              <text x={xr + 8} y={(ya + yb) / 2} dominantBaseline="middle" paintOrder="stroke" className="sl-msg-label">{m.label}</text>
             </g>
           );
         }

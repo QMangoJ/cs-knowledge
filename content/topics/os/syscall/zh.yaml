@@ -1,356 +1,125 @@
-# OS1 正式内容草稿（产品策划起草）。出处仅供参考，按 Daniel 决定不做逐条核对。
+# OS1 正式内容 v2（知识优先版）。出处仅供参考，按 Daniel 决定不做逐条核对。
 id: os/syscall
 subject: os
 slug: syscall
 order: 1
 status: published
 license: CC-BY-4.0
-title: 一次系统调用：write() 从用户程序到硬件再回来
-summary: 跟着一次 write(1, "hi\n", 3)，看程序怎样请求内核干活、内核怎样驱动设备、结果又怎样回到程序。
-premise: 以 xv6（MIT 的教学操作系统）运行在 RISC-V 上为例；fd 1 是控制台，最终字符经串口（UART）输出到终端。末尾对比 x86-64 上的 syscall 指令。
+title: 系统调用：程序怎样请内核帮忙
+summary: 程序不能直接碰硬件，想读写文件、上网、打印，都得通过"系统调用"这扇门请内核代办。
+premise: 以一次"往屏幕打印一行字"为例，看程序、内核、硬件之间发生了什么。
 overview:
-  - { key: 架构, value: "RISC-V 64 位（xv6-riscv）" }
-  - { key: 示例调用, value: "write(1, \"hi\\n\", 3)" }
-  - { key: 进出内核, value: "ecall 进入，sret 返回" }
-  - { key: 特权级, value: "U 模式（用户）↔ S 模式（内核）" }
-  - { key: 关键寄存器, value: "a0–a2 参数，a7 调用号，sepc / scause / stvec / satp" }
-  - { key: 为什么需要, value: 用户程序不能直接碰硬件，只能请内核代办，内核借此检查权限、隔离进程 }
+  - { key: 一句话总结, value: 系统调用是程序进入内核的唯一受控入口 }
+  - { key: 为什么需要, value: 保护硬件和其他程序，不让一个程序为所欲为 }
+  - { key: 两种模式, value: 用户态（权限受限）和内核态（完全权限） }
+  - { key: 常见系统调用, value: "read、write、open、fork、exec" }
+  - { key: 代价, value: 每次进出内核都有开销，所以要尽量批量处理 }
 visual: swimlane
 lanes:
-  - { id: user, label: 用户程序 }
-  - { id: libc, label: "C 库（用户态桩代码）" }
+  - { id: app, label: 程序 }
   - { id: kernel, label: 内核 }
-  - { id: hw, label: "硬件（CPU / 串口终端）" }
+  - { id: hw, label: 硬件 }
 logColumns:
-  - { key: t, label: "#" }
-  - { key: mode, label: 特权级 }
-  - { key: who, label: 执行者 }
-  - { key: event, label: 事件 }
-  - { key: state, label: 关键状态 }
-legend:
-  - { key: U, label: "U 模式：用户态，不能执行特权指令、不能访问内核内存" }
-  - { key: S, label: "S 模式：内核态，可以改页表、访问设备" }
-  - { key: active, label: 高亮箭头表示当前这一步正在发生的控制转移 }
+  - { key: mode, label: 当前模式 }
+  - { key: event, label: 发生了什么 }
 steps:
-  - id: app-call
-    title: 程序调用 write()
-    tldr: 程序想往屏幕打印 3 个字节，但它自己没有权限碰串口，只能调用 write() 请内核帮忙。
+  - id: need-kernel
+    title: 程序想做一件只有内核能做的事
+    tldr: 程序不能直接操作硬件，这是为了保护整台机器。
     body: |
-      用户程序执行 `write(1, "hi\n", 3)`：往文件描述符 1（控制台）写 3 个字节。
-      从程序的角度，这只是一次普通的函数调用——按 RISC-V 的调用约定，
-      三个参数分别放进 **a0、a1、a2**，然后跳到 C 库里的 `write` 函数。
-
-      关键点：程序运行在 **U 模式**。在这个模式下，访问设备寄存器或内核内存都会被硬件拦下来。
-      所以真正的写操作必须交给内核。
+      程序想在屏幕上打印一行字，但它没有权限直接操作显示器、磁盘或网卡。
+      如果谁都能直接碰硬件，一个出错的程序就可能写坏磁盘，或者偷看别的程序的数据。
+      这就像网页里的 JavaScript 不能随便读你电脑上的文件，只能通过浏览器提供的接口。
     derivation: original
-    keyFields:
-      - { key: a0, value: "1（fd）" }
-      - { key: a1, value: "buf 的用户虚拟地址" }
-      - { key: a2, value: "3（字节数）" }
     sources:
-      - { ref: ostep, locator: "Limited Direct Execution 一章，受限操作部分", claim: "用户态程序不能直接执行 I/O 等受限操作，需要通过系统调用请求内核", status: unverified, note: "按 Daniel 决定不核对出处" }
+      - { ref: ostep, locator: "Limited Direct Execution 一章", claim: "用户程序不能直接执行 I/O 等受限操作", status: unverified, note: "按 Daniel 决定不核对出处" }
     canvas:
       kind: swimlane
       actors:
-        - { lane: user, id: app, label: "main()", state: U 模式, highlight: true }
-        - { lane: libc, id: stub, label: "write 桩" }
-        - { lane: kernel, id: k, label: 内核（未参与） }
-        - { lane: hw, id: cpu, label: CPU }
-        - { lane: hw, id: uart, label: 串口 UART }
-      messages:
-        - { id: m1, from: app, to: stub, label: "call write(1, buf, 3)", active: true }
-      registers:
-        - { name: a0, value: "1", changed: true }
-        - { name: a1, value: buf, changed: true }
-        - { name: a2, value: "3", changed: true }
-        - { name: mode, value: U }
-    log:
-      - { t: "1", mode: U, who: 用户程序, event: "调用 write(1, buf, 3)", state: "a0=1 a1=buf a2=3" }
-
-  - id: libc-stub
-    title: 桩代码放好调用号，执行 ecall
-    tldr: C 库里的 write 只有三条指令：把 SYS_write 放进 a7，执行 ecall，返回。
-    body: |
-      在 xv6 中，用户库的 `write` 是由脚本生成的一小段汇编（usys.S），大意是：
-
-      ```
-      li   a7, SYS_write   # 调用号，xv6 中 SYS_write = 16
-      ecall
-      ret
-      ```
-
-      参数不用动，已经在 a0–a2 里。**a7** 告诉内核"我要哪一种服务"。
-      Linux 上的 glibc 做的事本质一样，只是多了错误码处理（把负返回值转成 errno）等包装。
-    derivation: original
-    keyFields:
-      - { key: a7, value: "SYS_write（16）" }
-    sources:
-      - { ref: xv6-book, locator: "系统调用章节 / user/usys.pl", url: "https://github.com/mit-pdos/xv6-riscv/blob/riscv/user/usys.pl", claim: "用户桩代码把调用号放进 a7 后执行 ecall", status: unverified, note: "按 Daniel 决定不核对出处" }
-    canvas:
-      kind: swimlane
-      actors:
-        - { lane: user, id: app, label: "main()", state: 等待返回 }
-        - { lane: libc, id: stub, label: "write 桩", state: U 模式, highlight: true }
+        - { lane: app, id: p, label: 程序, highlight: true }
         - { lane: kernel, id: k, label: 内核 }
-        - { lane: hw, id: cpu, label: CPU }
-        - { lane: hw, id: uart, label: 串口 UART }
+        - { lane: hw, id: h, label: 屏幕 }
       messages:
-        - { id: m2, from: stub, to: cpu, label: "li a7, SYS_write; ecall", active: true }
-      registers:
-        - { name: a7, value: "16（SYS_write）", changed: true }
-        - { name: mode, value: U }
+        - { id: m1, from: p, to: h, label: "直接访问？不允许", active: true }
     log:
-      - { t: "2", mode: U, who: C 库, event: "a7 ← SYS_write，执行 ecall", state: "a7=16" }
-
-  - id: ecall-trap
-    title: ecall：硬件把 CPU 切进内核
-    tldr: ecall 引发一次"陷入"：硬件记下返回地址和原因，提升到 S 模式，跳到内核预先设好的入口。
+      - { mode: 用户态, event: 程序想打印文字，但无权直接操作硬件 }
+  - id: syscall-door
+    title: 发起系统调用：敲响内核的门
+    tldr: 系统调用是程序进入内核的唯一受控入口。
     body: |
-      `ecall` 不是跳转到某个函数，而是故意引发一次异常。硬件一口气做几件事：
-
-      1. 把 ecall 这条指令的地址存进 **sepc**（以后从这里回来）；
-      2. 在 **scause** 写入 8，意思是"来自 U 模式的环境调用"；
-      3. 记下之前的特权级（sstatus.SPP = U），并关闭 S 模式中断；
-      4. 特权级切到 **S 模式**，pc 跳到 **stvec** 里的地址。
-
-      注意：入口地址由内核事先写在 stvec 里，用户程序无法选择跳到内核的哪里——这正是安全的关键。
-      此时页表还没换、寄存器也没保存，这些交给软件做。
+      程序调用 write() 之类的函数，C 库会执行一条特殊指令（RISC-V 上叫 ecall，x86-64 上叫 syscall），并带上"我要哪种服务"的编号。
+      这条指令会触发"陷入"（trap），把控制权交给内核。
+      程序只能说"我要什么"，不能决定跳到内核的哪段代码，入口由内核事先定好。
     derivation: original
-    keyFields:
-      - { key: sepc, value: ecall 的地址 }
-      - { key: scause, value: "8" }
-      - { key: pc, value: "stvec（trampoline 中的 uservec）" }
     sources:
-      - { ref: xv6-book, locator: "Traps and system calls 章节，RISC-V trap 机制小节", claim: "trap 时硬件设置 sepc、scause、sstatus.SPP，切到 S 模式并跳到 stvec", status: unverified, note: "按 Daniel 决定不核对出处" }
+      - { ref: xv6-book, locator: "系统调用章节", url: "https://github.com/mit-pdos/xv6-riscv", claim: "用户程序通过 ecall 指令陷入内核", status: unverified, note: "按 Daniel 决定不核对出处" }
     canvas:
       kind: swimlane
       actors:
-        - { lane: user, id: app, label: "main()", state: 暂停 }
-        - { lane: libc, id: stub, label: "write 桩", state: 暂停 }
-        - { lane: kernel, id: k, label: "uservec 入口" }
-        - { lane: hw, id: cpu, label: CPU, state: "U → S", highlight: true }
-        - { lane: hw, id: uart, label: 串口 UART }
+        - { lane: app, id: p, label: 程序, highlight: true }
+        - { lane: kernel, id: k, label: 内核入口 }
+        - { lane: hw, id: h, label: 屏幕 }
       messages:
-        - { id: m3, from: cpu, to: k, label: "陷入：pc ← stvec", active: true }
-      registers:
-        - { name: sepc, value: ecall 地址, changed: true }
-        - { name: scause, value: "8", changed: true }
-        - { name: mode, value: S, changed: true }
+        - { id: m2, from: p, to: k, label: 系统调用：请帮我写屏幕, active: true }
     log:
-      - { t: "3", mode: "U→S", who: 硬件, event: "ecall 陷入：sepc ← pc，scause=8，跳到 stvec", state: "S 模式，仍是用户页表" }
-
-  - id: uservec
-    title: uservec：保存现场，换上内核页表
-    tldr: 汇编代码把 32 个用户寄存器存进 trapframe，再切换到内核栈和内核页表，跳进 C 函数 usertrap()。
+      - { mode: 用户态, event: 程序发起系统调用 }
+  - id: mode-switch
+    title: 切到内核态
+    tldr: CPU 有两种模式，陷入时从用户态切到内核态。
     body: |
-      stvec 指向 **trampoline** 页里的 `uservec`。这一页在用户页表和内核页表中映射在同一个虚拟地址，
-      所以切换页表的那一刻代码不会"踩空"。
-
-      uservec 做的事：
-      - 把用户的通用寄存器逐个存进本进程的 **trapframe**（以后要原样恢复）；
-      - 从 trapframe 里取出事先放好的内核栈指针、CPU 编号、usertrap 地址和内核页表；
-      - 写 **satp** 换成内核页表并刷新 TLB；
-      - 跳到 `usertrap()`。
+      CPU 自己记着当前是"用户态"还是"内核态"。用户态里很多操作会被硬件直接拦下，内核态则拥有全部权限。
+      陷入发生时，CPU 先记下程序停在哪里，再切换到内核态，从内核指定的入口开始执行。
+      这种切换由硬件保证，程序没法自己把自己变成内核态。
     derivation: original
-    keyFields:
-      - { key: trapframe, value: 保存的用户寄存器（含 a0–a7） }
-      - { key: satp, value: 内核页表 }
     sources:
-      - { ref: xv6-book, locator: "Traps from user space 小节 / kernel/trampoline.S", url: "https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/trampoline.S", claim: "uservec 保存用户寄存器到 trapframe，切换到内核页表后跳到 usertrap", status: unverified, note: "按 Daniel 决定不核对出处" }
+      - { ref: ostep, locator: "Limited Direct Execution 一章，用户模式与内核模式", claim: "处理器区分用户模式和内核模式，trap 时切换到内核模式", status: unverified, note: "按 Daniel 决定不核对出处" }
     canvas:
       kind: swimlane
       actors:
-        - { lane: user, id: app, label: "main()", state: 暂停 }
-        - { lane: libc, id: stub, label: "write 桩", state: 暂停 }
-        - { lane: kernel, id: k, label: "uservec（trampoline）", state: 保存寄存器, highlight: true }
-        - { lane: kernel, id: tf, label: trapframe }
-        - { lane: hw, id: cpu, label: CPU }
-        - { lane: hw, id: uart, label: 串口 UART }
+        - { lane: app, id: p, label: 程序（暂停） }
+        - { lane: kernel, id: k, label: 内核, highlight: true }
+        - { lane: hw, id: h, label: CPU }
       messages:
-        - { id: m4, from: k, to: tf, label: "存 32 个寄存器", active: true }
-        - { id: m5, from: k, to: cpu, label: "csrw satp ← 内核页表" }
-      registers:
-        - { name: satp, value: 内核页表, changed: true }
-        - { name: sp, value: 内核栈, changed: true }
+        - { id: m3, from: h, to: k, label: 切换到内核态, active: true }
     log:
-      - { t: "4", mode: S, who: 内核, event: "uservec：寄存器存入 trapframe，切换内核页表和内核栈", state: "satp=内核页表" }
-
-  - id: usertrap
-    title: usertrap()：判断是系统调用
-    tldr: usertrap 查看 scause，确认是系统调用；把返回地址加 4，以免回去后又执行一次 ecall。
+      - { mode: "用户态 → 内核态", event: CPU 切换模式，内核接手 }
+  - id: check-and-do
+    title: 内核检查参数，然后代办
+    tldr: 内核不信任程序传来的任何东西，先检查再干活。
     body: |
-      `usertrap()` 是第一个 C 函数。它先把 stvec 改成内核自己的入口（之后若在内核里再出异常，走另一条路），
-      把 sepc 保存到 trapframe 的 **epc**。
-
-      陷入的原因有好几种：系统调用、设备中断、非法访问内存……它看 **scause**：
-      等于 8 就是系统调用。这时把 **epc 加 4**——ecall 指令占 4 字节，回去时要从它的下一条开始。
-      然后重新打开中断（系统调用可能要执行很久），调用 `syscall()`。
+      内核先确认请求合理：这个文件你打开过吗？你给的内存地址真的属于你吗？
+      不合法就返回错误，而不是让整个系统崩溃。这和后端从不信任前端传来的参数是同一个道理。
+      检查通过后，内核才通过驱动程序把文字交给硬件显示出来。
     derivation: original
-    keyFields:
-      - { key: scause, value: "8 → 系统调用" }
-      - { key: epc, value: "sepc + 4" }
     sources:
-      - { ref: xv6-book, locator: "kernel/trap.c 中 usertrap()", url: "https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/trap.c", claim: "usertrap 根据 scause==8 识别系统调用，epc 加 4，开中断后调用 syscall()", status: unverified, note: "按 Daniel 决定不核对出处" }
+      - { ref: xv6-book, locator: "系统调用参数小节", claim: "内核在使用用户传入的指针前会检查并安全复制", status: unverified, note: "按 Daniel 决定不核对出处" }
     canvas:
       kind: swimlane
       actors:
-        - { lane: user, id: app, label: "main()", state: 暂停 }
-        - { lane: libc, id: stub, label: "write 桩", state: 暂停 }
-        - { lane: kernel, id: k, label: "usertrap()", state: 判断原因, highlight: true }
-        - { lane: kernel, id: tf, label: trapframe }
-        - { lane: hw, id: cpu, label: CPU }
-        - { lane: hw, id: uart, label: 串口 UART }
+        - { lane: app, id: p, label: 程序（暂停） }
+        - { lane: kernel, id: k, label: 内核：检查后执行, highlight: true }
+        - { lane: hw, id: h, label: 屏幕, highlight: true }
       messages:
-        - { id: m6, from: cpu, to: k, label: "读 scause = 8", active: true }
-        - { id: m7, from: k, to: tf, label: "epc = sepc + 4" }
-      registers:
-        - { name: epc, value: "ecall 地址 + 4", changed: true }
-        - { name: stvec, value: kernelvec, changed: true }
+        - { id: m4, from: k, to: h, label: 输出文字, active: true }
     log:
-      - { t: "5", mode: S, who: 内核, event: "usertrap：scause=8，是系统调用", state: "epc += 4，开中断" }
-
-  - id: dispatch
-    title: syscall()：按调用号查表分发
-    tldr: syscall() 从 trapframe 里读出 a7=16，在函数指针表里找到 sys_write 并调用。
+      - { mode: 内核态, event: 检查参数，通过后驱动硬件完成输出 }
+  - id: return-and-cost
+    title: 返回用户态，以及这一趟的代价
+    tldr: 内核带着结果切回用户态，程序继续运行；但每次进出内核都不便宜。
     body: |
-      `syscall()` 从 trapframe 里取出用户当时的 **a7**。内核里有一张表，下标是调用号，内容是处理函数：
-      16 对应 `sys_write`。如果调用号越界或为空，内核打印错误并让返回值为 -1。
-
-      这张表就是用户和内核之间的"服务菜单"。用户只能递上一个编号，
-      真正执行哪段代码完全由内核决定。
+      内核做完后切回用户态，程序从刚才停下的地方继续，并拿到结果（比如写了几个字节）。
+      进出内核要保存和恢复现场、切换权限，比普通函数调用慢得多。
+      所以 printf 会先把文字攒在缓冲区里，攒够了再一次性调用 write，就像前端把多次请求合并成一次批量请求。
     derivation: original
-    keyFields:
-      - { key: num, value: "trapframe->a7 = 16" }
-      - { key: 处理函数, value: "syscalls[16] = sys_write" }
     sources:
-      - { ref: xv6-book, locator: "kernel/syscall.c 中 syscall()", url: "https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/syscall.c", claim: "syscall() 用 a7 索引函数表并把返回值写入 trapframe->a0", status: unverified, note: "按 Daniel 决定不核对出处" }
-      - { ref: ostep, locator: "Limited Direct Execution 一章，系统调用号部分", claim: "用户通过系统调用号指定服务，由内核的陷入处理代码分发", status: unverified, note: "按 Daniel 决定不核对出处" }
+      - { ref: ostep, locator: "Limited Direct Execution 一章，return-from-trap", claim: "内核通过 return-from-trap 返回用户程序", status: unverified, note: "按 Daniel 决定不核对出处" }
     canvas:
       kind: swimlane
       actors:
-        - { lane: user, id: app, label: "main()", state: 暂停 }
-        - { lane: libc, id: stub, label: "write 桩", state: 暂停 }
-        - { lane: kernel, id: k, label: "syscall()", highlight: true }
-        - { lane: kernel, id: tf, label: trapframe }
-        - { lane: kernel, id: sw, label: "sys_write()" }
-        - { lane: hw, id: cpu, label: CPU }
-        - { lane: hw, id: uart, label: 串口 UART }
+        - { lane: app, id: p, label: 程序（继续运行）, highlight: true }
+        - { lane: kernel, id: k, label: 内核 }
+        - { lane: hw, id: h, label: 屏幕 }
       messages:
-        - { id: m8, from: tf, to: k, label: "a7 = 16" }
-        - { id: m9, from: k, to: sw, label: "syscalls[16]()", active: true }
-      registers:
-        - { name: a7, value: "16" }
+        - { id: m5, from: k, to: p, label: 返回结果，切回用户态, active: true }
     log:
-      - { t: "6", mode: S, who: 内核, event: "syscall()：a7=16 → sys_write", state: 查表分发 }
-
-  - id: sys-write
-    title: sys_write：检查参数，把字节送到串口
-    tldr: 内核验证 fd，从用户内存安全地复制数据，经控制台驱动把每个字节写进 UART 的发送寄存器。
-    body: |
-      `sys_write` 从 trapframe 读出三个参数，并且**不信任**它们：
-      - fd 1 必须是本进程打开的、可写的文件；
-      - buf 是用户虚拟地址，内核不能直接解引用，要借用户页表逐页翻译后复制（copyin），
-        地址非法就返回 -1，而不是让内核崩溃。
-
-      fd 1 是控制台设备，于是走到控制台驱动：每个字节交给 UART 驱动，
-      最终写进串口芯片的发送寄存器（一个内存映射的设备地址）。字符就出现在终端上。
-      如果写的是磁盘文件，这里会改走文件系统、日志和磁盘驱动，路径更长。
-      完成后，返回值 3（写入的字节数）被存进 trapframe 的 **a0**。
-    derivation: original
-    keyFields:
-      - { key: 检查, value: "fd 合法、buf 在用户地址空间" }
-      - { key: 复制, value: "copyin：用户页表 → 内核缓冲" }
-      - { key: 设备, value: "consolewrite → UART 发送寄存器" }
-      - { key: 返回值, value: "trapframe->a0 = 3" }
-    sources:
-      - { ref: xv6-book, locator: "kernel/sysfile.c、kernel/console.c、kernel/uart.c", url: "https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/sysfile.c", claim: "sys_write 取参数后调用 filewrite，控制台设备经 consolewrite 和 UART 驱动输出", status: unverified, note: "按 Daniel 决定不核对出处" }
-    canvas:
-      kind: swimlane
-      actors:
-        - { lane: user, id: app, label: "main()", state: 暂停 }
-        - { lane: libc, id: stub, label: "write 桩", state: 暂停 }
-        - { lane: kernel, id: sw, label: "sys_write → consolewrite", state: 执行中, highlight: true }
-        - { lane: kernel, id: tf, label: trapframe }
-        - { lane: hw, id: cpu, label: CPU }
-        - { lane: hw, id: uart, label: 串口 UART, state: "输出 h i \\n", highlight: true }
-      messages:
-        - { id: m10, from: sw, to: uart, label: "逐字节写发送寄存器", active: true }
-        - { id: m11, from: sw, to: tf, label: "a0 = 3" }
-      registers:
-        - { name: a0, value: "3", changed: true }
-    log:
-      - { t: "7", mode: S, who: 内核, event: "sys_write：检查 fd=1，copyin 3 字节", state: "buf 合法" }
-      - { t: "8", mode: S, who: 硬件, event: "UART 发送 'h' 'i' '\\n'，终端显示 hi", state: "设备输出完成" }
-      - { t: "9", mode: S, who: 内核, event: "返回值写入 trapframe->a0", state: "a0=3" }
-
-  - id: return-sret
-    title: 原路返回：userret 恢复现场，sret 回到 U 模式
-    tldr: 内核把 stvec、sepc、页表恢复成用户的样子，从 trapframe 取回寄存器，用 sret 降回 U 模式。
-    body: |
-      `usertrapret()` 为下一次陷入做准备：关中断，把 stvec 重新指向 uservec，
-      把 trapframe 里的 epc（ecall 地址 + 4）写回 **sepc**，并设置 sstatus 让 sret 返回 U 模式、重新开中断。
-
-      接着跳到 trampoline 里的 `userret`：把 **satp** 换回该进程的用户页表，
-      从 trapframe 恢复全部用户寄存器——其中 a0 已经是 3——最后执行 **sret**。
-      硬件把特权级降回 U，pc ← sepc。
-    derivation: original
-    keyFields:
-      - { key: sepc, value: "ecall 地址 + 4" }
-      - { key: satp, value: 用户页表 }
-      - { key: 指令, value: sret }
-    sources:
-      - { ref: xv6-book, locator: "kernel/trap.c 中 usertrapret()，kernel/trampoline.S 中 userret", url: "https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/trampoline.S", claim: "usertrapret 设置 sepc/sstatus/stvec，userret 切回用户页表、恢复寄存器后执行 sret", status: unverified, note: "按 Daniel 决定不核对出处" }
-    canvas:
-      kind: swimlane
-      actors:
-        - { lane: user, id: app, label: "main()", state: 暂停 }
-        - { lane: libc, id: stub, label: "write 桩" }
-        - { lane: kernel, id: k, label: "usertrapret → userret", highlight: true }
-        - { lane: kernel, id: tf, label: trapframe }
-        - { lane: hw, id: cpu, label: CPU, state: "S → U" }
-        - { lane: hw, id: uart, label: 串口 UART }
-      messages:
-        - { id: m12, from: tf, to: k, label: 恢复用户寄存器 }
-        - { id: m13, from: k, to: stub, label: "sret：pc ← sepc", active: true }
-      registers:
-        - { name: satp, value: 用户页表, changed: true }
-        - { name: sepc, value: "ecall 地址 + 4", changed: true }
-        - { name: mode, value: U, changed: true }
-    log:
-      - { t: "10", mode: "S→U", who: 内核→硬件, event: "userret 恢复寄存器，执行 sret", state: "U 模式，a0=3" }
-
-  - id: back-to-app
-    title: write() 返回 3；对比 x86-64
-    tldr: 桩代码执行 ret，程序拿到返回值 3，继续往下跑。x86-64 用 syscall/sysret 做同样的事。
-    body: |
-      回到用户态后，执行的是 ecall 后面的 `ret`，`write()` 返回 **3**。
-      对程序来说，这像一次普通的函数调用，只是中间 CPU 去内核走了一圈。
-
-      **一次系统调用的代价**：两次特权级切换、保存和恢复全部寄存器、换两次页表。
-      所以频繁的小 write 很慢，C 库的 printf 会先攒进缓冲区再一次性写出。
-
-      **在 x86-64 Linux 上**：调用号放在 **rax**，参数依次放 rdi、rsi、rdx……；
-      `syscall` 指令跳到内核预先写在 MSR（LSTAR）里的入口，并把返回地址存在 rcx；
-      内核处理完用 `sysret` 返回，返回值放在 rax。名字不同，思路完全一样：
-      固定入口、调用号查表、检查参数、特权级来回切换。
-    derivation: original
-    keyFields:
-      - { key: 返回值, value: "3" }
-      - { key: "x86-64 对照", value: "rax=调用号，syscall / sysret" }
-    sources:
-      - { ref: ostep, locator: "Limited Direct Execution 一章，trap / return-from-trap", claim: "系统调用通过 trap 进入内核，用 return-from-trap 返回用户态", status: unverified, note: "按 Daniel 决定不核对出处" }
-    canvas:
-      kind: swimlane
-      actors:
-        - { lane: user, id: app, label: "main()", state: "U 模式，拿到 3", highlight: true }
-        - { lane: libc, id: stub, label: "write 桩" }
-        - { lane: kernel, id: k, label: 内核（空闲） }
-        - { lane: hw, id: cpu, label: CPU }
-        - { lane: hw, id: uart, label: 串口 UART }
-      messages:
-        - { id: m14, from: stub, to: app, label: "ret，返回 3", active: true }
-      registers:
-        - { name: a0, value: "3" }
-        - { name: mode, value: U }
-    log:
-      - { t: "11", mode: U, who: 用户程序, event: "write() 返回 3，程序继续执行", state: "a0=3" }
+      - { mode: "内核态 → 用户态", event: 带着结果返回，程序继续执行 }
