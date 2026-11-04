@@ -15,7 +15,7 @@
     "e2e": "bash e2e/run.sh",
     "size": "node scripts/size.mjs",
     "preview": "next build && wrangler versions upload",
-    "deploy": "CS_PRODUCTION=1 next build && npm run size && wrangler deploy"
+    "deploy": "CS_PRODUCTION=1 next build && npm run size && node scripts/version.mjs && wrangler deploy"
   },
   "dependencies": {
     "marked": "18.1.3",
