@@ -1,0 +1,304 @@
+# 知识优先版草稿（Linux x86-64 为例）。出处仅供参考，按 Daniel 决定不做逐条核对。
+id: dsa/hash-table
+subject: dsa
+slug: hash-table
+order: 1
+status: published
+license: CC-BY-4.0
+title: 哈希表：冲突与扩容
+summary: 按“名字”直接找到东西，平均只要一步。代价是要处理冲突，并在变挤时扩容。
+premise: 以一个 8 个桶的表存放几位同学的成绩为例。
+overview:
+  - key: 一句话总结
+    value: 用哈希函数把键变成位置，平均 O(1) 查找、插入、删除
+  - key: 冲突
+    value: 不同的键算出同一个位置，必然会发生
+  - key: 负载因子
+    value: 已存元素 ÷ 桶数；太高就扩容（Java HashMap 默认阈值 0.75）
+  - key: 工程里
+    value: JS 的 Map / Object、Python dict、Redis、数据库哈希索引
+  - key: Big-O 直觉
+    value: O(1) 指耗时不随数据量增长；最坏情况（全部冲突）会退化到 O(n)
+visual: datastate
+logColumns:
+  - key: mode
+    label: 当前状态
+  - key: event
+    label: 发生了什么
+steps:
+  - id: why
+    title: 为什么需要哈希表
+    tldr: 在数组里按名字找人，只能一个个看过去；数据越多越慢。
+    body: |-
+      有 100 万个用户，按名字逐个比对，最坏要看 100 万次，这叫 O(n)：耗时和数据量成正比。
+      数组按下标取值却只要一步，因为位置能直接算出来。
+      哈希表的想法是：把“名字”也变成一个下标。
+    derivation: original
+    sources:
+      - ref: mit-6006
+        locator: Hashing 相关讲义
+        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+        claim: 哈希表支持期望 O(1) 的查找
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: datastate
+      structure: array
+      caption: 8 个空桶，编号 0–7
+      rows:
+        - label: 桶
+          cells:
+            - v: ""
+              sub: "0"
+            - v: ""
+              sub: "1"
+            - v: ""
+              sub: "2"
+            - v: ""
+              sub: "3"
+            - v: ""
+              sub: "4"
+            - v: ""
+              sub: "5"
+            - v: ""
+              sub: "6"
+            - v: ""
+              sub: "7"
+      aux:
+        - label: 要存的键
+          items:
+            - Alice
+            - Bob
+            - Carol
+    log:
+      - mode: 空表
+        event: 需要按键快速查找
+  - id: hash
+    title: 哈希函数：把键变成位置
+    tldr: 哈希函数把任意键算成一个数字，再对桶数取余，得到放在哪个桶。
+    body: |-
+      比如把“Alice”算成一个大整数，除以 8 取余，得到桶 3，就把她的成绩放进桶 3。
+      查找时用同样的方法再算一次，直接去桶 3 拿，不用逐个比对。
+      好的哈希函数会把键尽量均匀地撒到各个桶里。
+    derivation: original
+    sources:
+      - ref: mit-6006
+        locator: Hashing 相关讲义
+        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+        claim: 哈希函数将键映射到表中的位置
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: datastate
+      structure: array
+      caption: hash("Alice") % 8 = 3
+      rows:
+        - label: 桶
+          cells:
+            - v: ""
+              sub: "0"
+            - v: ""
+              sub: "1"
+            - v: ""
+              sub: "2"
+            - v: Alice
+              mark: new
+              sub: "3"
+            - v: ""
+              sub: "4"
+            - v: ""
+              sub: "5"
+            - v: ""
+              sub: "6"
+            - v: ""
+              sub: "7"
+          pointers:
+            - at: 3
+              label: Alice → 3
+    log:
+      - mode: 插入
+        event: Alice 放入桶 3
+  - id: collision
+    title: 冲突：两个键挤进同一个桶
+    tldr: 桶比可能的键少得多，不同的键迟早会算到同一个桶。
+    body: |-
+      “Bob”也被算到了桶 3，这就是冲突。
+      常见做法一是“链表法”：每个桶挂一串，冲突的元素排在一起；二是“开放寻址”：桶被占了就按规则找下一个空桶。
+      冲突少时影响不大；如果大量键挤在同一个桶，查找会退化成逐个比对。
+    derivation: original
+    sources:
+      - ref: mit-6006
+        locator: Hashing 相关讲义，冲突处理
+        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+        claim: 通过链接或开放寻址解决冲突
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: datastate
+      structure: array
+      caption: 链表法：冲突的元素挂在同一个桶后面
+      rows:
+        - label: 桶
+          cells:
+            - v: ""
+              sub: "0"
+            - v: ""
+              sub: "1"
+            - v: ""
+              sub: "2"
+            - v: A→B
+              mark: active
+              sub: "3"
+            - v: ""
+              sub: "4"
+            - v: ""
+              sub: "5"
+            - v: Carol
+              sub: "6"
+            - v: ""
+              sub: "7"
+          pointers:
+            - at: 3
+              label: Bob 也是 3
+    log:
+      - mode: 冲突
+        event: 桶 3 里有两个元素
+  - id: resize
+    title: 负载因子与扩容
+    tldr: 表越满冲突越多，所以元素多到一定比例，就换一张更大的表。
+    body: |-
+      负载因子 = 元素个数 ÷ 桶数，它衡量表有多挤。
+      超过阈值（例如 0.75）时，常见做法是把桶数翻倍，再把所有元素重新算位置放进去。
+      单次扩容要搬全部元素，但它很少发生，平均摊到每次插入上仍是 O(1)，这叫“均摊”。
+    derivation: original
+    sources:
+      - ref: mit-6006
+        locator: Hashing / 动态数组相关讲义
+        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+        claim: 表大小翻倍使插入的均摊代价为 O(1)
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: datastate
+      structure: array
+      caption: 负载因子 7/8 ≈ 0.88 > 0.75 → 扩成 16 个桶后 7/16 ≈ 0.44（字母为名字首字母）
+      rows:
+        - label: 扩容前
+          cells:
+            - v: F
+              mark: active
+              sub: "0"
+            - v: D
+              mark: active
+              sub: "1"
+            - v: ""
+              sub: "2"
+            - v: A→B
+              mark: active
+              sub: "3"
+            - v: ""
+              sub: "4"
+            - v: E
+              mark: active
+              sub: "5"
+            - v: C
+              mark: active
+              sub: "6"
+            - v: G
+              mark: active
+              sub: "7"
+        - label: 扩容后
+          cells:
+            - v: F
+              mark: new
+              sub: "0"
+            - v: ""
+              sub: "1"
+            - v: ""
+              sub: "2"
+            - v: A
+              mark: new
+              sub: "3"
+            - v: ""
+              sub: "4"
+            - v: E
+              mark: new
+              sub: "5"
+            - v: C
+              mark: new
+              sub: "6"
+            - v: ""
+              sub: "7"
+            - v: ""
+              sub: "8"
+            - v: D
+              mark: new
+              sub: "9"
+            - v: ""
+              sub: "10"
+            - v: B
+              mark: new
+              sub: "11"
+            - v: ""
+              sub: "12"
+            - v: ""
+              sub: "13"
+            - v: ""
+              sub: "14"
+            - v: G
+              mark: new
+              sub: "15"
+    log:
+      - mode: 扩容
+        event: 负载因子回落，冲突减少
+  - id: engineering
+    title: 工程里的哈希表
+    tldr: JS 的 Map 和 Object、Python 的 dict 都是哈希表的思路。
+    body: |-
+      在 JS 里用 Map 做缓存、去重、计数，就是在用哈希表；Map 还按插入顺序遍历，这是语言规范保证的，不是哈希表天生的性质。
+      哈希表不保证按大小有序，需要“找最接近的值”或范围查询时，要用有序结构。
+      键要能稳定地算出哈希：用对象当 Map 的键，比较的是引用，不是内容。
+    derivation: original
+    sources:
+      - ref: mit-6006
+        locator: Hashing 相关讲义
+        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+        claim: 哈希表适合精确查找，不支持有序操作
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: datastate
+      structure: array
+      caption: map.get("Alice")：算一次哈希，直接到桶 3
+      rows:
+        - label: 桶
+          cells:
+            - v: ""
+              sub: "0"
+            - v: ""
+              sub: "1"
+            - v: ""
+              sub: "2"
+            - v: Alice
+              mark: found
+              sub: "3"
+            - v: ""
+              sub: "4"
+            - v: ""
+              sub: "5"
+            - v: Carol
+              sub: "6"
+            - v: ""
+              sub: "7"
+          pointers:
+            - at: 3
+              label: get
+      aux:
+        - label: JS
+          items:
+            - new Map()
+            - map.set(k, v)
+            - map.get(k)
+    log:
+      - mode: 查找
+        event: 平均一步取到值

@@ -1,0 +1,272 @@
+# 知识优先版草稿（Linux x86-64 为例）。出处仅供参考，按 Daniel 决定不做逐条核对。
+id: dsa/binary-search
+subject: dsa
+slug: binary-search
+order: 2
+status: published
+license: CC-BY-4.0
+title: 二分查找：每次排除一半
+summary: 在有序数组里找东西，每次看中间，排除一半，很快就能找到。
+premise: 以在 [2, 5, 8, 12, 16, 23, 38, 56] 中找 23 为例。
+overview:
+  - key: 一句话总结
+    value: 前提是有序；每次比较中间元素，范围减半
+  - key: 复杂度
+    value: O(log n)：100 万个元素最多约 20 次比较
+  - key: 前提
+    value: 数据必须有序，且能按下标直接访问
+  - key: 工程里
+    value: lodash 的 sortedIndex、数据库 B+ 树索引、git bisect 找出引入 bug 的提交
+  - key: 易错点
+    value: 边界条件（左闭右开还是闭区间）、取中间时整数溢出
+visual: datastate
+logColumns:
+  - key: mode
+    label: 当前状态
+  - key: event
+    label: 发生了什么
+steps:
+  - id: why
+    title: 为什么不一个个找
+    tldr: 逐个比对是 O(n)；如果数据已经排好序，就能利用顺序大幅减少比较。
+    body: |-
+      在 8 个数里找 23，从头看最多要看 8 次。
+      但数组有序时，看一个数就能知道目标在它左边还是右边。
+      就像翻字典，不会从第一页翻起，而是直接翻到中间附近。
+    derivation: original
+    sources:
+      - ref: mit-6006
+        locator: 二分查找相关讲义
+        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+        claim: 有序数组可用二分查找在 O(log n) 时间内查找
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: datastate
+      structure: array
+      caption: 从头逐个看，最多要看 8 次
+      rows:
+        - cells:
+            - v: 2
+              mark: active
+              sub: "0"
+            - v: 5
+              sub: "1"
+            - v: 8
+              sub: "2"
+            - v: 12
+              sub: "3"
+            - v: 16
+              sub: "4"
+            - v: 23
+              sub: "5"
+            - v: 38
+              sub: "6"
+            - v: 56
+              sub: "7"
+          pointers:
+            - at: 0
+              label: 从头看？
+    log:
+      - mode: 范围：全部 8 个
+        event: 目标 23，从整个数组开始
+  - id: middle
+    title: 看中间，排除一半
+    tldr: 比较中间元素和目标，目标更大就只看右半边。
+    body: |-
+      中间的元素是 12，23 比它大，所以 23 不可能在左半边。
+      一次比较就排除了一半的元素。
+      这就是二分的核心：每一步都让剩下的范围减半。
+    derivation: original
+    sources:
+      - ref: mit-6006
+        locator: 二分查找相关讲义
+        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+        claim: 每次比较排除一半候选
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: datastate
+      structure: array
+      caption: 12 < 23，左半边（含 12）全部排除
+      rows:
+        - cells:
+            - v: 2
+              mark: muted
+              sub: "0"
+            - v: 5
+              mark: muted
+              sub: "1"
+            - v: 8
+              mark: muted
+              sub: "2"
+            - v: 12
+              mark: active
+              sub: "3"
+            - v: 16
+              sub: "4"
+            - v: 23
+              sub: "5"
+            - v: 38
+              sub: "6"
+            - v: 56
+              sub: "7"
+          range:
+            from: 0
+            to: 7
+          pointers:
+            - at: 0
+              label: lo
+            - at: 3
+              label: mid
+            - at: 7
+              label: hi
+    log:
+      - mode: 范围：右半边 4 个
+        event: 排除左半边
+  - id: repeat
+    title: 重复，直到找到或范围为空
+    tldr: 在剩下的范围里继续取中间、比较、减半。
+    body: |-
+      右半边 [16, 23, 38, 56] 的中间是 23，正好找到。
+      如果目标不存在，范围会缩到空，这时返回“没找到”，或者返回“它应该插在哪里”。
+      lodash 的 sortedIndex 返回的就是这个插入位置。
+    derivation: original
+    sources:
+      - ref: mit-6006
+        locator: 二分查找相关讲义
+        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+        claim: 范围为空时查找失败，可得到插入位置
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: datastate
+      structure: array
+      caption: 右半边的中间正好是 23
+      rows:
+        - cells:
+            - v: 2
+              mark: muted
+              sub: "0"
+            - v: 5
+              mark: muted
+              sub: "1"
+            - v: 8
+              mark: muted
+              sub: "2"
+            - v: 12
+              mark: muted
+              sub: "3"
+            - v: 16
+              sub: "4"
+            - v: 23
+              mark: found
+              sub: "5"
+            - v: 38
+              sub: "6"
+            - v: 56
+              sub: "7"
+          range:
+            from: 4
+            to: 7
+          pointers:
+            - at: 4
+              label: lo
+            - at: 5
+              label: mid
+            - at: 7
+              label: hi
+    log:
+      - mode: 找到
+        event: 第 2 次比较命中
+  - id: complexity
+    title: 为什么是 O(log n)
+    tldr: 每次减半，n 个元素最多减半 log₂n 次就只剩一个。
+    body: |-
+      8 个元素最多比 4 次，100 万个元素最多约 20 次，10 亿个也只要约 30 次。
+      数据量翻倍，只多比较一次，这就是对数增长。
+      这也是数据库索引能在海量数据里瞬间定位的原因之一。
+    derivation: original
+    sources:
+      - ref: mit-6006
+        locator: 渐近分析相关讲义
+        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+        claim: 二分查找比较次数为对数级
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: datastate
+      structure: array
+      caption: 每比较一次，范围减半
+      rows:
+        - label: 剩余范围
+          cells:
+            - v: 8
+              mark: active
+              sub: 第 1 次
+            - v: 4
+              sub: 第 2 次
+            - v: 2
+              sub: 第 3 次
+            - v: 1
+              mark: found
+              sub: 第 4 次
+      aux:
+        - label: 规模 → 最多比较
+          items:
+            - 8 → 4 次
+            - 100 万 → 约 20 次
+            - 10 亿 → 约 30 次
+    log:
+      - mode: 分析
+        event: 数据翻倍只多一次比较
+  - id: engineering
+    title: 前提和陷阱
+    tldr: 必须有序且能随机访问；边界条件最容易写错。
+    body: |-
+      如果数据经常变化，每次都重新排序就不划算，这时哈希表或平衡树更合适。
+      链表不能直接跳到中间，所以不能高效二分。
+      二分的思想也不只用于数组：git bisect 在提交历史里二分，找出是哪次提交引入了 bug。
+    derivation: original
+    sources:
+      - ref: mit-6006
+        locator: 二分查找相关讲义
+        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+        claim: 二分查找要求有序与随机访问
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: datastate
+      structure: array
+      caption: 前提：有序，且能按下标直接跳到中间
+      rows:
+        - label: 有序数组
+          cells:
+            - v: 2
+              sub: "0"
+            - v: 5
+              sub: "1"
+            - v: 8
+              sub: "2"
+            - v: 12
+              sub: "3"
+            - v: 16
+              sub: "4"
+            - v: 23
+              mark: found
+              sub: "5"
+            - v: 38
+              sub: "6"
+            - v: 56
+              sub: "7"
+      aux:
+        - label: 不适合
+          items:
+            - 链表
+            - 频繁变化的数据
+        - label: 同样思想
+          items:
+            - git bisect
+    log:
+      - mode: 总结
+        event: 选对场景再用二分

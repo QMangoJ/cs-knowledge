@@ -1,0 +1,377 @@
+# 知识优先版草稿（Linux x86-64 为例）。出处仅供参考，按 Daniel 决定不做逐条核对。
+id: dsa/bfs-dfs
+subject: dsa
+slug: bfs-dfs
+order: 5
+status: published
+license: CC-BY-4.0
+title: BFS 与 DFS：两种走遍一张图的方式
+summary: 广度优先一层层往外扩，深度优先一条路走到底再回头。
+premise: 以一张 6 个节点的小图，从节点 A 出发为例。
+overview:
+  - key: 一句话总结
+    value: BFS 用队列，按距离一层层访问；DFS 用栈（或递归），一路深入再回溯
+  - key: 复杂度
+    value: 都是 O(V + E)：每个节点、每条边大约各看一次
+  - key: BFS 擅长
+    value: 无权图的最短路径（最少几步到达）
+  - key: DFS 擅长
+    value: 遍历所有可能、检测环、拓扑排序
+  - key: 工程里
+    value: React 用深度优先方式遍历组件树；社交网络“几度好友”是 BFS；依赖分析是 DFS
+visual: datastate
+logColumns:
+  - key: mode
+    label: 当前状态
+  - key: event
+    label: 发生了什么
+steps:
+  - id: why
+    title: 为什么要系统地遍历
+    tldr: 图里有分叉和环，随便乱走会漏掉节点，或者绕圈走不出来。
+    body: |-
+      网页链接、社交关系、模块依赖都是图：节点之间用边相连。
+      要访问每个节点恰好一次，需要两样东西：一个“待访问”的列表，和一个“已访问”的标记。
+      待访问列表用队列还是栈，就决定了是 BFS 还是 DFS。
+    derivation: original
+    sources:
+      - ref: mit-6006
+        locator: 图搜索相关讲义
+        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+        claim: 图遍历需记录已访问节点以避免重复
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: datastate
+      structure: graph
+      caption: 从 A 出发：一个“待访问”列表 + 一个“已访问”标记
+      graph:
+        nodes:
+          - id: A
+            x: 50
+            y: 5
+            mark: active
+          - id: B
+            x: 25
+            y: 45
+          - id: C
+            x: 75
+            y: 45
+          - id: D
+            x: 10
+            y: 90
+          - id: E
+            x: 60
+            y: 90
+          - id: F
+            x: 90
+            y: 90
+        edges:
+          - from: A
+            to: B
+          - from: A
+            to: C
+          - from: B
+            to: D
+          - from: C
+            to: E
+          - from: C
+            to: F
+      aux:
+        - label: 待访问
+          items:
+            - A
+        - label: 已访问
+          items: []
+    log:
+      - mode: 从 A 出发
+        event: 准备遍历整张图
+  - id: bfs
+    title: BFS：一层层往外扩
+    tldr: 用队列，先进先出：先访问所有邻居，再访问邻居的邻居。
+    body: |-
+      从 A 出发，先把 B、C 加入队列；处理 B 时再加入 D，处理 C 时加入 E……
+      访问顺序是按离 A 的距离一圈圈展开的，像水波一样。
+      所以在边没有权重的图里，BFS 第一次到达某个节点时，走的就是最少步数的路径。
+    derivation: original
+    sources:
+      - ref: mit-6006
+        locator: BFS 相关讲义
+        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+        claim: BFS 按层访问，求得无权图中的最短路径
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: datastate
+      structure: graph
+      caption: BFS 用队列：按离 A 的距离一圈圈访问（数字为访问顺序）
+      graph:
+        nodes:
+          - id: A
+            x: 50
+            y: 5
+            mark: done
+            note: "1"
+          - id: B
+            x: 25
+            y: 45
+            mark: done
+            note: "2"
+          - id: C
+            x: 75
+            y: 45
+            mark: done
+            note: "3"
+          - id: D
+            x: 10
+            y: 90
+            mark: visited
+            note: "4"
+          - id: E
+            x: 60
+            y: 90
+            mark: visited
+            note: "5"
+          - id: F
+            x: 90
+            y: 90
+            mark: visited
+            note: "6"
+        edges:
+          - from: A
+            to: B
+            mark: active
+          - from: A
+            to: C
+            mark: active
+          - from: B
+            to: D
+            mark: active
+          - from: C
+            to: E
+            mark: active
+          - from: C
+            to: F
+            mark: active
+      aux:
+        - label: 按层
+          items:
+            - A
+            - B, C
+            - D, E, F
+    log:
+      - mode: BFS 完成
+        event: 按距离一层层访问
+  - id: dfs
+    title: DFS：一条路走到底，再回头
+    tldr: 用栈（或递归），先进后出：沿着一条路一直深入，走不通了才退回上一个分叉。
+    body: |-
+      从 A 走到 B，再到 D，D 没有新邻居了，就退回 B 看还有没有别的路，再退回 A 走 C。
+      递归调用本身就是一个栈，所以 DFS 常写成递归。
+      它像走迷宫时的“右手扶墙”：先走到底，再回头。
+    derivation: original
+    sources:
+      - ref: mit-6006
+        locator: DFS 相关讲义
+        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+        claim: DFS 沿路径深入并回溯
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: datastate
+      structure: graph
+      caption: DFS 用栈：先走到底，再回头（数字为访问顺序）
+      graph:
+        nodes:
+          - id: A
+            x: 50
+            y: 5
+            mark: visited
+            note: "1"
+          - id: B
+            x: 25
+            y: 45
+            mark: visited
+            note: "2"
+          - id: C
+            x: 75
+            y: 45
+            note: "4"
+          - id: D
+            x: 10
+            y: 90
+            mark: active
+            note: "3"
+          - id: E
+            x: 60
+            y: 90
+            note: "5"
+          - id: F
+            x: 90
+            y: 90
+            note: "6"
+        edges:
+          - from: A
+            to: B
+            mark: active
+          - from: A
+            to: C
+          - from: B
+            to: D
+            mark: active
+          - from: C
+            to: E
+          - from: C
+            to: F
+      aux:
+        - label: 栈（到 D 时）
+          items:
+            - A
+            - B
+            - D
+        - label: 访问顺序
+          items:
+            - A
+            - B
+            - D
+            - C
+            - E
+            - F
+    log:
+      - mode: DFS 完成
+        event: 一条路走到底再回溯
+  - id: complexity
+    title: 为什么是 O(V + E)
+    tldr: 每个节点只访问一次，每条边只检查常数次。
+    body: |-
+      有“已访问”标记，每个节点只处理一次，这是 V 的部分。
+      处理节点时会看它的所有边，所有边加起来就是 E 的部分。
+      所以两者的总耗时都和图的大小成正比，区别只在访问顺序。
+    derivation: original
+    sources:
+      - ref: mit-6006
+        locator: 图搜索相关讲义
+        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+        claim: BFS 与 DFS 的时间复杂度为 O(V + E)
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: datastate
+      structure: graph
+      caption: 每个节点处理一次（V），每条边看一次（E）
+      graph:
+        nodes:
+          - id: A
+            x: 50
+            y: 5
+            mark: done
+          - id: B
+            x: 25
+            y: 45
+            mark: done
+          - id: C
+            x: 75
+            y: 45
+            mark: done
+          - id: D
+            x: 10
+            y: 90
+            mark: done
+          - id: E
+            x: 60
+            y: 90
+            mark: done
+          - id: F
+            x: 90
+            y: 90
+            mark: done
+        edges:
+          - from: A
+            to: B
+            mark: done
+          - from: A
+            to: C
+            mark: done
+          - from: B
+            to: D
+            mark: done
+          - from: C
+            to: E
+            mark: done
+          - from: C
+            to: F
+            mark: done
+      aux:
+        - label: V
+          items:
+            - 6 个节点
+        - label: E
+          items:
+            - 5 条边
+    log:
+      - mode: 分析
+        event: 耗时与图的大小成正比
+  - id: engineering
+    title: 工程里怎么选
+    tldr: 找最少步数用 BFS；要穷尽、检测环或排依赖顺序用 DFS。
+    body: |-
+      社交网络里“你和某人隔了几度”，用 BFS。
+      打包工具分析模块依赖、检测循环引用、决定构建顺序，用的是 DFS 和拓扑排序。
+      React 渲染时按深度优先的顺序遍历组件树：先处理子节点，再处理兄弟节点。
+    derivation: original
+    sources:
+      - ref: mit-6006
+        locator: 图搜索相关讲义
+        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+        claim: DFS 可用于拓扑排序与环检测
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: datastate
+      structure: graph
+      caption: 同一张图，换个“待访问”结构，就是不同的遍历
+      graph:
+        nodes:
+          - id: A
+            x: 50
+            y: 5
+            mark: found
+          - id: B
+            x: 25
+            y: 45
+          - id: C
+            x: 75
+            y: 45
+          - id: D
+            x: 10
+            y: 90
+          - id: E
+            x: 60
+            y: 90
+          - id: F
+            x: 90
+            y: 90
+        edges:
+          - from: A
+            to: B
+          - from: A
+            to: C
+          - from: B
+            to: D
+          - from: C
+            to: E
+          - from: C
+            to: F
+      aux:
+        - label: BFS
+          items:
+            - 几度人脉
+            - 无权最短路
+        - label: DFS
+          items:
+            - 依赖分析
+            - 拓扑排序
+            - 组件树
+    log:
+      - mode: 总结
+        event: 按问题选遍历方式

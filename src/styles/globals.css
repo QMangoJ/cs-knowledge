@@ -107,3 +107,33 @@ details.terminal ul{list-style:none;margin:0;padding:0;display:grid;gap:14px}
 details.terminal code{display:block;font-family:var(--font-mono,ui-monospace,SFMono-Regular,Menlo,monospace);font-size:12.5px;background:#0f172a;color:#e2e8f0;padding:8px 10px;border-radius:6px;white-space:pre-wrap;word-break:break-all}
 details.terminal code::before{content:"$ ";color:#64748b}
 details.terminal p{margin:6px 0 0;font-size:var(--fs-sm);color:var(--ink-muted);line-height:1.7}
+/* datastate canvas */
+.datastate svg{display:block;width:100%;height:auto;overflow:visible}
+.ds-cell rect{fill:var(--panel);stroke:var(--line-mid);transition:fill var(--dur-fast),stroke var(--dur-fast)}
+.ds-cell text{fill:var(--ink-strong);font-family:var(--font-mono),var(--font-cjk)}
+.ds-sub{fill:var(--ink-muted);font-size:11px;font-family:var(--font-mono)}
+.ds-rowlabel{fill:var(--ink-soft);font-size:13px;font-family:var(--font-cjk)}
+.ds-range{fill:none;stroke:var(--active);stroke-dasharray:4 4;stroke-width:1.5}
+.ds-ptr path{fill:var(--active)} .ds-ptr text{fill:var(--active);font-size:12px;font-family:var(--font-mono),var(--font-cjk)}
+.ds-node circle{fill:var(--panel);stroke:var(--line-mid);stroke-width:1.5;transition:fill var(--dur-fast),stroke var(--dur-fast)}
+.ds-node text{fill:var(--ink-strong);font-size:14px;font-family:var(--font-mono),var(--font-cjk)}
+.ds-note{fill:var(--active)!important;font-size:12px!important;stroke:var(--panel);stroke-width:4px}
+.ds-edge{stroke:var(--line-mid);stroke-width:1.5}
+.ds-w{fill:var(--ink-soft);font-size:12px;stroke:var(--panel);stroke-width:4px;font-family:var(--font-mono)}
+#ds-arrow path{fill:var(--line-mid)}
+.m-active rect,.m-active circle{stroke:var(--active);stroke-width:2.5;fill:var(--line-soft)}
+.ds-edge.m-active,.m-active .ds-edge{stroke:var(--active);stroke-width:2.5}
+.m-found rect,.m-found circle{fill:var(--active);stroke:var(--active)} .m-found > text:not(.ds-sub):not(.ds-note){fill:#fff}
+.m-found .ds-edge{stroke:var(--active);stroke-width:3}
+.m-done rect,.m-done circle{fill:#e8f3ec;stroke:#3f8f5f} .m-done .ds-edge{stroke:#3f8f5f;stroke-width:2.5}
+.m-visited rect,.m-visited circle{fill:var(--line-soft);stroke:var(--ink-muted)}
+.m-pivot rect,.m-pivot circle{fill:#fff4e5;stroke:#c77700;stroke-width:2.5}
+.m-new rect,.m-new circle{stroke:var(--active);stroke-dasharray:4 3;stroke-width:2}
+.m-muted{opacity:.35}
+.ds-caption{margin:14px 0 0;text-align:center;color:var(--ink-soft);font-family:var(--font-cjk);font-size:var(--fs-sm)}
+.ds-aux{display:flex;flex-wrap:wrap;gap:12px 28px;justify-content:center;margin-top:16px;font-size:var(--fs-sm)}
+.ds-aux > div{display:flex;align-items:baseline;gap:10px}
+.ds-aux-label{color:var(--ink-muted);font-family:var(--font-cjk);white-space:nowrap}
+.ds-aux ol{display:flex;flex-wrap:wrap;gap:6px;list-style:none;margin:0;padding:0}
+.ds-aux li{border:1px solid var(--line-mid);border-radius:4px;padding:1px 8px;font-family:var(--font-mono),var(--font-cjk);color:var(--ink)}
+.ds-aux li.empty{border-style:dashed;color:var(--ink-muted)}

@@ -1,0 +1,211 @@
+# 知识优先版草稿（Linux x86-64 为例）。出处仅供参考，按 Daniel 决定不做逐条核对。
+id: dsa/binary-heap
+subject: dsa
+slug: binary-heap
+order: 4
+status: published
+license: CC-BY-4.0
+title: 二叉堆与优先队列
+summary: 总能立刻拿到“最急的那个”，插入和取出都只要 O(log n)。
+premise: 以一个小顶堆管理带优先级的任务为例，优先级数字越小越急。
+overview:
+  - key: 一句话总结
+    value: 堆顶永远是最小（或最大）的元素；插入上浮、取出下沉
+  - key: 复杂度
+    value: 查看堆顶 O(1)，插入和取出 O(log n)，一次性建堆 O(n)
+  - key: 存储
+    value: 完全二叉树，直接存在数组里，不需要指针
+  - key: 工程里
+    value: 任务调度器、定时器、Top K、Dijkstra 最短路径、React 调度器的任务队列
+  - key: 和排序的区别
+    value: 堆只保证“谁最小”，不保证整体有序，所以更便宜
+visual: datastate
+logColumns:
+  - key: mode
+    label: 当前状态
+  - key: event
+    label: 发生了什么
+steps:
+  - id: why
+    title: 为什么需要优先队列
+    tldr: 任务不断加入，每次都要处理最急的一个；每次都全部排序太浪费。
+    body: |-
+      如果用普通数组，每次找最急的要扫一遍，O(n)。
+      如果每次插入后都完整排序，代价也很大。
+      优先队列只关心一件事：随时拿到最急的那个，堆就是为此设计的。
+    derivation: original
+    sources:
+      - ref: mit-6006
+        locator: 二叉堆相关讲义
+        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+        claim: 优先队列支持插入与取最小值操作
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: datastate
+      structure: tree
+      caption: 小顶堆：数字越小越急，最急的永远在根
+      tree:
+        nodes:
+          - v: 2
+            mark: found
+          - v: 4
+          - v: 3
+          - v: 7
+          - v: 5
+          - v: 8
+      aux:
+        - label: 找最急的
+          items:
+            - 数组扫一遍 O(n)
+            - 堆看根 O(1)
+    log:
+      - mode: 堆中 6 个任务
+        event: 需要随时取出最急的任务
+  - id: shape
+    title: 堆的样子：父节点总比孩子小
+    tldr: 堆是一棵完全二叉树，每个父节点都不大于它的孩子，所以根就是最小值。
+    body: |-
+      完全二叉树一层层从左往右填满，可以直接存在数组里：位置 i 的孩子在 2i+1 和 2i+2。
+      规则只管父子之间，兄弟之间谁大谁小无所谓。
+      所以它不是排好序的数组，但根一定最小。
+    derivation: original
+    sources:
+      - ref: mit-6006
+        locator: 二叉堆相关讲义
+        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+        claim: 堆以数组存储完全二叉树，满足堆序性质
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: datastate
+      structure: tree
+      caption: 位置 i 的孩子在 2i+1 和 2i+2；只管父子，不管兄弟
+      tree:
+        nodes:
+          - v: 2
+            mark: found
+          - v: 4
+          - v: 3
+          - v: 7
+          - v: 5
+          - v: 8
+        showArray: true
+    log:
+      - mode: 满足堆序
+        event: 堆顶是最急的任务
+  - id: push
+    title: 插入：放到末尾，再上浮
+    tldr: 新任务先放在最后，如果比父节点小，就和父节点交换，一路往上。
+    body: |-
+      新来一个优先级为 1 的任务，放到数组末尾。
+      它比父节点小，就交换，直到父节点比它小或者到了根。
+      最多走树的高度，也就是 log n 步。
+    derivation: original
+    sources:
+      - ref: mit-6006
+        locator: 二叉堆相关讲义
+        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+        claim: 插入通过上浮恢复堆序，O(log n)
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: datastate
+      structure: tree
+      caption: 1 放到末尾（位置 6），比父节点小就交换：6 → 2 → 0
+      tree:
+        nodes:
+          - v: 1
+            mark: new
+          - v: 4
+          - v: 2
+            mark: active
+          - v: 7
+          - v: 5
+          - v: 8
+          - v: 3
+            mark: active
+      aux:
+        - label: 上浮
+          items:
+            - 放末尾
+            - 1 < 3 交换
+            - 1 < 2 交换，到根
+    log:
+      - mode: 插入完成
+        event: 新任务成为堆顶
+  - id: pop
+    title: 取出堆顶：末尾补上，再下沉
+    tldr: 拿走根之后，把最后一个元素放到根，再和较小的孩子交换，一路往下。
+    body: |-
+      取出最急的任务，把末尾元素挪到根上。
+      它可能太大，就和两个孩子中较小的那个交换，直到比两个孩子都小。
+      同样最多走 log n 步，所以 1 万个任务里取最急的，大约十几步就够。
+    derivation: original
+    sources:
+      - ref: mit-6006
+        locator: 二叉堆相关讲义
+        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+        claim: 取出最小值后通过下沉恢复堆序，O(log n)
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: datastate
+      structure: tree
+      caption: 取出 1，末尾的 3 挪到根，再和较小的孩子 2 交换
+      tree:
+        nodes:
+          - v: 2
+            mark: active
+          - v: 4
+          - v: 3
+            mark: active
+          - v: 7
+          - v: 5
+          - v: 8
+      aux:
+        - label: 下沉
+          items:
+            - 取出 1
+            - 3 挪到根
+            - 3 > 2 交换
+    log:
+      - mode: 取出完成
+        event: 新的最急任务来到堆顶
+  - id: engineering
+    title: 工程里的优先队列
+    tldr: 调度器、定时器、Top K 问题，背后常常是一个堆。
+    body: |-
+      React 的调度器用最小堆按过期时间管理任务，先处理最急的更新。
+      要从海量数据里找前 10 名，可以维护一个大小为 10 的堆，不用全部排序。
+      JS 没有内置堆，需要自己写或用库；Java 有 PriorityQueue，Python 有 heapq。
+    derivation: original
+    sources:
+      - ref: mit-6006
+        locator: 二叉堆相关讲义
+        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+        claim: 堆用于实现优先队列
+        status: unverified
+        note: 按 Daniel 决定不核对出处
+    canvas:
+      kind: datastate
+      structure: tree
+      caption: 随时 O(1) 看到最急的，O(log n) 取出或插入
+      tree:
+        nodes:
+          - v: 2
+            mark: found
+          - v: 4
+          - v: 3
+          - v: 7
+          - v: 5
+          - v: 8
+      aux:
+        - label: 用途
+          items:
+            - React 调度器
+            - Top 10
+            - PriorityQueue / heapq
+    log:
+      - mode: 总结
+        event: 需要“随时取最急的”就用堆

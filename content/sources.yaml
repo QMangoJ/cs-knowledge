@@ -27,3 +27,7 @@
   title: "Computer Systems: A Programmer's Perspective (CS:APP), Bryant & O'Hallaron"
   url: http://csapp.cs.cmu.edu/
   license: "版权书籍，仅引用章节"
+- id: mit-6006
+  title: "MIT 6.006 Introduction to Algorithms (OCW)"
+  url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+  license: "CC BY-NC-SA 4.0（仅作参考链接，不引用内容）"

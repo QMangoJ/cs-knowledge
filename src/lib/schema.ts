@@ -23,7 +23,37 @@ export const SwimlaneState = z.object({
   messages: z.array(z.object({ id: z.string(), from: z.string(), to: z.string(), label: z.string(), active: z.boolean().optional() })),
   registers: z.array(z.object({ name: z.string(), value: z.string(), changed: z.boolean().optional() })).optional(),
 });
-export const CanvasState = z.discriminatedUnion("kind", [SwimlaneState]);
+/** Per-element highlight for datastate canvases. */
+export const Mark = z.enum(["active", "visited", "done", "found", "pivot", "muted", "new"]);
+const Val = z.union([z.string(), z.number()]);
+const Cell = z.object({ v: Val, sub: z.string().optional(), mark: Mark.optional() });
+export const ArrayRow = z.object({
+  label: z.string().optional(),
+  cells: z.array(Cell).min(1),
+  /** Insert a visual gap before these indices (sub-arrays, partitions). */
+  breaks: z.array(z.number().int()).optional(),
+  pointers: z.array(z.object({ at: z.number().int(), label: z.string() })).optional(),
+  range: z.object({ from: z.number().int(), to: z.number().int(), label: z.string().optional() }).optional(),
+});
+export const DatastateState = z.object({
+  kind: z.literal("datastate"),
+  structure: z.enum(["array", "tree", "graph"]),
+  caption: z.string().optional(),
+  /** structure=array: one or more rows (e.g. before/after, recursion levels). */
+  rows: z.array(ArrayRow).optional(),
+  /** structure=tree: complete binary tree in level order (heap layout); showArray also draws the backing array. */
+  tree: z.object({ nodes: z.array(Cell).min(1), showArray: z.boolean().optional() }).optional(),
+  /** structure=graph: x/y in 0–100. */
+  graph: z.object({
+    directed: z.boolean().optional(),
+    nodes: z.array(z.object({ id: z.string(), label: z.string().optional(), x: z.number().min(0).max(100), y: z.number().min(0).max(100), note: z.string().optional(), mark: Mark.optional() })).min(1),
+    edges: z.array(z.object({ from: z.string(), to: z.string(), w: Val.optional(), mark: Mark.optional() })),
+  }).optional(),
+  /** Side panels: queue, stack, distance table, notes. */
+  aux: z.array(z.object({ label: z.string(), items: z.array(Val) })).optional(),
+  registers: z.array(z.object({ name: z.string(), value: z.string(), changed: z.boolean().optional() })).optional(),
+});
+export const CanvasState = z.discriminatedUnion("kind", [SwimlaneState, DatastateState]);
 
 export const Step = z.object({
   id: z.string().regex(/^[a-z0-9-]+$/),
@@ -78,6 +108,7 @@ export type Step = z.infer<typeof Step>;
 export type Topic = z.infer<typeof Topic>;
 export type CanvasState = z.infer<typeof CanvasState>;
 export type SwimlaneState = z.infer<typeof SwimlaneState>;
+export type DatastateState = z.infer<typeof DatastateState>;
 
 export type Issue = { level: "error" | "warn"; where: string; msg: string };
 
@@ -100,6 +131,15 @@ export function checkTopic(t: Topic, sources: Map<string, SourceDef>): Issue[] {
       const actors = new Set(s.canvas.actors.map((a) => a.id));
       for (const a of s.canvas.actors) if (!lanes.has(a.lane)) hard(w, `actor ${a.id} 的 lane ${a.lane} 不存在`);
       for (const m of s.canvas.messages) if (!actors.has(m.from) || !actors.has(m.to)) hard(w, `message ${m.id} 指向不存在的 actor`);
+    }
+    if (s.canvas.kind === "datastate") {
+      const c = s.canvas, need = { array: c.rows, tree: c.tree, graph: c.graph }[c.structure];
+      if (!need) hard(w, `structure=${c.structure} 但缺少对应数据（rows / tree / graph）`);
+      if (c.graph) {
+        const ids = new Set(c.graph.nodes.map((n) => n.id));
+        for (const e of c.graph.edges) if (!ids.has(e.from) || !ids.has(e.to)) hard(w, `edge ${e.from}-${e.to} 指向不存在的节点`);
+      }
+      for (const r of c.rows ?? []) for (const p of r.pointers ?? []) if (p.at < 0 || p.at >= r.cells.length) hard(w, `pointer ${p.label} 越界`);
     }
     s.sources.forEach((c, i) => {
       if (!sources.has(c.ref)) hard(`${w} source#${i + 1}`, `ref=${c.ref} 不在 sources.yaml`);
