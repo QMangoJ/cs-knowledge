@@ -68,7 +68,7 @@ quiz:
 steps:
 - id: cache-first
   title: 先翻缓存：大多数解析根本不出门
-  tldr: 浏览器、操作系统、解析器三级缓存命中时，解析只要毫秒以内。
+  tldr: 浏览器、操作系统、递归解析器多级缓存命中时，解析通常很快，不必真的出门问一圈。
   body: '你在地址栏回车之前，名字要先变 IP。但绝大多数时候这一步不出家门：浏览器有自己的 DNS 缓存，操作系统有系统缓存，二者未命中才问递归解析器（运营商或 1.1.1.1/8.8.8.8 这类公共解析器），解析器自己也有缓存。
 
 
@@ -102,7 +102,13 @@ steps:
 
     每一级的回答都按 TTL 存进缓存，下次同域名的查询能直接跳步。'
   derivation: original
-  sources: []
+  sources:
+  - ref: rfc-1034
+    locator: §2.3/§3.6 递归与迭代查询、CNAME
+    claim: 迭代查询每级只返回转介，递归解析器顺根→TLD→权威问到底；裸域名不能配 CNAME
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
   canvas:
     kind: swimlane
     actors:
@@ -140,13 +146,19 @@ steps:
     note: 在终端里看一看
 - id: records
   title: 记录类型：A、CNAME 与 TTL 的权衡
-  tldr: CNAME 把名字指向另一个名字，是流量调度的总开关；TTL 决定调度变更的生效速度。
+  tldr: CNAME 把名字指向另一个名字，是子域名流量调度的关键抓手（注意：裸域名/区顶点不能配 CNAME）；TTL 决定调度变更的生效速度。
   body: '常见记录：A（IPv4 地址）、AAAA（IPv6 地址）、CNAME（别名，指向另一个域名）、TXT（验证与策略）。把 cs 指向 CDN 时，配的就是 CNAME：cs.ki-toko.com → 某 cdn 域名，最终解析到边缘节点。
 
 
     TTL 是调度灵活性的代价：TTL 3600 秒时改解析最长要等一小时才全量生效；调成 60 秒切换飞快，但解析器缓存留不住、查询量与尾延迟上升。故障切换 runbook 里「提前降 TTL」就是这个道理。'
   derivation: original
-  sources: []
+  sources:
+  - ref: rfc-1035
+    locator: §3.2.1/§6.1.3 TTL 与记录类型
+    claim: TTL 是记录可缓存的秒数，缓存中倒计时；A/CNAME/TXT 的语义
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
   canvas:
     kind: swimlane
     actors:
@@ -175,10 +187,10 @@ steps:
 - id: cdn
   title: CDN：把内容与接入点搬到用户旁边
   tldr: 边缘节点缓存静态内容、终结连接，让每一次访问少走几千公里。
-  body: 'CDN 在全球布了大量边缘节点。静态资源（JS/CSS/图片、模型分片）被缓存在边缘，用户向最近节点取，命中就不再回源站；动态请求（如 API）也能借边缘做 TCP/TLS 终结与骨干网加速，光是把 TCP 握手放在离用户 20 ms 而不是 200 ms 的地方完成就省下可观时间。
+  body: 'CDN 在全球布了大量边缘节点。静态资源（JS/CSS/图片、模型分片）被缓存在边缘，用户向最近节点取，命中就不再回源站；动态请求（如 API）也能借边缘做 TCP/TLS 终结等优化（各厂商实现不同），把 TCP 握手放在离用户近得多的地方完成，就能省下可观的时间（示意：同城毫秒级 vs 跨洋上百毫秒）。
 
 
-    调度怎么做？解析时根据请求来源（解析器位置或 EDNS 提供的用户子网）返回最近的边缘 IP；或用 Anycast：全球节点宣告同一个 IP，路由系统自动把包送到拓扑最近的那个。'
+    调度怎么做？解析时根据请求来源（权威服务器看到的解析器位置；若解析器发送了 EDNS 客户端子网 ECS，则还能看到用户子网）返回最近的边缘 IP；或用 Anycast：全球节点宣告同一个 IP，路由系统自动把包送到拓扑最近的那个。'
   derivation: original
   sources: []
   canvas:
@@ -213,13 +225,13 @@ steps:
 - id: ailink
   title: 为什么 AI 服务拼命做就近接入
   tldr: 推理延迟里网络往返与生成时间一样真实，接入层决定下限。
-  body: '一次在圣保罗调用部署在弗吉尼亚的推理 API：光是 DNS+TCP+TLS 就可能吃掉 3–4 个跨洋 RTT（每个约 130 ms），半秒还没见到第一个 token。多地域部署 + DNS/Anycast 就近接入，能把接入往返压到同洲的 20–30 ms。
+  body: '举个示意例子（数字为量级示意）：一次在圣保罗调用部署在弗吉尼亚的推理 API：光是 DNS+TCP+TLS 就可能吃掉 3–4 个跨洋 RTT，半秒还没见到第一个 token。多地域部署 + DNS/Anycast 就近接入，能把接入往返压到同洲的量级。
 
 
     反过来，TTL 与缓存也决定了故障时流量切走的速度。所以接入层（解析、调度、边缘）与模型本身一样，是 AI 服务体验的一部分——这也是三节网络课收尾要说的工程账。
 
 
-    工程注记：dig 时注意应答里的 TTL 是「剩余秒数」：看到很小的数说明缓存快过期。切换解析前先把 TTL 提前一两个周期调低，切换当天才不会被旧缓存拖住。'
+    工程注记：dig 经递归解析器查到的应答里，TTL 是「剩余秒数」：看到很小的数说明缓存快过期（直接问权威服务器则返回配置的原始 TTL）。切换解析前先把 TTL 提前一两个周期调低，切换当天才不会被旧缓存拖住。'
   derivation: original
   sources: []
   canvas:
