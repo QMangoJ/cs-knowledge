@@ -1,0 +1,246 @@
+id: network/dns-cdn
+subject: network
+slug: dns-cdn
+order: 3
+status: published
+license: CC-BY-4.0
+title: DNS 解析与 CDN：名字如何变成最近的服务器
+summary: 递归与迭代查询、多级缓存与 TTL，再到 CDN 边缘节点为什么能让全球访问都快。
+premise: 以第一次打开 cs.ki-toko.com、在东京与圣保罗各访问一次为例。
+overview:
+- key: 一句话总结
+  value: DNS 把域名逐级问出 IP 并层层缓存；CDN 把内容与接入点搬到离用户最近的边缘节点
+- key: 两种查询
+  value: 递归：解析器替你问到底；迭代：每级只告诉你下一步问谁
+- key: 记录
+  value: A/AAAA 给 IP，CNAME 给别名（CDN 调度的关键抓手）
+- key: TTL
+  value: 缓存有效期，秒级权衡新鲜与查询量
+- key: 在终端里看一看
+  value: dig cs.ki-toko.com　看解析结果与 TTL；dig +trace　看逐级迭代
+visual: swimlane
+lanes:
+- id: app
+  label: 应用/系统
+- id: resolver
+  label: 递归解析器
+- id: auth
+  label: 权威链
+logColumns:
+- key: mode
+  label: 当前状态
+- key: event
+  label: 发生了什么
+level: 基础
+minutes: 16
+prereq:
+- network/tcp-handshake
+objectives:
+- 画出根→顶级域→权威的迭代查询链
+- 解释多级缓存与 TTL 如何把解析压到毫秒级
+- 说清 CDN 用 CNAME/Anycast 把用户导向边缘节点的两种方式
+aiLink: 全球用户调同一个推理 API，有人快有人慢，差距常在接入层：DNS 调度与 CDN/Anycast 决定了请求落到哪个机房。理解解析链与 TTL，才懂故障切换为什么受 TTL 制约、为什么 AI 服务要多地域接入与就近路由。
+quiz:
+- q: 迭代查询中，根服务器返回的是什么？
+  options:
+  - 最终 IP
+  - 负责该顶级域的服务器地址（下一步问谁）
+  - 完整网页
+  - 证书
+  answer: 1
+  explain: 迭代 = 每级只给指路信息；递归解析器顺着根→.com→权威一路问到底。
+- q: TTL 设得很短（如 60 秒）的代价是？
+  options:
+  - 解析结果不准
+  - 缓存很快过期，查询量与解析延迟上升，但切换生效快
+  - 域名被注销
+  - 只能解析一次
+  answer: 1
+  explain: TTL 是新鲜度与负载的权衡；大促/故障切换前常提前调低 TTL。
+- q: CDN 让东京用户就近接入主要靠？
+  options:
+  - 把服务器搬去东京一台
+  - CNAME 到 CDN 域名后按用户来源返回最近边缘节点 IP（或 Anycast 同 IP 多地宣告）
+  - 压缩图片
+  - 提高 TTL
+  answer: 1
+  explain: 调度发生在 DNS 应答阶段：解析器位置/用户位置决定返回哪个边缘 IP。
+steps:
+- id: cache-first
+  title: 先翻缓存：大多数解析根本不出门
+  tldr: 浏览器、操作系统、解析器三级缓存命中时，解析只要毫秒以内。
+  body: '你在地址栏回车之前，名字要先变 IP。但绝大多数时候这一步不出家门：浏览器有自己的 DNS 缓存，操作系统有系统缓存，二者未命中才问递归解析器（运营商或 1.1.1.1/8.8.8.8 这类公共解析器），解析器自己也有缓存。
+
+
+    缓存的依据是每条记录的 TTL。热门域名的解析在层层缓存下几乎免费，这也是 DNS 能扛住全球流量的原因。'
+  derivation: original
+  sources: []
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: app
+      id: a
+      label: 浏览器
+      state: 查缓存
+      highlight: true
+    - lane: resolver
+      id: r
+      label: 递归解析器
+      state: 也有缓存
+    - lane: auth
+      id: u
+      label: 权威服务器
+    messages: []
+  log:
+  - mode: 解析 0
+    event: 三级缓存先行
+- id: iterate
+  title: 缓存未命中：从根开始逐级问路
+  tldr: 解析器向根、顶级域、权威逐级迭代，每级只被告知下一步问谁。
+  body: '真未命中时，递归解析器（对客户端它在「递归」地代劳）向权威链发起迭代查询：先问根服务器「.com 问谁」，根返回 .com 的顶级域服务器地址；再问顶级域「ki-toko.com 问谁」，返回该域的权威服务器；最后问权威「cs.ki-toko.com 的 A 记录」，拿到 IP。
+
+
+    每一级的回答都按 TTL 存进缓存，下次同域名的查询能直接跳步。'
+  derivation: original
+  sources: []
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: app
+      id: a
+      label: 浏览器
+      state: 等待
+    - lane: resolver
+      id: r
+      label: 递归解析器
+      state: 逐级迭代
+      highlight: true
+    - lane: auth
+      id: u
+      label: 根→.com→权威
+      state: 逐级应答
+    messages:
+    - id: m1
+      from: r
+      to: u
+      label: cs.ki-toko.com 的 A 记录？
+      active: true
+    - id: m2
+      from: u
+      to: r
+      label: 先问 .com / 这是权威给的 IP
+  log:
+  - mode: 解析 1
+    event: 迭代查询 根→TLD→权威
+  code:
+    lang: shell
+    code: 'dig +trace cs.ki-toko.com   # 逐级看根→.com→权威的迭代过程
+
+      dig cs.ki-toko.com          # 看最终 A 记录与剩余 TTL'
+    note: 在终端里看一看
+- id: records
+  title: 记录类型：A、CNAME 与 TTL 的权衡
+  tldr: CNAME 把名字指向另一个名字，是流量调度的总开关；TTL 决定调度变更的生效速度。
+  body: '常见记录：A（IPv4 地址）、AAAA（IPv6 地址）、CNAME（别名，指向另一个域名）、TXT（验证与策略）。把 cs 指向 CDN 时，配的就是 CNAME：cs.ki-toko.com → 某 cdn 域名，最终解析到边缘节点。
+
+
+    TTL 是调度灵活性的代价：TTL 3600 秒时改解析最长要等一小时才全量生效；调成 60 秒切换飞快，但解析器缓存留不住、查询量与尾延迟上升。故障切换 runbook 里「提前降 TTL」就是这个道理。'
+  derivation: original
+  sources: []
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: app
+      id: a
+      label: 浏览器
+      state: 拿到边缘 IP
+    - lane: resolver
+      id: r
+      label: 递归解析器
+      state: 按 TTL 缓存
+    - lane: auth
+      id: u
+      label: 权威（CNAME→CDN）
+      state: 返回别名链
+      highlight: true
+    messages:
+    - id: m3
+      from: u
+      to: r
+      label: CNAME → CDN 域名 → 边缘 IP
+      active: true
+  log:
+  - mode: 解析 2
+    event: CNAME 别名 + TTL
+- id: cdn
+  title: CDN：把内容与接入点搬到用户旁边
+  tldr: 边缘节点缓存静态内容、终结连接，让每一次访问少走几千公里。
+  body: 'CDN 在全球布了大量边缘节点。静态资源（JS/CSS/图片、模型分片）被缓存在边缘，用户向最近节点取，命中就不再回源站；动态请求（如 API）也能借边缘做 TCP/TLS 终结与骨干网加速，光是把 TCP 握手放在离用户 20 ms 而不是 200 ms 的地方完成就省下可观时间。
+
+
+    调度怎么做？解析时根据请求来源（解析器位置或 EDNS 提供的用户子网）返回最近的边缘 IP；或用 Anycast：全球节点宣告同一个 IP，路由系统自动把包送到拓扑最近的那个。'
+  derivation: original
+  sources: []
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: app
+      id: a
+      label: 东京用户
+      state: 就近接入
+      highlight: true
+    - lane: resolver
+      id: r
+      label: CDN 调度
+      state: 返回最近边缘
+    - lane: auth
+      id: u
+      label: 边缘节点（东京）
+      state: 缓存命中/终结连接
+      highlight: true
+    messages:
+    - id: m4
+      from: a
+      to: u
+      label: 到边缘 20 ms，而不是回源 200 ms
+      active: true
+  log:
+  - mode: 加速
+    event: 边缘节点就近服务
+  points:
+  - 静态内容：边缘缓存命中即返回，未命中才回源拉取并缓存
+  - 动态请求：边缘终结连接 + 骨干加速，握手 RTT 大幅缩短
+- id: ailink
+  title: 为什么 AI 服务拼命做就近接入
+  tldr: 推理延迟里网络往返与生成时间一样真实，接入层决定下限。
+  body: '一次在圣保罗调用部署在弗吉尼亚的推理 API：光是 DNS+TCP+TLS 就可能吃掉 3–4 个跨洋 RTT（每个约 130 ms），半秒还没见到第一个 token。多地域部署 + DNS/Anycast 就近接入，能把接入往返压到同洲的 20–30 ms。
+
+
+    反过来，TTL 与缓存也决定了故障时流量切走的速度。所以接入层（解析、调度、边缘）与模型本身一样，是 AI 服务体验的一部分——这也是三节网络课收尾要说的工程账。'
+  derivation: original
+  sources: []
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: app
+      id: a
+      label: 全球用户
+      state: 就近接入
+      highlight: true
+    - lane: resolver
+      id: r
+      label: DNS/Anycast 调度
+    - lane: auth
+      id: u
+      label: 最近的推理机房
+      state: 低 RTT 接入
+      highlight: true
+    messages:
+    - id: m5
+      from: a
+      to: u
+      label: 首 token 延迟显著下降
+      active: true
+  log:
+  - mode: 收尾
+    event: 就近接入决定延迟下限

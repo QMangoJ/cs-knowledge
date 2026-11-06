@@ -1,0 +1,247 @@
+id: network/http-streaming
+subject: network
+slug: http-streaming
+order: 2
+status: published
+license: CC-BY-4.0
+title: 一个 HTTP 请求的一生：从点击到流式响应
+summary: DNS、TCP、TLS、请求、响应一次走完，并讲清 LLM API 为什么用流式输出。
+premise: 以浏览器请求 https://api.example.com/v1/chat（一次流式推理调用）为例。
+overview:
+- key: 一句话总结
+  value: 一次 HTTPS 请求 = DNS 解析 + TCP 握手 + TLS 握手 + 请求/响应，可能叠加 3–4 个 RTT 才见到数据
+- key: TLS
+  value: 用证书验证身份、用非对称协商出对称会话密钥，之后全程对称加密
+- key: 流式响应
+  value: chunked 传输或 SSE：服务器边生成边发，客户端边收边渲染
+- key: SSE vs WebSocket
+  value: SSE 是单向（服务端→客户端）的 HTTP 长响应；WebSocket 是全双工独立协议
+- key: 在终端里看一看
+  value: curl -v https://example.com　看握手与头部；curl -N 看流式逐块到达
+visual: swimlane
+lanes:
+- id: client
+  label: 客户端
+- id: server
+  label: 服务器
+logColumns:
+- key: mode
+  label: 当前状态
+- key: event
+  label: 发生了什么
+level: 基础
+minutes: 18
+prereq:
+- network/tcp-handshake
+objectives:
+- 按时间顺序列出一次 HTTPS 请求的全部阶段与 RTT 账
+- 说清 TLS 握手做了哪三件事
+- 解释 LLM API 用 SSE 流式的原因与它同 WebSocket 的区别
+aiLink: 你每天调的 LLM API 就是这一课本身：首 token 延迟里藏着 DNS/TCP/TLS 的握手账，流式输出用 SSE 把生成中的 token 逐块推给前端。理解 chunked 与 SSE，就理解为什么前端要用 ReadableStream 读响应、为什么连接复用能显著降低首字延迟。
+quiz:
+- q: 第一次访问一个 HTTPS 站点，见到第一个数据字节前大约要几个 RTT？
+  options:
+  - '0'
+  - DNS 1 + TCP 1 + TLS 1–2，约 3–4 个
+  - 10 个以上
+  - 与 RTT 无关
+  answer: 1
+  explain: DNS、TCP 握手、TLS 握手（TLS 1.3 为 1 个）串行叠加；这也是连接复用与就近接入值钱的原因。
+- q: TLS 握手没有做的事是？
+  options:
+  - 验证服务器证书身份
+  - 协商对称会话密钥
+  - 把之后的数据用 RSA 逐字节加密
+  - 协商加密套件
+  answer: 2
+  explain: 非对称只用来验证身份与协商密钥，数据本身用对称加密（快几个数量级）。
+- q: LLM API 用 SSE 而不是等全部生成完再返回，是因为？
+  options:
+  - 省流量
+  - 生成要数秒到数十秒，流式让首 token 尽快显示，用户体验与超时风险都好得多
+  - SSE 更安全
+  - 浏览器只支持 SSE
+  answer: 1
+  explain: 流式把「等全部生成」的长尾延迟变成逐 token 呈现；服务端也无需在内存里攒完整响应。
+steps:
+- id: dns-tcp
+  title: 先把路修好：DNS + TCP
+  tldr: 域名先解析成 IP，再完成 TCP 三次握手，应用数据才有通道。
+  body: '浏览器先查 DNS（下一主题细讲）拿到服务器 IP；然后与该 IP 的 443 端口做 TCP 三次握手（上一主题）。这两步没完成之前，一个字节的应用数据都发不出去，总计约 2 个 RTT。
+
+
+    好在浏览器会缓存 DNS、复用已有连接——第二次请求往往可以直接跳到发数据。'
+  derivation: original
+  sources: []
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: client
+      id: c
+      label: 浏览器
+      state: 解析+握手
+      highlight: true
+    - lane: server
+      id: s
+      label: 服务器
+      state: '443'
+    messages:
+    - id: m1
+      from: c
+      to: s
+      label: TCP 三次握手
+      active: true
+  log:
+  - mode: 阶段 1–2
+    event: DNS 解析 + TCP 建连
+- id: tls
+  title: TLS 握手：验明身份，约定密钥
+  tldr: 证书证明「你连的真是它」，双方协商出只有彼此知道的会话密钥。
+  body: 'TCP 之上再叠一层 TLS。TLS 1.3 的握手用 1 个 RTT 做三件事：协商加密套件、服务器出示证书（由 CA 签名，浏览器验证域名与有效期）、用 ECDHE 交换材料算出会话密钥。
+
+
+    之后的数据全部用这个对称密钥加密传输。没有 TLS，路径上的任何中间节点都能看光、篡改你的请求——调用付费 API 的密钥也会裸奔。'
+  derivation: original
+  sources: []
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: client
+      id: c
+      label: 浏览器
+      state: 验证证书
+      highlight: true
+    - lane: server
+      id: s
+      label: 服务器
+      state: 出示证书
+    messages:
+    - id: m2
+      from: c
+      to: s
+      label: ClientHello + 密钥份额
+    - id: m3
+      from: s
+      to: c
+      label: 证书 + 服务器密钥份额
+      active: true
+  log:
+  - mode: 阶段 3
+    event: TLS 1.3 握手（1 RTT）
+  code:
+    lang: text
+    code: 'TLS 1.3 握手（简化）：
+
+      ClientHello（套件 + 客户端密钥份额） →
+
+      ← ServerHello（选定套件 + 服务器密钥份额）+ 证书 + Finished
+
+      双方各自算出相同会话密钥 → 之后全程对称加密'
+    note: TLS 1.3 比 1.2 少一个 RTT
+- id: request
+  title: 发出请求：方法、路径、头、体
+  tldr: 请求行 + 头部 + 可选的体；头部携带认证、内容类型与流式声明。
+  body: '通道建好，浏览器发出请求：第一行是方法与路径（POST /v1/chat/completions），随后是头部——Authorization 携带 API 密钥、Content-Type: application/json 指定体是 JSON，推理请求还会在体里写 stream: true 要求流式。
+
+
+    服务器按头部做认证、限流与路由，再决定由哪个后端处理。这一步的解析与校验通常是毫秒级，真正的等待在生成阶段。'
+  derivation: original
+  sources: []
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: client
+      id: c
+      label: 浏览器
+      state: 已发请求
+      highlight: true
+    - lane: server
+      id: s
+      label: 服务器
+      state: 认证/路由/排队
+    messages:
+    - id: m4
+      from: c
+      to: s
+      label: POST /v1/chat（stream:true）
+      active: true
+  log:
+  - mode: 阶段 4
+    event: HTTP 请求发出
+- id: stream
+  title: 流式响应：边生成边发（SSE）
+  tldr: 服务器用 chunked 分块传输逐段发 token，前端逐段解析渲染，不等全文。
+  body: '模型生成是逐个 token 的，可能持续几秒到几十秒。若等全部生成完再一次性返回，用户要盯着空白等完全程，网关与浏览器也容易超时。
+
+
+    流式做法：响应头先回来（状态 200、Content-Type: text/event-stream），随后服务器用 HTTP 的 chunked 编码把数据一块块发：SSE 格式里每个事件是一行 data: {...}，里面装着新生成的 token；最后以 data: [DONE] 收尾。前端用 fetch 的 ReadableStream 边读边追加到界面上——你看到的打字机效果就是这么来的。'
+  derivation: original
+  sources: []
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: client
+      id: c
+      label: 浏览器
+      state: 逐段渲染
+      highlight: true
+    - lane: server
+      id: s
+      label: 服务器
+      state: 逐 token 生成
+    messages:
+    - id: m5
+      from: s
+      to: c
+      label: 'data: {token: "你"}'
+    - id: m6
+      from: s
+      to: c
+      label: 'data: {token: "好"}'
+    - id: m7
+      from: s
+      to: c
+      label: 'data: [DONE]'
+      active: true
+  log:
+  - mode: 阶段 5
+    event: SSE 流式返回 token
+  code:
+    lang: typescript
+    code: "// 前端消费 SSE 流的最小骨架（fetch + ReadableStream）\nconst res = await fetch(url, { method: 'POST', body, headers });\nconst reader = res.body!.getReader(); const dec = new TextDecoder();\nfor (;;) { const { done, value } = await reader.read(); if (done) break;\n  for (const line of dec.decode(value).split('\\n'))\n    if (line.startsWith('data: ')) render(JSON.parse(line.slice(6))); }"
+    note: 真实代码还需处理跨块的半行拼接
+  points:
+  - 首 token 时间（TTFT）决定体感，生下全文的时间决定总时长，两者要分开看
+  - 流式不减少总生成时间，只是把等待摊开并提前呈现
+- id: ws
+  title: SSE 与 WebSocket 的区别
+  tldr: 需要双向实时才上 WebSocket；单向推送用 SSE 就够了，还白得 HTTP 的全部基础设施。
+  body: 'WebSocket 是在 HTTP 升级握手后切换成的独立全双工协议：双方随时互发消息，适合聊天、协作编辑、游戏。但它脱离了普通 HTTP 语义，代理、负载均衡、断线重连都要自己操心。
+
+
+    SSE 只是「一个迟迟不结束的普通 HTTP 响应」，单向（服务端→客户端）恰好匹配 LLM 生成场景，浏览器与网关天然支持、断线可自动重连。所以主流 LLM API 都选 SSE；只有需要客户端持续上行（如实时语音）时才考虑 WebSocket。'
+  derivation: original
+  sources: []
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: client
+      id: c
+      label: 客户端
+    - lane: server
+      id: s
+      label: 服务器
+    messages:
+    - id: m8
+      from: s
+      to: c
+      label: SSE：单向流（够用于 token 推送）
+      active: true
+    - id: m9
+      from: c
+      to: s
+      label: WebSocket：双向消息
+  log:
+  - mode: 对比
+    event: 按方向需求选协议
+  mistake: 以为流式必须用 WebSocket——对单向生成流，SSE 更简单且与 HTTP 基础设施完全兼容。

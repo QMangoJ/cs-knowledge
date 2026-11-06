@@ -31,3 +31,12 @@
   title: "MIT 6.006 Introduction to Algorithms (OCW)"
   url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
   license: "CC BY-NC-SA 4.0（仅作参考链接，不引用内容）"
+- id: rfc-9293
+  title: "RFC 9293: Transmission Control Protocol"
+  url: https://www.rfc-editor.org/rfc/rfc9293
+- id: rfc-9110
+  title: "RFC 9110: HTTP Semantics"
+  url: https://www.rfc-editor.org/rfc/rfc9110
+- id: rfc-1035
+  title: "RFC 1035: Domain Names — Implementation and Specification"
+  url: https://www.rfc-editor.org/rfc/rfc1035
