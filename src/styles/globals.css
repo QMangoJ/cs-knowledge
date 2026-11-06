@@ -233,3 +233,14 @@ details.terminal p{margin:6px 0 0;font-size:var(--fs-sm);color:var(--ink-muted);
 .test-results li.pass{border-color:var(--ok)} .test-results li.fail{border-color:var(--active)}
 details.ref-sol{margin-top:18px;border:1px solid var(--line-mid);border-radius:var(--radius-lg);padding:12px 14px}
 details.ref-sol summary{cursor:pointer;font-weight:700}
+
+/* --- phase2: now-bar / code highlight / scrub / speeds --- */
+.now-bar{margin:0 0 10px;padding:8px 12px;border-left:3px solid var(--active);background:color-mix(in srgb,var(--active) 8%,transparent);font-family:var(--font-cjk);font-size:13px;line-height:1.6}
+.now-bar b{margin-right:8px;color:var(--active)}
+.codeblock .cl{display:block;min-height:1.2em}
+.codeblock .cl.hl{background:rgba(56,189,248,.28);box-shadow:inset 3px 0 0 #38bdf8}
+.stepnav .scrub{flex:0 1 220px;accent-color:var(--active);height:38px}
+.stepnav .speeds{display:inline-flex;gap:4px}
+.stepnav .speeds button{padding:0 10px;height:30px;font-size:12.5px}
+.stepnav .speeds button.on{border-color:var(--active);color:var(--active);font-weight:700}
+@media(max-width:900px){.stepnav .scrub{display:none}.stepnav .speeds button{padding:0 7px}}

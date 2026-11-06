@@ -247,6 +247,48 @@ steps:
   log:
   - mode: bash 继续运行
     event: 子进程被回收，显示下一个提示符
+- id: ipc
+  title: 进程之间怎么说话：IPC 一览
+  tldr: 进程内存互相隔离，合作靠内核提供的通道：管道、共享内存、消息队列、套接字。
+  body: 'fork 出亲缘进程后，最简单的通道是管道（pipe）：父进程在 fork 前建好管道，写端写、读端读，字节流、单向、容量有限（Linux 默认 64KB），写满会阻塞——shell 的 `a | b` 就是它。
+
+    要传大数据或追求速度，用共享内存（mmap 同一个文件或匿名共享段）：数据不经内核拷贝，但「谁写谁读」的同步要自己用锁/信号量解决，所以它总和同步原语成套出现。要传结构化消息，用消息队列或 Unix 域套接字（unix socket）：按条收发、能跨非亲缘进程，本机的服务间通信（如 Docker 与守护进程）多走它。
+
+    选型口诀：字节流小数据用管道；同机服务用 Unix 套接字；大块数据用共享内存 + 自己的同步；跨机器只能走网络套接字。'
+  derivation: original
+  sources:
+  - ref: linux-man-pages
+    locator: pipe(2)/shm_overview(7) 手册
+    claim: 管道是单向字节流通道，共享内存需配合信号量等同步原语使用
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: parent
+      id: sh
+      label: 父进程
+    - lane: kernel
+      id: k
+      label: 内核（管道）
+      highlight: true
+    - lane: child
+      id: c
+      label: 子进程
+    messages:
+    - id: m-ipc
+      from: sh
+      to: k
+      label: write(管道写端）
+      active: true
+    - id: m-ipc2
+      from: k
+      to: c
+      label: 子进程 read() 取走
+  log:
+  - mode: 通信
+    event: 数据经内核管道从父进程流向子进程
 - id: orphan-signal
   title: 孤儿进程与信号
   tldr: 父进程先走了，孩子由别的进程收养；进程之间还能用信号打招呼。

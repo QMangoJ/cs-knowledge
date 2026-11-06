@@ -5,13 +5,13 @@ import type { ViewTopic, ViewSources } from "@/lib/view";
 import type { SourceCitation } from "@/lib/schema";
 import { t, REPO_URL } from "@/i18n";
 import { issueUrl, stepPath } from "@/lib/paths";
-import { Quiz, MarkDone } from "./Quiz";
+import { MarkDone } from "./Quiz";
 
 type NextTopic = { href: string; title: string } | null;
 
 export function Player({ topic, sources, initialStep, nextTopic }: { topic: ViewTopic; sources: ViewSources; initialStep: number; nextTopic: NextTopic }) {
   const total = topic.steps.length;
-  const { index, playing, goTo, next, prev, toggle } = usePlayer(topic.subject, topic.slug, total, initialStep);
+  const { index, playing, goTo, next, prev, toggle, speed, setSpeed } = usePlayer(topic.subject, topic.slug, total, initialStep);
   const step = topic.steps[index]!;
   const rows = topic.steps.slice(0, index + 1).flatMap((s, si) => s.log.map((r, ri) => ({ r, key: `${si}-${ri}`, fresh: si === index })));
 
@@ -47,14 +47,15 @@ export function Player({ topic, sources, initialStep, nextTopic }: { topic: View
           {step.code && (
             <figure className="codeblock">
               <figcaption>{step.code.lang}{step.code.note ? ` · ${step.code.note}` : ""}</figcaption>
-              <pre><code>{step.code.code}</code></pre>
+              <pre><code>{step.code.code.split("\n").map((ln, li) => (
+                <span key={li} className={step.code!.highlight === li + 1 ? "cl hl" : "cl"}>{ln || " "}</span>
+              ))}</code></pre>
             </figure>
           )}
           {step.points && step.points.length > 0 && (
             <div className="points"><h3>{t.points}</h3><ul>{step.points.map((pt) => <li key={pt}>{pt}</li>)}</ul></div>
           )}
           {step.mistake && <p className="mistake"><b>{t.mistake}：</b>{step.mistake}</p>}
-          {index === total - 1 && topic.quiz && topic.quiz.length > 0 && <Quiz items={topic.quiz} topicId={topic.id} />}
           {index === total - 1 && <MarkDone topicId={topic.id} />}
           {step.keyFields && step.keyFields.length > 0 && (
             <details className="more"><summary>{t.keyFields}</summary>
@@ -66,6 +67,9 @@ export function Player({ topic, sources, initialStep, nextTopic }: { topic: View
 
       <section className="col-canvas" aria-label="画布">
         <div className="canvas-wrap">
+          {step.log.length > 0 && (
+            <p className="now-bar" aria-live="polite"><b>{t.nowHappening}</b>{step.log.map((r) => topic.logColumns.map((c) => r[c.key]).filter(Boolean).join(" · ")).join("；")}</p>
+          )}
           <Canvas state={step.canvas} lanes={topic.lanes} />
           {step.canvas.registers && step.canvas.registers.length > 0 && (
             <ul className="regs">{step.canvas.registers.map((r) => <li key={r.name} className={r.changed ? "changed" : ""}><code>{r.name}</code> {r.value}</li>)}</ul>
@@ -105,7 +109,14 @@ export function Player({ topic, sources, initialStep, nextTopic }: { topic: View
       <div className="stepnav" role="toolbar" aria-label="步骤导航">
         {index > 0 && <button type="button" onClick={prev}>← {t.prev}</button>}
         <button type="button" onClick={toggle} disabled={index === total - 1}>{playing ? t.pause : t.play}</button>
+        <input className="scrub" type="range" min={0} max={total - 1} value={index} aria-label={t.scrub}
+          onChange={(e) => goTo(Number(e.target.value))} />
         <span className="count">{index + 1} / {total}</span>
+        <span className="speeds" role="group" aria-label={t.speed}>
+          {(["slow", "normal", "fast"] as const).map((s) => (
+            <button key={s} type="button" className={speed === s ? "on" : ""} aria-pressed={speed === s} onClick={() => setSpeed(s)}>{s === "slow" ? "慢" : s === "fast" ? "快" : "常速"}</button>
+          ))}
+        </span>
         {index < total - 1
           ? <button type="button" onClick={next}>{t.next} →</button>
           : nextTopic ? <a className="btn" href={nextTopic.href}>{t.nextTopic}：{nextTopic.title} →</a> : null}

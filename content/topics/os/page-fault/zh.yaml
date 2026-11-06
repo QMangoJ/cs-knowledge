@@ -249,6 +249,44 @@ steps:
   log:
   - mode: 缺页
     event: 写时复制或文件页读入
+- id: replace
+  title: 页框不够时换谁出去：置换算法
+  tldr: major fault 要腾位子，挑哪一页换出决定了之后还会缺多少次页。
+  body: '新页要装入而没有空闲页框时，内核必须挑一页「牺牲者」：干净的文件页直接丢弃，脏页或匿名页要先写回交换区/文件。挑错了，刚换出的页马上又被访问，缺页率会雪崩——这叫系统抖动（thrashing）。
+
+    理论上最优的是换掉「最久以后才再用到」的那页（Belady 最优，但需要预知未来，只能当标尺）。实用算法都是近似它：LRU 换掉最久没被访问的页，对局部性好的程序非常有效，但维护精确 LRU 要每次访问都更新顺序，太贵；Clock（时钟算法）是它的廉价近似：给每页一个引用位，缺页时指针转圈，引用位为 1 的先给「第二次机会」并清零，为 0 的就是牺牲者——新版 Linux 用多级队列（如 MGLRU）做更细的分代近似。
+
+    工作集（working set）是理解抖动的钥匙：进程在一段时间窗口内真正活跃的页集合。所有进程的工作集之和超过物理内存，怎么换都缺页，只能靠减少并发或加内存解决。'
+  derivation: original
+  sources:
+  - ref: ostep
+    locator: 'Beyond Physical Memory: Policies（页置换策略）'
+    claim: LRU 与 Clock（二次机会）是主流页置换近似算法，抖动源于工作集总和超过物理内存
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: procs
+      id: p
+      label: 程序
+    - lane: kernel
+      id: k
+      label: 内核
+      highlight: true
+    - lane: mem
+      id: r
+      label: 物理内存
+    messages:
+    - id: m-replace
+      from: k
+      to: r
+      label: 无空闲页框：Clock 扫一圈挑牺牲者换出
+      active: true
+  log:
+  - mode: 置换
+    event: 按 LRU/Clock 近似挑最久未用的页换出
 - id: overcommit
   title: 超卖的代价：OOM killer
   tldr: 因为是按需分配，Linux 敢“超卖”内存；真不够时只能杀进程。

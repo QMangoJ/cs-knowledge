@@ -323,6 +323,31 @@ steps:
   log:
   - mode: 总结
     event: 访问顺序影响性能
+- id: sim-lab
+  title: 动手实验：缓存模拟器
+  tldr: 换不同的访问模式跑一遍，看命中率如何从 75% 掉到 0%——局部性不是口号，是数字。
+  body: '实验室是一个 8 行 × 16B 块的直接映射缓存。先跑「按行扫一行」：16 次访问只有每块的第一次未命中，命中率 75%；再跑「按列扫一列」：地址每次跳 64B，不但每步都是新块，还反复挤占同一行，命中率 0%。最后「小数组重复两遍」展示时间局部性：第二遍全部命中。这就是正文里循环交换、tiling 能提速的全部秘密——亲手把数字跑出来，比看十遍结论都牢。'
+  derivation: original
+  sources: []
+  log: []
+  canvas:
+    kind: lab
+    lab: cache-sim
+    caption: 三种访问模式 × 直接映射缓存，命中/未命中实时统计
+    params:
+      lines: 8
+      block: 16
+    cases:
+    - input:
+        addrs: [0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60]
+      expect:
+        hits: 12
+        misses: 4
+    - input:
+        addrs: [0, 64, 128, 192]
+      expect:
+        hits: 0
+        misses: 4
 - id: coherence
   title: 多核：缓存一致性
   tldr: 每个核心有自己的缓存，一个核心改了数据，其他核心的旧副本必须作废。

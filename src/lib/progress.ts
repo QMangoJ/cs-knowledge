@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 
-// localStorage progress: a topic is "done" when its quiz is fully correct OR the reader marks it manually.
+// localStorage progress: a topic is "done" when the reader marks it manually (key kept for compatibility with earlier quiz-based completions).
 export const doneKey = (topicId: string) => `cs-done:${topicId}`;
 export const codingKey = (slug: string) => `cs-coding-done:${slug}`;
 

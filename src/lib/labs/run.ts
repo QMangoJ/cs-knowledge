@@ -5,6 +5,11 @@ import { normInstr, schedule } from "./pipeline.ts";
 import { runLabels, simulateLocks } from "./race.ts";
 import { bsCase } from "./search.ts";
 import { sortCase } from "./sort.ts";
+import { hashCase } from "./hash.ts";
+import { graphCase } from "./graph.ts";
+import { dijkstraCase } from "./dijkstraLab.ts";
+import { heapCase } from "./heapLab.ts";
+import { cacheCase } from "./cacheSim.ts";
 
 type P = Record<string, unknown>;
 export type Runner = (params: P, input: P) => P;
@@ -50,4 +55,5 @@ export function wfgCase(_: P, i: P): P {
 export const RUNNERS: Record<string, Runner> = {
   "bit-editor": bitCase, "addr-split": addrCase, "pipeline-chart": pipeCase,
   interleave: (p, i) => (p.mode === "wait-for-graph" ? wfgCase(p, i) : raceCase(p, i)), "wait-for-graph": wfgCase, "binary-search-lab": bsCase, "sort-compare": sortCase,
+  "hash-playground": hashCase, "graph-walk": graphCase, "dijkstra-lab": dijkstraCase, "heap-lab": heapCase, "cache-sim": cacheCase,
 };

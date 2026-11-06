@@ -412,6 +412,30 @@ steps:
   log:
   - mode: 分析
     event: 耗时与图的大小成正比
+- id: walk-lab
+  title: 动手实验：同一张图，两种走法
+  tldr: 在同一张图上切换 BFS 与 DFS、换起点，亲眼看队列与栈走出完全不同的顺序。
+  body: '实验室里是正文用的同一张图。先从 A 用 BFS 走一遍，记下顺序；再切到 DFS 从 A 出发对比：DFS 会先一头扎进一条支路（C→E→G），再回头补另一边。换个起点（比如从 G）再各走一遍，验证「顺序由数据结构决定，不由图决定」。'
+  derivation: original
+  sources: []
+  log: []
+  canvas:
+    kind: lab
+    lab: graph-walk
+    caption: BFS/DFS 切换 + 任意起点，队列/栈内容实时可见
+    cases:
+    - input:
+        mode: bfs
+        start: A
+      expect:
+        order: [A, B, C, D, E, F, G]
+        visited: 7
+    - input:
+        mode: dfs
+        start: A
+      expect:
+        order: [A, C, E, G, F, D, B]
+        visited: 7
 - id: topo
   title: DFS 的拿手好戏：环检测与拓扑排序
   tldr: DFS 走到一个“还在当前路径上”的点，说明有环；按完成顺序倒过来，就是依赖顺序。
@@ -485,6 +509,61 @@ steps:
   log:
   - mode: 拓扑排序
     event: 得到依赖顺序
+- id: union-find
+  title: 顺带认识并查集：只问「是不是一伙的」
+  tldr: 有些问题不关心路径，只关心连通性——并查集用近乎 O(1) 的合并与查询回答它。
+  body: '朋友圈分组、网络连通、Kruskal 最小生成树判断「加这条边会不会成环」，问的都是同一件事：两个点是不是已经连通。
+
+    并查集（Union-Find）给每个集合选一个代表（树根）：find(x) 沿父指针找到 x 的根，union(a, b) 把一棵树挂到另一棵下。两个优化缺一不可：按秩/按大小合并（矮树挂到高树下）+ 路径压缩（find 时把沿途节点直接挂到根上）。两者合用，单次操作的均摊复杂度是近乎常数的 α(n)（反阿克曼函数，任何实际 n 下都不超过 5）。
+
+    它与 BFS/DFS 的分工：要枚举路径或顺序用遍历；只问连通性、且边还在动态增加时，用并查集。'
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: 图算法讲义：连通性与并查集
+    claim: 并查集用路径压缩 + 按秩合并实现近乎常数的均摊操作复杂度
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: graph
+    caption: union(A,B)、union(C,D)、union(B,E) 之后只剩两个集合
+    graph:
+      nodes:
+      - id: A
+        x: 5
+        y: 20
+        mark: done
+      - id: B
+        x: 35
+        y: 70
+        mark: done
+      - id: E
+        x: 60
+        y: 15
+        mark: done
+      - id: C
+        x: 70
+        y: 75
+        mark: done
+      - id: D
+        x: 95
+        y: 35
+        mark: done
+      edges:
+      - from: A
+        to: B
+        mark: found
+      - from: B
+        to: E
+        mark: found
+      - from: C
+        to: D
+        mark: found
+  log:
+  - mode: 连通性
+    event: find 同根 = 已连通；不同根 = 还没连
 - id: engineering
   title: 工程里怎么选
   tldr: 找最少步数用 BFS；要穷尽、检测环或排依赖顺序用 DFS。

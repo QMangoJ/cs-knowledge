@@ -12,10 +12,12 @@ const ROUTE: { subject: string; blurb: string }[] = [
   { subject: "os", blurb: "先懂程序是怎么被操作系统托管、调度与保护的——后面所有性能与并发问题都从这里长出来。" },
   { subject: "co", blurb: "再往下看硬件：指令、流水线、缓存与内存表示，理解代码为什么快、为什么慢。" },
   { subject: "dsa", blurb: "把数据组织与查找/排序/图算法练成肌肉记忆，这是面试与工程调优的共同基本功。" },
-  { subject: "network", blurb: "最后补上网络：请求、连接与流式传输——LLM API、推理服务天天在用。" },
+  { subject: "network", blurb: "再补上网络：请求、连接与流式传输——LLM API、推理服务天天在用。" },
+  { subject: "data", blurb: "然后是数据怎么存：B+ 树索引、事务与日志——任何后端服务的地基。" },
+  { subject: "math", blurb: "数学基础穿插着补：概率与期望是理解模型行为与 A/B 实验的语言。" },
   { subject: "coding", blurb: "到「面试刷题」里把算法题在浏览器里真刀真枪写出来、跑测试、看复杂度。" },
 ];
-const ROADMAP = ["数据库与存储：索引、事务、LSM 树与向量数据库", "分布式与并发：一致性、消息队列、限流与重试", "AI 系统基础：GPU 与推理、KV Cache、批处理与量化"];
+const ROADMAP = ["分布式与并发：一致性、消息队列、限流与重试", "存储进阶：LSM 树、复制与向量索引", "AI 系统深化：推理调度、批处理与量化"];
 
 export function Home({ topics }: { topics: HomeTopic[] }) {
   useProgressVersion();
@@ -38,10 +40,10 @@ export function Home({ topics }: { topics: HomeTopic[] }) {
         <div className="progress-wrap" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={t.progress}>
           <div className="progress-bar" style={{ width: `${pct}%` }} />
         </div>
-        <p className="muted">{t.progress}：{doneCount} / {published.length} 个主题（{pct}%）· 完成方式：课末自测全对，或在主题末尾手动标记。</p>
+        <p className="muted">{t.progress}：{doneCount} / {published.length} 个主题（{pct}%）· 完成方式：在每个主题末尾手动标记「已学完」。</p>
       </section>
 
-      {(["os", "co", "dsa", "network"] as const).map((s) => {
+      {(["os", "co", "dsa", "network", "data", "math"] as const).map((s) => {
         const list = topics.filter((x) => x.subject === s);
         return (
           <section key={s} className="subject">

@@ -1,11 +1,13 @@
 {
   "siteName": "计算机科学",
-  "tagline": "操作系统、组成原理、数据结构与算法的分步可视讲解",
+  "tagline": "操作系统、组成原理、数据结构与算法、计算机网络与数据存储的分步可视讲解",
   "subjects": {
     "os": "操作系统",
     "co": "计算机组成原理",
     "dsa": "数据结构与算法",
-    "network": "计算机网络"
+    "network": "计算机网络",
+    "data": "数据存储",
+    "math": "数学基础"
   },
   "comingSoon": "即将推出",
   "draft": "草稿",
@@ -25,11 +27,11 @@
   "notFound": "页面不存在",
   "footer": "代码 MIT，内容 CC BY 4.0；引用材料各按其原许可。本站与上述大学无关联，不代表任何大学背书。",
   "keyboardHint": "← / → 切换步骤，空格播放",
+  "nowHappening": "此刻",
+  "speed": "速度",
+  "scrub": "拖动跳到任意一步",
   "objectives": "学习目标",
   "aiLink": "与 AI 工程的连接",
-  "quiz": "课末自测",
-  "quizDone": "全部答对，主题完成 ✓",
-  "quizProgress": "已答对 {ok} / {total}",
   "points": "要点",
   "mistake": "常见误区",
   "codeNote": "代码",

@@ -386,6 +386,36 @@ steps:
   log:
   - mode: 扩容
     event: 负载因子回落，冲突减少
+- id: playground
+  title: 动手实验：哈希表游乐场
+  tldr: 换不同的键集亲手插入，看冲突如何连环发生、扩容如何把探测次数拉回来。
+  body: '在下面的实验室里试三组键：「连环冲突」组的键模 8 全是 0，每个新键都要顺延好几格；「触发扩容」组在第 6 个键插入前负载因子超过 0.7，容量翻倍、全表重新散列。也可以输入自己的一组数字，验证你的预测：先算每个键的 h(k)，再点单步看它落在哪。'
+  derivation: original
+  sources: []
+  log: []
+  canvas:
+    kind: lab
+    lab: hash-playground
+    caption: 预置键集 + 自定义键集，线性探测 + 0.7 负载因子扩容
+    params:
+      capacity: 8
+    cases:
+    - input:
+        keys: [8, 16, 24]
+        slotOf: 24
+      expect:
+        size: 3
+        probes: 6
+        resizes: 0
+        slotOf: 2
+    - input:
+        keys: [5, 13, 21, 29, 37, 45, 53]
+        slotOf: 53
+      expect:
+        size: 7
+        probes: 22
+        resizes: 1
+        slotOf: 8
 - id: worst-case
   title: 最坏情况与哈希洪水攻击
   tldr: O(1) 是平均情况；如果攻击者故意造出大量冲突的键，哈希表会变慢到 O(n)。

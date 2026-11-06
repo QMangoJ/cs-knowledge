@@ -247,6 +247,45 @@ steps:
   log:
   - mode: 建堆
     event: 自底向上调整
+- id: decrease-key
+  title: 堆的另一半：改小一个键（decrease-key）
+  tldr: Dijkstra 里「发现更短的路」就是给已入堆的节点降值——降了之后让它上浮即可。
+  body: '优先队列不只有进和出：Dijkstra 松弛时，新发现更短距离的那个节点往往已经在堆里了，需要把它的键改小。操作很直白：直接改值，然后从该位置上浮（sift-up）——键只变小，只需要往上修，不需要下沉。
+
+    这也是「用堆优化 Dijkstra」的真正实现细节：很多语言的优先队列（JS 自写、Python heapq）并不提供 decrease-key，于是通行做法是「再 push 一份新距离，取出时发现是旧条目就跳过」（惰性删除）——堆里允许同一节点有多份，靠 dist 数组比对认人。复杂度上多出的条目不超过一条边一份，渐近不变。
+
+    对偶操作 increase-key（改大）则是改值后下沉；两者合起来才让堆支撑得起带更新的调度场景。'
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 6 优先队列：DECREASE-KEY
+    claim: decrease-key 改小键后沿父链上浮是二叉堆支持优先队列更新的标准操作
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: tree
+    caption: 已入堆的 9 被降成 1：从原位置一路向上浮到堆顶
+    tree:
+      nodes:
+      - v: 1
+        mark: found
+      - v: 4
+      - v: 3
+      - v: 7
+      - v: 5
+      - v: 8
+    aux:
+    - label: 改键规则
+      items:
+      - 改小 → 上浮
+      - 改大 → 下沉
+      - 无此 API → 惰性删除
+  log:
+  - mode: 更新
+    event: decrease-key 后节点上浮到新位置
+
 - id: engineering
   title: 工程里的优先队列
   tldr: 调度器、定时器、Top K 问题，背后常常是一个堆。
@@ -290,6 +329,29 @@ steps:
   log:
   - mode: 总结
     event: 需要“随时取最急的”就用堆
+- id: playground
+  title: 动手实验：亲手建堆再逐个取出
+  tldr: 换不同数组建堆，看上浮路径；再把最小值一个个取出，验证输出天然有序。
+  body: '先用「逆序」数组建堆：每个新元素都比父节点小，一路浮到接近堆顶，上浮最频繁；再用「近乎有序」建堆，最后插入的 2 会从数组尾部一路浮到下标 1 附近。建完继续单步取出：每次取走堆顶、末尾补位下沉——取出的序列严格递增，这就是堆排序的后半程。也可以输入自己的一组数（最多 10 个）验证。'
+  derivation: original
+  sources: []
+  log: []
+  canvas:
+    kind: lab
+    lab: heap-lab
+    caption: 预置/自定义数组，插入上浮 + 取顶下沉全程可视
+    cases:
+    - input:
+        values: [9, 4, 7, 1]
+      expect:
+        heapAfterBuild: [1, 4, 7, 9]
+        sorted: [1, 4, 7, 9]
+    - input:
+        values: [5, 2, 8, 2]
+      expect:
+        heapAfterBuild: [2, 2, 8, 5]
+        sorted: [2, 2, 5, 8]
+
 level: 进阶
 minutes: 16
 prereq:

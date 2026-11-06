@@ -13,4 +13,9 @@ export const LABS: Record<string, Loader> = {
   "wait-for-graph": () => import("./WaitForGraph"),
   "binary-search-lab": () => import("./BinarySearchLab"),
   "sort-compare": () => import("./SortCompare"),
+  "hash-playground": () => import("./HashPlayground"),
+  "graph-walk": () => import("./GraphWalk"),
+  "dijkstra-lab": () => import("./DijkstraLab"),
+  "heap-lab": () => import("./HeapLab"),
+  "cache-sim": () => import("./CacheSim"),
 };

@@ -339,6 +339,7 @@ steps:
     lang: typescript
     code: "// 标准二分（闭区间写法）：在有序数组里找 target 的下标，不存在返回 -1\nfunction binarySearch(a: number[], target: number): number {\n  let lo = 0, hi = a.length - 1;          // 不变式：若 target 存在，一定在 [lo, hi] 内\n  while (lo <= hi) {\n    const mid = lo + ((hi - lo) >> 1);    // 防溢出地取中点\n    if (a[mid] === target) return mid;\n    if (a[mid]! < target) lo = mid + 1;   // mid 已排除\n    else hi = mid - 1;\n  }\n  return -1;                               // 区间为空 = 不存在\n}"
     note: 闭区间 [lo, hi] 版本
+    highlight: 6
   points:
   - 先定区间语义（闭/半开），循环条件与收缩跟着语义走，不要混写
   - 每轮区间必须严格变小，否则死循环
@@ -428,6 +429,7 @@ steps:
     lang: typescript
     code: "// lower_bound（半开区间 [lo, hi)）：第一个 >= x 的位置；重复元素时落在最左那个\nfunction lowerBound(a: number[], x: number): number {\n  let lo = 0, hi = a.length;\n  while (lo < hi) {\n    const mid = lo + ((hi - lo) >> 1);\n    if (a[mid]! < x) lo = mid + 1; else hi = mid;\n  }\n  return lo; // upper_bound 把条件换成 <= ，两者相减 = x 出现次数\n}"
     note: 处理重复元素的关键工具
+    highlight: 6
 - id: lab-play
   title: 动手实验：二分查找实验室
   tldr: 自己选目标值单步执行，看 lo/mid/hi 怎么移动、比较次数怎么累积。

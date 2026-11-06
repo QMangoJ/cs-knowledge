@@ -71,7 +71,7 @@ export const LabState = z.object({
 });
 export const CanvasState = z.discriminatedUnion("kind", [SwimlaneState, DatastateState, LabState]);
 
-export const StepCode = z.object({ lang: z.string().min(1), code: z.string().min(1), note: z.string().optional() });
+export const StepCode = z.object({ lang: z.string().min(1), code: z.string().min(1), note: z.string().optional(), highlight: z.number().int().min(1).optional() });
 export const QuizItem = z.object({
   q: z.string().min(1),
   options: z.array(z.string().min(1)).length(4),
@@ -105,7 +105,7 @@ export function parseTerminal(v: string) {
 
 const TopicBase = z.object({
   id: z.string(),
-  subject: z.enum(["os", "co", "dsa", "network"]),
+  subject: z.enum(["os", "co", "dsa", "network", "data", "math"]),
   slug: z.string().regex(/^[a-z0-9-]+$/),
   order: z.number().int(),
   status: z.enum(["published", "draft", "coming-soon"]),
