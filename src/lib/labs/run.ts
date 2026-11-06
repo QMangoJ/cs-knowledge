@@ -3,6 +3,8 @@ import { addBits, decodeTwos, decodeUnsigned, exactDecimal, float32FromBits, flo
 import { parseHex, splitAddress, type AddrCfg } from "./addr.ts";
 import { normInstr, schedule } from "./pipeline.ts";
 import { runLabels, simulateLocks } from "./race.ts";
+import { bsCase } from "./search.ts";
+import { sortCase } from "./sort.ts";
 
 type P = Record<string, unknown>;
 export type Runner = (params: P, input: P) => P;
@@ -47,5 +49,5 @@ export function wfgCase(_: P, i: P): P {
 }
 export const RUNNERS: Record<string, Runner> = {
   "bit-editor": bitCase, "addr-split": addrCase, "pipeline-chart": pipeCase,
-  interleave: (p, i) => (p.mode === "wait-for-graph" ? wfgCase(p, i) : raceCase(p, i)), "wait-for-graph": wfgCase,
+  interleave: (p, i) => (p.mode === "wait-for-graph" ? wfgCase(p, i) : raceCase(p, i)), "wait-for-graph": wfgCase, "binary-search-lab": bsCase, "sort-compare": sortCase,
 };

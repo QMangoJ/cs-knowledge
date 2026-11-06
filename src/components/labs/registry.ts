@@ -11,4 +11,6 @@ export const LABS: Record<string, Loader> = {
   "pipeline-chart": () => import("./PipelineChart"),
   interleave: () => import("./Interleave"),
   "wait-for-graph": () => import("./WaitForGraph"),
+  "binary-search-lab": () => import("./BinarySearchLab"),
+  "sort-compare": () => import("./SortCompare"),
 };
