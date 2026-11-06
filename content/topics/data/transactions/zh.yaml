@@ -1,0 +1,331 @@
+id: data/transactions
+subject: data
+slug: transactions
+order: 2
+status: published
+license: CC-BY-4.0
+title: 事务：ACID、隔离级别与 MVCC
+summary: 多个请求同时改同一份数据、改一半进程崩了——事务用四条性质和一套版本机制把这两件事管住。
+premise: 以银行转账与电商扣库存两个经典场景为例。
+overview:
+- key: 一句话总结
+  value: 事务把一组操作打包成「全做或全不做」，并发时看起来像按某种顺序一个个执行
+- key: ACID
+  value: 原子性（日志 undo）、一致性（约束 + 应用）、持久性（日志 redo + fsync）、隔离性（锁或版本）
+- key: 三种读现象
+  value: 脏读（读到未提交）、不可重复读（同行变了）、幻读（行数变了）
+- key: 隔离级别
+  value: 读已提交 / 可重复读 / 串行化：级别越高越安全也越慢
+- key: MVCC
+  value: 写不覆盖旧值而是造新版本，读按快照看版本——读写互不阻塞的主流实现
+- key: WAL
+  value: 改数据前先把日志顺序落盘，崩溃后 redo 已提交、undo 未提交
+visual: swimlane
+lanes:
+- id: txn
+  label: 事务
+- id: db
+  label: 数据库
+- id: log
+  label: 日志 / 存储
+logColumns:
+- key: mode
+  label: 当前状态
+- key: event
+  label: 发生了什么
+steps:
+- id: why
+  title: 两个必须解决的问题
+  tldr: 并发交错会互相踩，执行中途崩溃会留半成品——事务就是为这两件事发明的打包机制。
+  body: '转账：A 扣 100、B 加 100。扣完还没加时进程崩了，钱凭空消失；两个请求同时读到库存 1、各扣一次，库存变 −1。这些不是业务代码 bug，而是「一组操作必须当成一个整体」这个需求没有被满足。
+
+    事务（transaction）就是这层打包：BEGIN 开始，COMMIT 提交，中间任何一步失败就 ROLLBACK 全部撤销；并发执行时，效果要等价于某种串行顺序。数据库为此提供了 ACID 四条性质。'
+  derivation: original
+  sources:
+  - ref: cmu-15445
+    locator: 事务与并发控制讲义（ACID 与调度）
+    claim: 事务将一组操作作为原子单位执行，并发调度需保证等价于某种串行顺序
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: txn
+      id: t
+      label: 转账事务
+      highlight: true
+    - lane: db
+      id: d
+      label: 数据库
+    - lane: log
+      id: l
+      label: 日志 / 存储
+    messages: []
+  log:
+  - mode: 动机
+    event: 没有事务，崩溃与并发都会把数据留在半成品状态
+- id: acid
+  title: ACID 各自靠什么实现
+  tldr: 原子性靠 undo 日志，持久性靠 redo 日志 + fsync，一致性靠约束，隔离性靠锁或 MVCC。
+  body: '逐条拆开看机制，别停在背单词：A 原子性——要么全生效要么全回滚，靠日志记录「改之前的值」，回滚时反着擦（undo）。C 一致性——事务前后数据满足约束（外键、唯一、余额非负），这是数据库约束与应用逻辑共同的责任。I 隔离性——并发事务互不干扰，靠加锁（悲观）或多版本（MVCC）实现，下一课的主角。D 持久性——COMMIT 返回成功后哪怕立刻断电也不能丢，靠把日志先落盘（WAL + fsync，与文件系统一课的 fsync 是同一件事）。
+
+    注意 I 与 D 的成本最高：真实系统常把隔离级别往下调来换吞吐，这是后面几步的主题。'
+  derivation: original
+  sources:
+  - ref: cmu-15445
+    locator: 并发控制与恢复讲义（ACID 实现机制）
+    claim: 原子性由 undo 日志保证、持久性由预写日志与 redo 保证、隔离性由锁或多版本并发控制保证
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: txn
+      id: t
+      label: 事务
+    - lane: db
+      id: d
+      label: 数据库
+      highlight: true
+    - lane: log
+      id: l
+      label: 日志 / 存储
+    messages:
+    - id: m-acid
+      from: d
+      to: l
+      label: undo 保 A，redo + fsync 保 D
+      active: true
+  log:
+  - mode: 机制
+    event: 每条性质都有对应的实现零件，不是口号
+- id: anomalies
+  title: 三种读现象：隔离不够时会看到什么
+  tldr: 脏读、不可重复读、幻读——名字按「读到的东西有多不可信」排序。
+  body: '脏读：事务 T1 改了余额还没提交，T2 读到了这个中间值；T1 随后回滚，T2 相当于读到了一个从未存在过的值。不可重复读：T1 两次读同一行，中间 T2 把这行改了并提交，两次结果不同。幻读：T1 两次按条件查一批行，中间 T2 插入了新行并提交，第二次多出几行像幻觉——与不可重复读的区别是针对「行集合」而非某一行。
+
+    这三种现象是 SQL 标准定义隔离级别的坐标系：每个级别就是一份「允许出现哪些现象」的清单。'
+  derivation: original
+  sources:
+  - ref: cmu-15445
+    locator: 并发控制讲义（异常与隔离级别）
+    claim: 脏读、不可重复读与幻读是按隔离级别划分的经典并发异常
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: txn
+      id: t
+      label: T1 / T2
+    - lane: db
+      id: d
+      label: 数据库
+      highlight: true
+    - lane: log
+      id: l
+      label: 日志 / 存储
+    messages:
+    - id: m-an
+      from: d
+      to: t
+      label: T2 未提交的改动被 T1 读到 = 脏读
+      active: true
+  log:
+  - mode: 异常
+    event: 先给现象命名，隔离级别就是禁止其中几种
+- id: levels
+  title: 隔离级别：四档取舍
+  tldr: 读未提交 < 读已提交 < 可重复读 < 串行化：每升一档关掉一类现象，代价是并发度下降。
+  body: '四档标准级别与它们禁止的现象：读未提交（Read Uncommitted）什么都可能发生，很少真用；读已提交（Read Committed）禁止脏读——读到的都是已提交版本，许多数据库（如 PostgreSQL）以它为默认；可重复读（Repeatable Read）再禁止不可重复读——同一事务内反复读同一行结果稳定（MySQL InnoDB 默认在这个级别，并用间隙锁等手段处理幻读）；串行化（Serializable）全部禁止，效果等价于事务排队执行，最安全也最贵。
+
+    选级别就是选「我能容忍哪种异常」：报表统计通常读已提交够用；涉及扣款扣库存的关键路径，要么升到可重复读 + 显式锁，要么用乐观锁（版本号）在应用层兜底。'
+  derivation: original
+  sources:
+  - ref: cmu-15445
+    locator: 并发控制讲义（SQL 隔离级别与现象对照）
+    claim: 四档隔离级别分别禁止脏读、不可重复读与幻读，串行化提供完全隔离
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: txn
+      id: t
+      label: 选级别 = 选容忍度
+      highlight: true
+    - lane: db
+      id: d
+      label: 数据库
+    - lane: log
+      id: l
+      label: 日志 / 存储
+    messages:
+    - id: m-lv
+      from: t
+      to: d
+      label: 读已提交：禁脏读 · 可重复读：再禁同行变化 · 串行化：全禁
+      active: true
+  log:
+  - mode: 级别
+    event: 安全与吞吐的旋钮在业务手里
+- id: mvcc
+  title: MVCC：写造新版本，读看旧快照
+  tldr: 更新不覆盖原行，而是生成带时间戳的新版本；读事务按自己开始时的快照挑版本——读写互不阻塞。
+  body: '多版本并发控制（MVCC）是现代数据库隔离的主流实现：每一行可以有多个版本，每个版本记录是哪个事务创建/删除的。事务开始时拿到一个快照（当时已提交事务集合），读一行时挑这个快照里「最新且可见」的版本。
+
+    于是读者永远不被写者挡住（读的是旧版本），写者也不被读者挡住（造新版本即可）；只有写写同行时才冲突，要等或回滚重试。代价是：旧版本要定期清理（vacuum/gc），长事务迟迟不提交，它钉住的快照会让旧版本堆积、表膨胀——运维里「长事务是万恶之源」的说法由此而来。'
+  derivation: original
+  sources:
+  - ref: cmu-15445
+    locator: MVCC 讲义（版本链与快照可见性）
+    claim: MVCC 通过多版本与快照可见性规则使读写不互相阻塞，旧版本需由垃圾回收清理
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: txn
+      id: t
+      label: 读事务（快照）
+      highlight: true
+    - lane: db
+      id: d
+      label: 数据库（版本链）
+    - lane: log
+      id: l
+      label: 日志 / 存储
+    messages:
+    - id: m-mv1
+      from: t
+      to: d
+      label: 按快照读 v2，不等 T9 的 v3 提交
+      active: true
+    - id: m-mv2
+      from: d
+      to: t
+      label: 写者造新版本，读者看旧版本，互不阻塞
+  log:
+  - mode: 版本
+    event: 可见性判断 = 版本的创建/删除事务是否在快照内已提交
+- id: wal
+  title: WAL 与崩溃恢复：日志先走一步
+  tldr: 规矩只有一条：数据页可以晚点落盘，但它对应的日志必须先落盘（write-ahead）。
+  body: '持久性的实现细节：改数据时，先在日志里顺序追加一条记录（包含 redo 信息：改成什麼；与 undo 信息：原来是什麼），日志刷盘后内存里的数据页可以慢慢写回。崩溃后恢复：读日志，已提交事务的改动 redo（哪怕数据页还没写回去），未提交事务的改动 undo 撤销。
+
+    顺序写日志 + 随机写数据页的组合，也是日志型设计（回想 LSM、下一步）反复出现的母题：顺序 IO 便宜，随机 IO 贵；先把「能重建一切的顺序日志」攥在手里，剩下的数据整理可以从容慢慢做。COMMIT 的延迟主要就是等这一次日志 fsync，所以「组提交」（把多个事务的日志合并一次刷）是高吞吐数据库的标配优化。'
+  derivation: original
+  sources:
+  - ref: cmu-15445
+    locator: 恢复讲义（WAL 与 ARIES 思想）
+    claim: 预写日志要求日志在数据页落盘前先落盘，恢复时对已提交事务 redo、未提交事务 undo
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: txn
+      id: t
+      label: 事务
+    - lane: db
+      id: d
+      label: 数据库
+    - lane: log
+      id: l
+      label: 日志 / 存储
+      highlight: true
+    messages:
+    - id: m-wal1
+      from: d
+      to: l
+      label: ① 日志顺序落盘（fsync）
+      active: true
+    - id: m-wal2
+      from: d
+      to: l
+      label: ② 数据页稍后随机写回
+  log:
+  - mode: 恢复
+    event: 崩溃后：redo 已提交，undo 未提交
+  code:
+    lang: sql
+    code: "BEGIN;\nUPDATE accounts SET balance = balance - 100 WHERE id = 1;\nUPDATE accounts SET balance = balance + 100 WHERE id = 2;\nCOMMIT;  -- 返回成功前，日志已落盘：断电也丢不了这笔转账"
+    note: 两条 UPDATE 在日志里是一个不可分割的事务
+    highlight: 4
+- id: practice
+  title: 工程实践清单
+  tldr: 事务要短、冲突要可重试、长事务要监控——大多数线上事故来自把事务当背包什么都往里塞。
+  body: '四条实战经验：其一，事务范围最小化：事务里别发网络请求、别等用户输入，持锁/钉快照的时间就是别人的等待时间。其二，为冲突重试做准备：串行化与 MVCC 写冲突都会让事务失败，代码路径要能安全重试（幂等）。其三，死锁不可怕（数据库会检测并牺牲一个事务），怕的是不重试直接报错给用户。其四，批量任务分片提交：一个改一百万行的事务，会产生巨量日志与版本垃圾，拆成每批几百行、逐批提交。
+
+    下一课的 LSM 树把「先记日志、再整理数据」推向极致：连数据本身都只先追加、后合并。'
+  derivation: original
+  sources:
+  - ref: cmu-15445
+    locator: 并发控制讲义（死锁处理与事务设计）
+    claim: 数据库通过死锁检测牺牲事务，应用需对可重试的事务失败做幂等重试
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: txn
+      id: t
+      label: 应用
+      highlight: true
+    - lane: db
+      id: d
+      label: 数据库
+    - lane: log
+      id: l
+      label: 日志 / 存储
+    messages:
+    - id: m-pr
+      from: t
+      to: d
+      label: 短事务 + 失败重试 + 分批提交
+      active: true
+  log:
+  - mode: 实践
+    event: 事务是稀缺资源：占住的时间越短越好
+level: 进阶
+minutes: 20
+prereq:
+- data/btree-index
+- os/file-system
+objectives:
+- 把 ACID 四性质逐一对应到实现机制
+- 按隔离级别列出各自禁止的读现象
+- 解释 MVCC 的可见性规则与长事务的危害
+aiLink: AI 应用的数据层同样需要事务思维：向量与元数据的双写一致、计费扣额、任务队列的「至少一次 vs 恰好一次」。理解 MVCC 与 WAL，才能读懂现代数据库（含向量库）的并发与持久性设计。
+quiz:
+- q: COMMIT 返回成功后立刻断电，这笔事务为什么不会丢？
+  options:
+  - 因为数据页已经全写回磁盘
+  - 因为提交前日志已通过 WAL 顺序落盘，恢复时可以 redo
+  - 因为内存有备份
+  - 因为断电不会影响数据库
+  answer: 1
+  explain: 持久性靠日志先落盘：数据页可以晚写，日志不行；恢复用日志重做已提交事务。
+- q: MVCC 让读不被写阻塞的办法是？
+  options:
+  - 读时给整表加锁
+  - 更新生成新版本，读事务按自己的快照挑可见版本
+  - 把写请求排队到半夜执行
+  - 禁止并发写
+  answer: 1
+  explain: 多版本 + 快照可见性：读者看旧版本，写者造新版本，互不等待（写写冲突除外）。
+- q: 幻读与不可重复读的区别是？
+  options:
+  - 没有区别
+  - 前者是同一行的值变了，后者是满足条件的行数变了
+  - 前者是行数变了，后者是同一行的值变了
+  - 幻读只发生在删除时
+  answer: 2
+  explain: 不可重复读针对单行值的变化；幻读针对查询结果集行数的变化（新行插入/删除）。

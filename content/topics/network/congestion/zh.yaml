@@ -1,0 +1,317 @@
+id: network/congestion
+subject: network
+slug: congestion
+order: 4
+status: published
+license: CC-BY-4.0
+title: 流量控制与拥塞控制：TCP 的另一半
+summary: 握手只是开始：发送方还要同时回答两个问题——对面收得下吗（流量控制）、网络扛得住吗（拥塞控制）。
+premise: 以一条跨洋长肥连接上的大文件传输为例。
+overview:
+- key: 一句话总结
+  value: 实际发送窗口 = min（接收窗口 rwnd，拥塞窗口 cwnd），一个管对端、一个管网络
+- key: 流量控制
+  value: 接收方在 ACK 里通告剩余缓冲（rwnd），发送方不得超出
+- key: 拥塞信号
+  value: 传统上用丢包（ACK 重复/超时）判断拥塞；现代算法也用时延
+- key: 慢开始
+  value: cwnd 从小开始指数增长，快速试探可用带宽
+- key: AIMD
+  value: 无丢包时线性加、丢包时乘性减——锯齿形曲线，所有流大体公平的来源
+- key: 现代算法
+  value: CUBIC 是 Linux 长期默认；BBR 按瓶颈带宽与 RTT 建模，不把丢包当主要信号
+visual: swimlane
+lanes:
+- id: sender
+  label: 发送方
+- id: net
+  label: 网络（路由器队列）
+- id: receiver
+  label: 接收方
+logColumns:
+- key: mode
+  label: 当前状态
+- key: event
+  label: 发生了什么
+steps:
+- id: why
+  title: 两个不同的「慢」：别把对端和网络搞混
+  tldr: 接收方处理不过来，与网络中间堵车，是两件独立的事，需要两个独立的阀门。
+  body: '设想发送方火力全开：一种失败是接收方应用读得慢，接收缓冲被塞满，再发的只能丢弃重传；另一种失败是中间路由器的队列被所有流一起塞爆，大家集体丢包重传、越重传越堵（拥塞崩溃）。
+
+    TCP 用两个窗口分别管这两件事：接收方通告的 rwnd 管「对端还收得下多少」，发送方自己维护的 cwnd 管「网络里适合在途多少」。实际能发的 = min(rwnd, cwnd)。握手一课管连接的生死，这一课管连接活着时该发多快。'
+  derivation: original
+  sources:
+  - ref: rfc-5681
+    locator: RFC 5681 Section 1-2（拥塞窗口与流量控制的关系）
+    claim: TCP 发送量受接收窗口与拥塞窗口两者中较小者限制
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: sender
+      id: s
+      label: 发送方
+      highlight: true
+    - lane: net
+      id: n
+      label: 网络
+    - lane: receiver
+      id: r
+      label: 接收方
+    messages: []
+  log:
+  - mode: 分工
+    event: rwnd 防对端溢出，cwnd 防网络拥塞
+- id: flow
+  title: 流量控制：rwnd 是怎么通告的
+  tldr: 每个 ACK 都带一个窗口字段：我缓冲里还剩多少空位；发送方未确认的在途数据不得超过它。
+  body: '接收方每发一个 ACK，就在 TCP 头的窗口字段里写上当前接收缓冲的剩余空间。发送方据此保证：已发出但还没被确认的数据量 ≤ rwnd。接收应用读得快、缓冲空，rwnd 就大；应用卡住不读，缓冲被填满，rwnd 变 0，发送方必须停发，只周期性发零窗口探测包等对方重新打开窗口。
+
+    这是点对点的保护，与网络状态无关：哪怕链路空得能跑马，对面说收不下就不能发。'
+  derivation: original
+  sources:
+  - ref: rfc-9293
+    locator: RFC 9293 流量控制与窗口机制一节
+    claim: 接收方通过窗口通告控制发送方的在途数据量，窗口为零时发送方停止发送数据段
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: sender
+      id: s
+      label: 发送方
+    - lane: net
+      id: n
+      label: 网络
+    - lane: receiver
+      id: r
+      label: 接收方
+      highlight: true
+    messages:
+    - id: m-fw
+      from: r
+      to: s
+      label: ACK + 窗口通告：还剩 64KB 空位
+      active: true
+  log:
+  - mode: 流控
+    event: rwnd 随接收应用的读取速度实时变化
+- id: signals
+  title: 拥塞控制先要回答：怎么知道堵了
+  tldr: 网络不会发「我堵了」的通知（基本不会），TCP 只能从丢包与时延的蛛丝马迹里猜。
+  body: '路由器队列满了就直接丢包，没有义务通知任何人。所以经典 TCP 把丢包当作拥塞信号：收到 3 个重复 ACK（说明后面的包到了、中间的丢了）判定丢了一个包；更严重时只能等重传超时（RTO）。
+
+    信号是有噪声的：无线链路的丢包可能只是信号不好，并非拥塞；反过来，队列很长但还没丢包时（bufferbloat），时延已经爆了包还没丢。现代算法（BBR、以及基于时延的 Vegas 系）因此还盯着 RTT 的变化来估拥塞。信号选错，后面所有控制律都会跟着错。'
+  derivation: original
+  sources:
+  - ref: rfc-5681
+    locator: RFC 5681 Section 2-3（丢包检测与快速重传）
+    claim: 经典 TCP 以丢包（重复 ACK 与超时）作为拥塞的主要信号
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: sender
+      id: s
+      label: 发送方
+      highlight: true
+    - lane: net
+      id: n
+      label: 网络
+    - lane: receiver
+      id: r
+      label: 接收方
+    messages:
+    - id: m-sg
+      from: n
+      to: s
+      label: 队列满 → 丢包；发送方靠重复 ACK 猜到
+      active: true
+  log:
+  - mode: 信号
+    event: 丢包是延迟且有噪声的拥塞信号
+- id: slow-start
+  title: 慢开始：先指数试探
+  tldr: 新连接不知道网络能吃多少：cwnd 从几个 MSS 起步，每收到 ACK 就涨，一个 RTT 翻一倍。
+  body: '连接刚建好时对可用带宽一无所知，一上来猛发就是拥塞崩溃的元凶。慢开始（名字误会：其实涨得很快）让 cwnd 从很小的值起步（现代实现初始窗口常见 10 个 MSS 量级），每收到一个 ACK 就把 cwnd 加一个 MSS——效果是每个 RTT 大致翻倍，指数逼近可用带宽。
+
+    指数阶段在两种情况下结束：收到丢包信号，或 cwnd 涨到慢开始阈值 ssthresh（上次丢包时记下的值）。之后转入温和的线性试探。'
+  derivation: original
+  sources:
+  - ref: rfc-5681
+    locator: RFC 5681 Section 3.1 Slow Start
+    claim: 慢开始阶段每个 ACK 使拥塞窗口增加至多一个 MSS，窗口随 RTT 近似指数增长直至 ssthresh 或丢包
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: sender
+      id: s
+      label: 发送方
+      highlight: true
+    - lane: net
+      id: n
+      label: 网络
+    - lane: receiver
+      id: r
+      label: 接收方
+    messages:
+    - id: m-ss
+      from: s
+      to: n
+      label: 'cwnd: 10 → 20 → 40 翻倍中'
+      active: true
+  log:
+  - mode: 慢开始
+    event: 指数增长是为了几 RTT 内找到量级
+- id: aimd
+  title: 拥塞避免与 AIMD：锯齿的由来
+  tldr: 平稳期每个 RTT 把 cwnd 加约 1 个 MSS（加性增）；一旦丢包就把 cwnd 砍半（乘性减）。
+  body: '进入拥塞避免阶段后规则变稳重：加性增（AI）——每个 RTT 大约 +1 MSS，慢慢试探更多带宽；乘性减（MD）——检测到丢包就把 cwnd 乘以 0.5（具体系数随算法版本而定）。快减慢加画出来就是那条经典的锯齿曲线。
+
+    AIMD 的深意在多流共享时：所有流一起加、一损俱损地乘减，减得多的总是发得多的，长期看带宽被大体公平地切分——不用任何中心协调，靠同一条规则自组织出公平，这也是它统治了三十年的原因。超时（比丢包更严重的信号）的反应更激烈：ssthresh 记下当前一半，cwnd 打回初始，重新慢开始。'
+  derivation: original
+  sources:
+  - ref: rfc-5681
+    locator: RFC 5681 Section 3.1/3.2 Congestion Avoidance 与 Fast Retransmit
+    claim: 拥塞避免阶段按 AIMD 调整窗口，丢包时窗口乘性减小，超时则回到慢开始
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: sender
+      id: s
+      label: 发送方（cwnd 锯齿）
+      highlight: true
+    - lane: net
+      id: n
+      label: 网络
+    - lane: receiver
+      id: r
+      label: 接收方
+    messages:
+    - id: m-aimd
+      from: s
+      to: n
+      label: 每 RTT +1 MSS 慢加；丢包即 ×0.5 快减
+      active: true
+  log:
+  - mode: AIMD
+    event: 加性增保试探，乘性减保公平与快速退让
+- id: modern
+  title: 从 Reno 到 CUBIC 与 BBR
+  tldr: 经典 AIMD 在高带宽长时延网络上爬升太慢；CUBIC 改增长曲线，BBR 干脆换思路：直接估瓶颈带宽。
+  body: '带宽×时延（BDP）很大的「长肥管道」里，每 RTT +1 MSS 要爬很久才能填满管道。CUBIC（Linux 长期默认）让窗口增长走一条三次曲线：在接近上次丢包点时慢、之后加速探测，使爬升速度对 RTT 更公平。
+
+    BBR（Google 提出）换了一套世界观：持续测量瓶颈带宽与往返传播时延两个量，把发送速率锚在「带宽 × 时延」这个管道容量上，不等丢包就主动收敛；它的目标是队列里不排长队（低时延），而不是把队列塞满再退。两条路线在同一网络里相遇时的公平性至今仍是研究话题——这也是为什么「换个拥塞算法测速就变」是真实存在的现象。'
+  derivation: original
+  sources:
+  - ref: rfc-5681
+    locator: RFC 5681（经典算法基线；CUBIC 与 BBR 为其后演进）
+    claim: RFC 5681 定义经典慢开始与 AIMD，后续算法在其信号与增长律上演进
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: sender
+      id: s
+      label: 发送方
+      highlight: true
+    - lane: net
+      id: n
+      label: 网络
+    - lane: receiver
+      id: r
+      label: 接收方
+    messages:
+    - id: m-md
+      from: s
+      to: n
+      label: BBR：按估得的瓶颈带宽 × RTT 定速，不等丢包
+      active: true
+  log:
+  - mode: 演进
+    event: 信号之争：丢包派 vs 时延/建模派
+- id: ai-link
+  title: 与 AI 工程的连接
+  tldr: 跨地域同步训练、模型权重分发、流式推理，全都活在拥塞控制的脾气里。
+  body: '分布式训练的梯度同步对网络极敏感：一條流被拥塞控制误伤（比如无线/跨云链路的随机丢包被当成拥塞），整步训练被最慢的流拖住（木桶效应）。生产系统因此会调 BDP 相关的内核参数、换拥塞算法，或把同步搬到专用网络。
+
+    对推理服务更日常的影响是尾延迟：流式输出经过一条拥塞的链路时，cwnd 锯齿会直接变成 token 吐字的抖动。排查「为什么跨区调用忽快忽慢」时，拥塞控制与队列是绕不开的一层。'
+  derivation: original
+  sources:
+  - ref: rfc-5681
+    locator: RFC 5681 Section 1（拥塞控制对网络稳定性的意义）
+    claim: 拥塞控制是端主机对网络负载的主要调节机制，直接影响吞吐与时延
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: sender
+      id: s
+      label: 发送方
+    - lane: net
+      id: n
+      label: 网络
+      highlight: true
+    - lane: receiver
+      id: r
+      label: 接收方
+    messages:
+    - id: m-ai
+      from: n
+      to: s
+      label: 误判一次拥塞，整步训练等最慢的流
+      active: true
+  log:
+  - mode: 影响
+    event: 网络层的一个参数，能放大成应用层的尾延迟
+level: 进阶
+minutes: 18
+prereq:
+- network/tcp-handshake
+objectives:
+- 区分流量控制与拥塞控制各自的保护对象与信号来源
+- 复述慢开始、AIMD 与超时反应的完整规则
+- 说清 CUBIC 与 BBR 相对经典算法改变了什么
+aiLink: 跨区推理的尾延迟、分布式训练的同步效率、权重分发的吞吐，都直接受拥塞控制影响。理解 cwnd 的锯齿，才能解释「带宽明明没跑满、延迟却在抖」这类常见怪事。
+quiz:
+- q: 实际发送速率由哪两个窗口共同决定？
+  options:
+  - 只由接收窗口决定
+  - min（接收窗口 rwnd，拥塞窗口 cwnd)
+  - 只由拥塞窗口决定
+  - 由应用的心情决定
+  answer: 1
+  explain: rwnd 保护接收方缓冲，cwnd 保护网络；在途数据不得超过两者中较小的一个。
+- q: AIMD 的「乘性减」为什么对公平重要？
+  options:
+  - 它让所有连接同时断开
+  - 丢包时发得多的流减得绝对量更大，长期趋向均分带宽
+  - 它提高了总带宽
+  - 它消除了丢包
+  answer: 1
+  explain: 加性增人人相等、乘性减按比例，于是窗口大的流退让更多，多流自组织出大致公平。
+- q: BBR 与经典 Reno/CUBIC 的根本不同是？
+  options:
+  - BBR 不用 ACK
+  - BBR 按测量到的瓶颈带宽与 RTT 建模定速，而非主要依赖丢包信号调窗口
+  - BBR 没有慢开始所以更快
+  - BBR 只用于 UDP
+  answer: 1
+  explain: BBR 把目标定为「管道容量 = 带宽 × 传播时延」，主动避免把队列塞满；经典算法以丢包为主要拥塞信号。

@@ -62,3 +62,27 @@
   title: "Introduction to Algorithms (CLRS), 4th ed., MIT Press"
   url: https://mitpressbookstore.mit.edu/book/9780262046305
   license: copyrighted
+- id: nvidia-cuda
+  title: "NVIDIA CUDA Programming Guide"
+  url: https://docs.nvidia.com/cuda/cuda-programming-guide/01-introduction/programming-model.html
+  license: copyrighted
+- id: cmu-15445
+  title: "CMU 15-445/645 Database Systems 课程讲义"
+  url: https://15445.courses.cs.cmu.edu/fall2026/notes/08-indexes1.pdf
+  license: copyrighted
+- id: mit-6041
+  title: "MIT OCW 6.041SC Probabilistic Systems Analysis and Applied Probability"
+  url: https://ocw.mit.edu/courses/6-041sc-probabilistic-systems-analysis-and-applied-probability-fall-2013/
+  license: CC-BY-NC-SA-4.0
+- id: rfc-5681
+  title: "RFC 5681: TCP Congestion Control"
+  url: https://www.rfc-editor.org/rfc/rfc5681
+  license: rfc
+- id: rfc-9113
+  title: "RFC 9113: HTTP/2"
+  url: https://www.rfc-editor.org/rfc/rfc9113
+  license: rfc
+- id: rfc-9000
+  title: "RFC 9000: QUIC: A UDP-Based Multiplexed and Secure Transport"
+  url: https://www.rfc-editor.org/rfc/rfc9000
+  license: rfc

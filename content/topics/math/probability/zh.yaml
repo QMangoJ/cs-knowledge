@@ -1,0 +1,275 @@
+id: math/probability
+subject: math
+slug: probability
+order: 1
+status: published
+license: CC-BY-4.0
+title: 概率基础：条件概率、贝叶斯与期望
+summary: 不确定的世界用概率说话：这一课只学四件工程与 AI 天天在用的工具——条件概率、贝叶斯、期望、方差与独立性。
+premise: 以告警系统误报、采样温度与 A/B 实验读数三个场景为例。
+overview:
+- key: 一句话总结
+  value: 概率是给「不确定」定的度量衡；条件概率是更新认知的规则，期望是长期平均的预测
+- key: 三条公理
+  value: 非负、总和为 1、不相交事件可加——其余公式都由此推出
+- key: 条件概率
+  value: P(A|B) = P(A∩B) / P(B)：知道 B 发生后，样本空间缩到 B 里面
+- key: 贝叶斯
+  value: 后验 ∝ 似然 × 先验；忽略先验（基础率）是最常见的推理错误
+- key: 期望与方差
+  value: 期望是加权平均且线性可加（不需要独立）；方差量的是波动，相加则需要独立等条件
+- key: 大数定律的直觉
+  value: 样本均值随样本量增大收敛到期望——一切抽样估计的地基
+visual: datastate
+logColumns:
+- key: mode
+  label: 当前状态
+- key: event
+  label: 发生了什么
+steps:
+- id: why
+  title: 为什么工程师要学概率
+  tldr: 模型输出的是概率，实验读的是抽样，系统抖的是随机变量——不用概率的语言，就读不懂三者的说明书。
+  body: '分类模型吐出的 0.8 是概率；A/B 实验说「转化率提升 2%，p<0.05」是概率；请求延迟的 P99 是分布的分位数；采样温度调的是分布的形状。AI 与后端工程的日常语言，一半是概率。
+
+    这一课不求全，只求四件工具真正会用：条件概率（看到证据怎么更新）、贝叶斯（先验别丢）、期望（长期平均怎么算）、方差与独立性（波动有多大、什么时候能相加）。'
+  derivation: original
+  sources:
+  - ref: mit-6041
+    locator: MIT 6.041SC 课程导论（概率模型的用途）
+    claim: 概率论为不确定现象的建模、量化与推断提供统一语言
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 概率出现在工程的每个角落
+    rows:
+    - label: 场景
+      cells:
+      - v: 模型置信度
+      - v: A/B 实验
+      - v: 延迟 P99
+      - v: 采样温度
+  log:
+  - mode: 动机
+    event: 先建立语言，再谈公式
+- id: model
+  title: 概率模型：样本空间、事件与三条公理
+  tldr: 先圈定所有可能结果（样本空间），事件是它的子集，概率是给事件赋值的三条规矩。
+  body: '任何概率问题先建模：样本空间 Ω 是全部可能结果的集合（掷骰子是 {1..6}）；事件是 Ω 的子集（「掷出偶数」）；概率 P 给每个事件一个 0 到 1 的数，只需满足三条公理：非负；P(Ω)=1；互不相交的事件并集概率 = 各自概率之和。
+
+    公式感来自建模：把问题翻译成「样本空间是什么、事件是哪个子集」，剩下的大半是集合运算。建模错了（比如把不独立当独立、把样本空间漏了），公式再熟也救不回来。'
+  derivation: original
+  sources:
+  - ref: mit-6041
+    locator: MIT 6.041SC Unit I（概率模型与公理）
+    claim: 概率由样本空间、事件与满足非负/归一/可加三条公理的概率律定义
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 三条公理是全部公式的地基
+    rows:
+    - label: 公理
+      cells:
+      - v: P ≥ 0
+      - v: P(Ω) = 1
+      - v: 不交并集可加
+        mark: found
+  log:
+  - mode: 建模
+    event: 先有样本空间，再有概率
+- id: conditional
+  title: 条件概率：证据如何收缩世界
+  tldr: P(A|B) 是「已知 B 发生」后 A 的概率：把样本空间缩进 B，再看 A 占多少。
+  body: '定义 P(A|B) = P(A∩B) / P(B)（要求 P(B) > 0）。直觉是分母换人：原来的世界是 Ω，现在已知身处 B，概率要在 B 内部重新归一化。乘法法则就是它的变形：P(A∩B) = P(A|B)·P(B)，链式展开能处理一串先后事件。
+
+    一个立刻有用的推论：P(A|B) 与 P(B|A) 是两个完全不同的数——「有症状的人患病率」与「患者有症状的比例」不可互换。分不清这两者，是概率推理翻车的头号原因，下一步的贝叶斯就是专门治它的。'
+  derivation: original
+  sources:
+  - ref: mit-6041
+    locator: MIT 6.041SC 条件概率与乘法法则一节
+    claim: 条件概率定义为 P(A|B)=P(A∩B)/P(B)，乘法法则由此导出
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 已知 B 后，世界只剩 B，A 的占比重新算
+    rows:
+    - label: 原世界 Ω
+      cells:
+      - v: A∩B
+        mark: found
+      - v: B 的其余部分
+      - v: B 之外
+        mark: muted
+    - label: P(A|B)
+      cells:
+      - v: '= A∩B / B'
+        mark: found
+  log:
+  - mode: 条件
+    event: 条件 = 换分母，不是小事
+- id: bayes
+  title: 贝叶斯与基础率：告警为什么总是狼来了
+  tldr: 后验 = 似然 × 先验 ÷ 证据；当先验（基础率）极低时，再准的检测也大多是误报。
+  body: '贝叶斯公式 P(H|E) = P(E|H)·P(H) / P(E) 说的是：看到证据 E 后，对假设 H 的信念 = 它原本多常见（先验）× 真时证据多容易出现（似然），再归一化。
+
+    经典算例（数字为教学设定）：某故障的真实发生率是 0.1%，告警系统对真故障的检出率 99%，对正常情况的误报率 1%。告警响了，真是故障的概率 = 0.99×0.001 / (0.99×0.001 + 0.01×0.999) ≈ 9%。九成是误报——不是系统烂，是基础率太低。同理适用于：稀有病筛查、风控拦截、异常检测与 LLM 评估里的小样本类别。'
+  derivation: original
+  sources:
+  - ref: mit-6041
+    locator: MIT 6.041SC 贝叶斯法则与推断一节
+    claim: 贝叶斯公式 P(H|E)=P(E|H)P(H)/P(E) 用先验与似然更新后验概率
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 告警响起时（教学数字）:真故障约占 9%，其余多是误报
+    rows:
+    - label: 告警来源
+      cells:
+      - v: 真故障被检出 ≈ 9%
+        mark: found
+      - v: 正常情况误报 ≈ 91%
+        mark: active
+  log:
+  - mode: 贝叶斯
+    event: 先验极低时，先怀疑证据（误报）而不是世界
+  code:
+    lang: python
+    code: "# 贝叶斯一行版：告警响了，真是故障的概率\nprior = 0.001        # 基础率：故障本身多罕见\nsens = 0.99          # 真故障时告警的概率（检出率）\nfpr = 0.01           # 正常时误报的概率\nposterior = sens * prior / (sens * prior + fpr * (1 - prior))\nprint(posterior)     # ≈ 0.09 —— 九成是误报"
+    note: 改三个数，就能给任何检测系统算后验
+    highlight: 5
+- id: expectation
+  title: 随机变量与期望：长期平均的预测
+  tldr: 期望 E[X] = Σ x·P(X=x)：不是「最可能的值」，是重复很多次后的平均落点。
+  body: '随机变量是把结果变成数字的函数（掷骰子的点数、一次请求的延迟）。期望是按概率加权的平均：骰子期望 3.5——一次永远掷不出 3.5，但掷一万次的平均会稳定在 3.5 附近（大数定律）。
+
+    期望最有用的性质是线性：E[X+Y] = E[X] + E[Y]，不需要 X、Y 独立。总延迟 = 各段延迟之和时，总期望直接相加，不管各段是否相关——这是做容量与成本估算时天天在用的免费午餐。方差 Var 量波动大小：Var(X)=E[(X−E[X])²]；它就没有这么客气了，只有独立（至少不相关）时才有 Var(X+Y)=Var(X)+Var(Y)。'
+  derivation: original
+  sources:
+  - ref: mit-6041
+    locator: MIT 6.041SC 随机变量、期望与方差章节
+    claim: 期望具有线性性且不需要独立性假设；独立随机变量之和的方差等于方差之和
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 线性是期望的特权，方差没有
+    rows:
+    - label: 期望
+      cells:
+      - v: E[X+Y] = E[X]+E[Y]
+        mark: found
+      - v: 永远成立
+        mark: found
+    - label: 方差
+      cells:
+      - v: Var 之和需独立/不相关
+      - v: 否则有协方差项
+  log:
+  - mode: 期望
+    event: 估平均看期望，估波动看方差，别混用
+- id: independence
+  title: 独立性：最容易被滥用的假设
+  tldr: 独立 = 知道 B 不改变对 A 的判断（P(A∩B)=P(A)P(B））；系统里「双机房同挂」多半是独立性假设破产。
+  body: '独立的定义很干净：P(A|B) = P(A)。它让很多计算成立：连乘概率、方差相加、二项分布。但现实里独立性是最爱被默认、又最容易破产的假设：两个「独立」副本在同一机架、同一可用区、同一上游依赖时，故障是相关的——以为的双保险其实是单点。
+
+    工程用法有二：一是算概率时明确写下「这里假设独立」并想想靠不靠谱；二是设计上主动制造独立（跨可用区、不同依赖、不同实现），让假设更接近真相。'
+  derivation: original
+  sources:
+  - ref: mit-6041
+    locator: MIT 6.041SC 独立性一节
+    claim: 事件独立定义为 P(A∩B)=P(A)P(B)，是概率连乘与方差相加的前提
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 独立是算出来的便利，更是设计出来的性质
+    rows:
+    - label: 假设独立
+      cells:
+      - v: 双副本同挂概率 = p²
+      - v: 前提：真独立
+        mark: active
+    - label: 相关故障
+      cells:
+      - v: 同区/同依赖 → 一起挂
+        mark: active
+  log:
+  - mode: 独立
+    event: 用公式前，先审独立性
+- id: ai-link
+  title: 与 AI 工程的连接
+  tldr: 采样是按分布掷骰子，评估是抽样估计，置信度要校准——概率是模型的母语。
+  body: '生成模型每步输出的是词表上的概率分布，温度参数把分布拉尖或拍平再抽样——温度高就是让低概率词更容易被抽中。模型评估（准确率、通过率）本质是抽样估计：样本越少，读数越要带着置信区间看，拿 20 条样本的 95% 和 2000 条的 95% 比大小是经典笑话。
+
+    还有校准（calibration)：模型说「80% 把握」的一批预测里，长期真的应有约 80% 正确——期望与频率的长期一致性，就是这一课的大数定律。读任何 benchmark 前，先问三件事：样本量、先验（基础率）、是否独立抽样。'
+  derivation: original
+  sources:
+  - ref: mit-6041
+    locator: MIT 6.041SC 大数定律与统计推断章节
+    claim: 样本均值随样本量增大收敛到期望，构成抽样估计与频率解释的基础
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 读 benchmark 的三连问
+    rows:
+    - label: 三连问
+      cells:
+      - v: 样本量多大？
+      - v: 基础率多少？
+      - v: 抽样独立吗？
+        mark: found
+  log:
+  - mode: 应用
+    event: 概率不是考试题，是读数的眼镜
+level: 基础
+minutes: 18
+prereq: []
+objectives:
+- 用样本空间与三条公理为简单场景建模
+- 独立算出带基础率的贝叶斯后验并解释结果
+- 正确使用期望线性与方差相加的条件
+aiLink: 概率是模型的母语：采样温度在改分布，评估在做抽样估计，置信度需要校准。学完这一课，再看任何模型指标与实验报告，都能先问对问题。
+quiz:
+- q: 检测系统对罕见故障的告警大多是误报，主要因为？
+  options:
+  - 检测系统质量差
+  - 基础率（先验）太低：正常样本的绝对数量远大于故障样本
+  - 告警声音太小
+  - 概率不适用于工程
+  answer: 1
+  explain: 后验 ∝ 似然 × 先验；故障占 0.1% 时，1% 的误报率产生的误报数远超真故障的检出数。
+- q: 关于期望与方差的相加，正确的是？
+  options:
+  - 两者都需要独立才成立
+  - 期望相加永远成立；方差相加需要独立（或不相关）
+  - 两者都永远成立
+  - 期望相加需要独立
+  answer: 1
+  explain: 线性是期望的固有性质；方差相加时会出现协方差项，只有不相关时才消失。
+- q: P(A|B） 与 P(B|A) 的关系是？
+  options:
+  - 总是相等
+  - 一般不相等，靠贝叶斯公式与各自的先验换算
+  - 前者总是更大
+  - 后者不定义
+  answer: 1
+  explain: 「患者有症状率」与「有症状者患病率」是两个数，混淆它们是概率推理的头号错误。

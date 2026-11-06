@@ -1,0 +1,331 @@
+id: os/io-multiplexing
+subject: os
+slug: io-multiplexing
+order: 8
+status: published
+license: CC-BY-4.0
+title: IO 多路复用：从阻塞到 epoll
+summary: 一个线程盯一万个连接的办法：别让每个连接占一个线程睡觉，用 epoll 让内核告诉你谁就绪了。
+premise: 以一个要同时服务上万个长连接的推理网关为例。
+overview:
+- key: 一句话总结
+  value: 阻塞 IO 让线程睡觉等数据；多路复用让一个线程等「任意一个连接就绪」的通知
+- key: select / poll
+  value: 每次调用把全部 fd 传给内核并线性扫描，连接多了开销随之线性涨
+- key: epoll
+  value: fd 先注册进内核，内核维护就绪列表，epoll_wait 只返回就绪的那批
+- key: LT 与 ET
+  value: 水平触发：没读完会反复通知；边缘触发：只通知一次，必须读到 EAGAIN
+- key: 事件循环
+  value: Reactor 模式：单线程 epoll + 回调，Node.js/Nginx/Redis 的共同骨架
+- key: 非阻塞的代价
+  value: 读写变成「可能只完成一半」的状态机编程，代码复杂度上升
+visual: swimlane
+lanes:
+- id: app
+  label: 应用线程
+- id: kernel
+  label: 内核
+- id: net
+  label: 网络 / 对端
+logColumns:
+- key: mode
+  label: 当前状态
+- key: event
+  label: 发生了什么
+steps:
+- id: why
+  title: 问题：一个连接一个线程为什么撑不住
+  tldr: 连接大多时间在等数据，线程却被占着——一万个连接就是一万个睡着的线程。
+  body: '最直觉的服务器写法：accept 一个连接就开一个线程，线程里 read 阻塞等数据。连接数少时没问题；到了上万长连接（聊天、推送、LLM 流式响应），每个线程光栈内存就是一笔账，线程切换与调度开销也随之而来，而它们 99% 的时间在睡觉等数据。
+
+    这就是著名的 C10K 问题：瓶颈不在 CPU，而在「等待的姿势」。解决方向：让等待不占线程——一个线程同时盯住很多连接，谁有数据处理谁。'
+  derivation: original
+  sources:
+  - ref: linux-man-pages
+    locator: epoll(7) 手册开头的问题陈述
+    claim: 传统每连接一线程/进程模型在大量连接下扩展性差，epoll 为此而设计
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: app
+      id: a
+      label: 10000 个线程
+      highlight: true
+    - lane: kernel
+      id: k
+      label: 内核
+    - lane: net
+      id: n
+      label: 10000 个连接
+    messages: []
+  log:
+  - mode: 瓶颈
+    event: 线程都在阻塞等待，内存与切换先于 CPU 耗尽
+- id: blocking
+  title: 阻塞与非阻塞：read 的两种脾气
+  tldr: 阻塞 read 没数据就睡；非阻塞 read 没数据立刻返回 EAGAIN，代价是你要自己重试与拼数据。
+  body: 'socket 默认阻塞：read 没数据时线程被挂起，直到数据到达。把 fd 设为 O_NONBLOCK 后，read/write/accept 都变成「能做多少做多少」：没数据返回 -1 且 errno=EAGAIN；写缓冲区满时只写进一部分就返回，你得记住写到哪了。
+
+    非阻塞是事件驱动的前提，但单独用非阻塞只会得到忙轮询（CPU 空转）。必须配一个「等通知」的机制，CPU 才能在没事时真正睡下。'
+  derivation: original
+  sources:
+  - ref: linux-man-pages
+    locator: accept(2)/read(2) 与 fcntl(2)（O_NONBLOCK）手册
+    claim: 非阻塞模式下无数据可读时返回 EAGAIN 而不是挂起调用者
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: app
+      id: a
+      label: 应用线程
+      highlight: true
+    - lane: kernel
+      id: k
+      label: 内核
+    - lane: net
+      id: n
+      label: 对端
+    messages:
+    - id: m-blk
+      from: a
+      to: k
+      label: 非阻塞 read → 立刻 EAGAIN（没数据）
+      active: true
+  log:
+  - mode: 非阻塞
+    event: 没有数据就立刻返回，线程不睡但也没事可做
+- id: select-poll
+  title: 第一代方案：select / poll
+  tldr: 把一堆 fd 一次交给内核等，但每次调用都要全量传递并线性扫描，连接越多越贵。
+  body: 'select 让进程把关心的 fd 集合交给内核，内核等到任一 fd 就绪（或超时）才返回。它的问题：fd 上限受 FD_SETSIZE（通常 1024）限制；且每次调用都要把整个集合拷进内核、线性扫一遍确认谁就绪——连接数 n 大时，每次等待的成本是 O(n)。
+
+    poll 去掉了数量上限（用数组传 fd），但全量传递 + 线性扫描的本质没变。连接少时它们足够好，这也是它们至今仍在用的原因。'
+  derivation: original
+  sources:
+  - ref: linux-man-pages
+    locator: select(2)/poll(2) 手册
+    claim: select 受 FD_SETSIZE 限制且每次调用需传入完整 fd 集合，内核线性检查就绪状态
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: app
+      id: a
+      label: 应用线程
+    - lane: kernel
+      id: k
+      label: 内核
+      highlight: true
+    - lane: net
+      id: n
+      label: 对端
+    messages:
+    - id: m-sel
+      from: a
+      to: k
+      label: 每次把全部 fd 交给内核扫描
+      active: true
+  log:
+  - mode: 扫描
+    event: 就绪的可能只有 1 个，扫描的却是全部 n 个
+- id: epoll
+  title: epoll：注册一次，只报就绪
+  tldr: fd 先用 epoll_ctl 注册进内核的兴趣列表；数据到达时内核把 fd 放进就绪列表，epoll_wait 只拿这批。
+  body: 'epoll 把「等」拆成两步：epoll_create 建一个 epoll 实例；epoll_ctl 把 fd 注册进去（一次注册、长期有效）；epoll_wait 睡等，内核在某个注册 fd 就绪时把它加入就绪列表，wait 返回这批就绪 fd。
+
+    成本结构完全变了：注册是偶尔做的事，wait 的开销只与「就绪了几个」相关，与总连接数基本无关。这就是它能撑十万级连接的原理——不是更快地扫，而是根本不扫。'
+  derivation: original
+  sources:
+  - ref: linux-man-pages
+    locator: epoll(7)/epoll_wait(2) 手册
+    claim: epoll 通过注册兴趣列表与就绪列表，使等待开销只取决于就绪事件数
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: app
+      id: a
+      label: 应用线程
+    - lane: kernel
+      id: k
+      label: 内核（epoll）
+      highlight: true
+    - lane: net
+      id: n
+      label: 对端
+    messages:
+    - id: m-ep1
+      from: a
+      to: k
+      label: epoll_ctl 注册 fd（一次）
+      active: true
+    - id: m-ep2
+      from: n
+      to: k
+      label: 数据到达 → fd 进就绪列表
+    - id: m-ep3
+      from: k
+      to: a
+      label: epoll_wait 返回就绪的那批
+  log:
+  - mode: 就绪
+    event: 一万个连接里只有 3 个有数据，就只返回 3 个
+  code:
+    lang: c
+    code: "int ep = epoll_create1(0);\nstruct epoll_event ev = { .events = EPOLLIN, .data.fd = fd };\nepoll_ctl(ep, EPOLL_CTL_ADD, fd, &ev);      // 注册一次\nstruct epoll_event out[64];\nint n = epoll_wait(ep, out, 64, -1);        // 睡等：只返回就绪的\nfor (int i = 0; i < n; i++) handle(out[i].data.fd);"
+    note: epoll 三件套的最小骨架
+    highlight: 5
+- id: lt-et
+  title: 水平触发 vs 边缘触发
+  tldr: LT：缓冲区还有数据就一直通知你；ET：只在「新数据到达」时通知一次，必须一口气读到 EAGAIN。
+  body: 'epoll 有两种触发语义。水平触发（LT，默认）：只要 fd 还就绪（接收缓冲区里还有没读完的数据），每次 epoll_wait 都会带上它——编程简单，漏读了下次还有机会。
+
+    边缘触发（ET，用 EPOLLET 开启）：只在状态变化的那一刻通知一次。收到通知后必须循环 read 直到返回 EAGAIN，把数据读干；读一半就停，剩下的再也不会有通知，连接就此饿死。ET 换来的是更少的重复唤醒，代价是编程纪律必须严格。'
+  derivation: original
+  sources:
+  - ref: linux-man-pages
+    locator: epoll(7) 手册（level-triggered 与 edge-triggered 一节）
+    claim: 边缘触发要求在通知后持续读/写直到返回 EAGAIN，否则可能不再收到通知
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: app
+      id: a
+      label: 应用线程
+      highlight: true
+    - lane: kernel
+      id: k
+      label: 内核（epoll）
+    - lane: net
+      id: n
+      label: 对端
+    messages:
+    - id: m-et
+      from: a
+      to: k
+      label: ET 模式：read 循环直到 EAGAIN
+      active: true
+  log:
+  - mode: 触发
+    event: LT 宽容、ET 高效但漏读即饿死
+- id: reactor
+  title: 事件循环与 Reactor 模式
+  tldr: 单线程「等事件 → 分发 → 处理回调」的循环，就是 Node.js、Nginx、Redis 的共同骨架。
+  body: '把上面的零件组装起来：一个主循环反复 epoll_wait，拿到就绪 fd 后按注册的回调分发（可读就读、可写就写、定时器到点就触发），处理完回到等待。这就是 Reactor 模式。
+
+    Node.js 的 libuv、Nginx 的 worker、Redis 的单线程快，都建立在它之上。单线程事件循环没有锁竞争，代价是回调里绝不能阻塞——一个慢查询堵住循环，成千上万个连接一起停摆（这正是 Node 里「不要阻塞事件循环」的由来）。多核扩展靠多进程/多实例（每个进程一个循环），而不是在循环里加锁。'
+  derivation: original
+  sources:
+  - ref: linux-man-pages
+    locator: epoll(7) 手册（典型用法一节）
+    claim: epoll 的典型用法是单线程事件循环：等待就绪事件并分发处理
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: app
+      id: a
+      label: 事件循环
+      highlight: true
+    - lane: kernel
+      id: k
+      label: 内核（epoll）
+    - lane: net
+      id: n
+      label: 对端
+    messages:
+    - id: m-re
+      from: a
+      to: k
+      label: epoll_wait → 分发回调 → 再等
+      active: true
+  log:
+  - mode: 循环
+    event: 回调必须快：阻塞循环 = 阻塞所有连接
+- id: engineering
+  title: 工程选型：什么时候用哪套
+  tldr: 连接少用线程池 + 阻塞 IO 也很好；长连接多、单请求便宜，才是 epoll 事件驱动的主场。
+  body: '别把事件驱动当银弹：阻塞 IO + 线程池代码直白、调试容易，几百连接毫无压力；Go 的 goroutine 更是把「一连接一轻量线程」做回主流（运行时内部帮你用 epoll）。
+
+    真正需要手写事件驱动的场景：连接数以万计且大多空闲（推送、网关、流式 API 中继），或延迟对尾部极敏感。LLM 网关的流式转发就是典型：上万个 SSE 连接同时挂着，每个连接只是偶尔来一个 token chunk—— epoll + 非阻塞读写几乎是唯一合理的姿势。'
+  derivation: original
+  sources:
+  - ref: linux-man-pages
+    locator: epoll(7) 手册
+    claim: epoll 面向大量 fd 且就绪比例低的场景优化
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: app
+      id: a
+      label: 网关
+      highlight: true
+    - lane: kernel
+      id: k
+      label: 内核（epoll）
+    - lane: net
+      id: n
+      label: 上万流式连接
+    messages:
+    - id: m-en
+      from: k
+      to: a
+      label: 哪个连接来了 chunk 就处理哪个
+      active: true
+  log:
+  - mode: 选型
+    event: 按连接规模与空闲比例选模型，不要盲目异步化
+level: 进阶
+minutes: 20
+prereq:
+- os/syscall
+- os/context-switch
+objectives:
+- 解释每连接一线程模型在 C10K 下的瓶颈
+- 对比 select/poll 与 epoll 的成本结构
+- 说清 LT 与 ET 的编程纪律差异
+aiLink: 推理网关与流式 API 中继的并发模型就是这一课：上万个 SSE/WebSocket 长连接同时在线、每个只是间歇来数据，epoll 事件循环是标准解法。Node.js 服务「事件循环被堵住」类事故，根源也在这里。
+quiz:
+- q: epoll 比 select 快的根本原因是什么？
+  options:
+  - epoll 用了更快的 CPU 指令
+  - fd 只需注册一次，epoll_wait 只返回就绪列表，不必每次全量传递并扫描
+  - epoll 不经过内核
+  - epoll 会自动多线程
+  answer: 1
+  explain: select/poll 每次调用的成本随连接数线性增长；epoll 的等待成本只与就绪事件数有关。
+- q: 边缘触发（ET）下收到可读通知后，正确的做法是？
+  options:
+  - 读一次就停，下次通知再读
+  - 循环读直到返回 EAGAIN，把数据读干
+  - 等对端再发一次
+  - 关闭再重开连接
+  answer: 1
+  explain: ET 只在状态变化时通知一次；不读干，剩余数据不会再触发通知，连接会被饿死。
+- q: 单线程事件循环里最忌讳什么？
+  options:
+  - 回调函数太短
+  - 在回调里执行阻塞/耗时的操作，堵住所有连接的处理
+  - 连接数太多
+  - 使用非阻塞 socket
+  answer: 1
+  explain: 循环是所有连接共用的传送带；一个回调卡住，后面所有事件都得排队等待。

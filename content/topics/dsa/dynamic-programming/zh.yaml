@@ -1,0 +1,287 @@
+id: dsa/dynamic-programming
+subject: dsa
+slug: dynamic-programming
+order: 8
+status: published
+license: CC-BY-4.0
+title: 动态规划：把重复子问题存下来
+summary: DP 不是某个算法，而是一种视角：问题能拆成重叠的子问题、且子问题的最优能拼出全局最优时，把子答案存下来避免重复计算。
+premise: 以斐波那契、0/1 背包与最长递增子序列为例。
+overview:
+- key: 一句话总结
+  value: 状态定义 + 转移方程 + 边界 + 计算顺序，四件套缺一不可
+- key: 两个前提
+  value: 最优子结构（大问题的最优含子问题的最优）+ 子问题重叠（同一子问题被反复求解）
+- key: 两种实现
+  value: 自顶向下记忆化（递归 + 缓存）与自底向上递推（按顺序填表），等价
+- key: 与分治区别
+  value: 分治的子问题互不重叠（归并排序）；重叠了就是 DP 的地盘
+- key: 与贪心区别
+  value: 贪心每步只选一个最优、不可撤销；DP 把所有候选子状态都算过再取最优
+- key: 复杂度
+  value: 状态数 × 每个状态的转移成本；状态设计错了，再优化也白搭
+visual: datastate
+logColumns:
+- key: mode
+  label: 当前状态
+- key: event
+  label: 发生了什么
+steps:
+- id: why
+  title: 从斐波那契看清「重复」有多贵
+  tldr: fib(n) 的朴素递归会把 fib(n−2) 算指数次；画出递归树就知道浪费在哪。
+  body: 'fib(5) 会调用 fib(4) 与 fib(3)，fib(4) 又调用 fib(3)……同一子问题在递归树里出现许多次，总调用量随 n 指数增长——不是算法思路错，是同一份答案被反复重算。
+
+    只要把算过的子答案存进一张表（记忆化），每个子问题只算一次，总成本立刻降到 O(n)。DP 的全部魔力就这一句：识别重叠的子问题，并保证每个只解一次。'
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 15 Dynamic Programming（记忆化与最优子结构）
+    claim: 动态规划通过保存子问题解避免重复计算，适用于具有最优子结构与重叠子问题的问题
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 朴素递归的重复（fib(3) 被算 2 次，n 越大越夸张）vs 存表后每个只算一次
+    rows:
+    - label: 朴素递归
+      cells:
+      - v: fib(3) ×2
+        mark: active
+      - v: fib(2) ×3
+        mark: active
+      - v: 指数级调用
+    - label: 记忆化
+      cells:
+      - v: fib(3) ×1
+        mark: found
+      - v: fib(2) ×1
+        mark: found
+      - v: 总共 O(n)
+        mark: found
+  log:
+  - mode: 动机
+    event: DP = 递归 + 一张答案表
+- id: conditions
+  title: 两个前提：最优子结构 + 子问题重叠
+  tldr: 大问题的最优解能由子问题的最优解拼出来，且子问题会被反复用到——两条都满足才用 DP。
+  body: '最优子结构：问题的最优解包含其子问题的最优解。背包里「容量 c 时的最优」必然建立在「容量更小的时候的最优」之上；最短路径的子路径也是最短的（Dijkstra/Bellman-Ford 背后也是这个性质）。
+
+    子问题重叠：子问题总数不多项式级、且被高频复用。若子问题互不重叠（如归并排序的两半），那是分治，不需要存表。若两个前提不全满足（比如子问题之间互相牵制、不能独立求解），DP 也用不上——状态设计的第一关就是把问题切成「能独立求解又会被复用」的子问题。'
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 15.3 Elements of Dynamic Programming
+    claim: 最优子结构与重叠子问题是动态规划适用的两个要素
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 先过这两关，再谈状态怎么写
+    rows:
+    - label: 检查单
+      cells:
+      - v: 子最优能拼全局最优？
+      - v: 子问题会被重复求解？
+      - v: 两者皆是 → DP
+        mark: found
+  log:
+  - mode: 前提
+    event: 不满足最优子结构的题，DP 会给出错误答案
+- id: knapsack-state
+  title: 背包问题：状态怎么定义
+  tldr: 状态 = 「考虑到前 i 件物品、容量还剩/已用 c 时的最优价值」；转移 = 这件拿还是不拿，两者取大。
+  body: '0/1 背包：n 件物品各有重量 w 与价值 v，背包容量 W，每件至多拿一次，求最大总价值。贪心不行（按性价比拿会被大件堵死），但 DP 可以：
+
+    定义 dp[i][c] = 只考虑前 i 件、容量上限 c 时的最大价值。看第 i 件：不拿它，答案是 dp[i−1][c]；拿它，前提是 c ≥ w_i，答案是 dp[i−1][c−w_i] + v_i。取两者最大值就是转移方程；边界 dp[0][*] = 0。状态总数 n×W，每个状态 O(1) 转移，总复杂度 O(nW)。'
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 15/16 背包问题讨论（0/1 与分数的对比）
+    claim: 0/1 背包用按物品与容量定义的 DP 状态求最优，贪心对 0/1 背包不适用
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 转移的全部内容：拿与不拿，取大
+    rows:
+    - label: 不拿第 i 件
+      cells:
+      - v: dp[i−1][c]
+    - label: 拿第 i 件
+      cells:
+      - v: dp[i−1][c−wᵢ] + vᵢ
+    - label: dp[i][c]
+      cells:
+      - v: = 两者取 max
+        mark: found
+  log:
+  - mode: 状态
+    event: 状态定义的维度决定了表的大小与复杂度
+- id: knapsack-fill
+  title: 填表：顺序为什么重要
+  tldr: dp[i] 只依赖 dp[i−1]，所以按 i 从小到大算即可；空间还能压成一维，但容量必须倒着遍历。
+  body: '自底向上实现时，转移只引用上一行，所以从 i=1 算到 n 一定没问题（需要的值都已算出）。进一步，第 i 行只用到第 i−1 行，表可以压成一维数组：dp[c] 表示当前考虑完已处理物品、容量 c 的最优。
+
+    一维化有个著名陷阱：若 c 从小到大遍历，同一件物品会被本轮重复使用（变成完全背包）；必须让 c 从大到小遍历，保证每个 c 引用的是「上一轮」的值。这一行顺序，就是 0/1 与完全背包在代码上的全部分界。'
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 15 自底向上计算顺序
+    claim: DP 表的计算顺序须保证转移引用的子问题先被求解
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 一维背包：容量倒序遍历是 0/1 的关键
+    rows:
+    - label: c 正序（错）
+      cells:
+      - v: 本轮新值被复用
+        mark: active
+      - v: 物品被重复拿
+    - label: c 倒序（对）
+      cells:
+      - v: 引用上轮的值
+        mark: found
+      - v: 每件至多一次
+        mark: found
+  log:
+  - mode: 实现
+    event: 同一份转移，一维正序是完全背包、倒序是 0/1 背包
+  code:
+    lang: typescript
+    code: "// 0/1 背包：一维 DP，容量必须倒序\nfunction knapsack(w: number[], v: number[], W: number): number {\n  const dp = new Array(W + 1).fill(0);   // dp[c]: 容量 c 的最大价值\n  for (let i = 0; i < w.length; i++) {\n    for (let c = W; c >= w[i]!; c--) {   // 倒序：保证每件只用一次\n      dp[c] = Math.max(dp[c]!, dp[c - w[i]!]! + v[i]!);\n    }\n  }\n  return dp[W]!;\n}"
+    note: 把内层改成正序，语义就变成完全背包
+    highlight: 5
+- id: sequence
+  title: 序列型 DP：LIS 与编辑距离
+  tldr: 状态挂在「位置」上：LIS 的 dp[i] 是以 a[i] 结尾的最长递增子序列；编辑距离的 dp[i][j] 是两前缀互变的最小代价。
+  body: '另一大类是序列问题。最长递增子序列（LIS）：dp[i] = 必须以 a[i] 结尾的最长递增子序列长度，转移是回头看所有 j<i 且 a[j]<a[i] 的 dp[j]+1 取最大，O(n²)；另有维护「尾巴数组 + 二分」的 O(n log n) 解法（与二分查找一课呼应）。
+
+    编辑距离（Levenshtein）：dp[i][j] = 把字符串 A 的前 i 个字符变成 B 的前 j 个字符的最小操作数，转移三选一：删（dp[i−1][j]+1）、增（dp[i][j−1]+1）、改/不变（dp[i−1][j−1] + 本位是否相同）。diff 工具、拼写纠正、DNA 比对都是它的变体。'
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 15 最长公共子序列与编辑距离类问题
+    claim: 序列类问题可用按前缀定义状态的 DP 求解，编辑距离由增删改三种转移构成
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 编辑距离表：每个格子来自左、上、左上三个邻居
+    rows:
+    - label: dp[i][j]
+      cells:
+      - v: 删 dp[i−1][j]+1
+      - v: 增 dp[i][j−1]+1
+      - v: 改 dp[i−1][j−1]+?
+        mark: found
+  log:
+  - mode: 序列
+    event: 状态定义在前缀上，转移只看附近格子
+- id: design
+  title: 拿到一道题：四步设计法
+  tldr: 先定义状态（「dp[x] 到底表示什么」说清一句话），再写转移，再定边界与遍历顺序，最后数复杂度。
+  body: '实战口诀：① 状态：一句话说清 dp 的每一个维度代表什么、答案在哪个格子里；② 转移：最后一个决策有几种可能（拿/不拿、选谁结尾、最后一步从哪来），每种写一项；③ 边界：最小状态（空集、长度 0/1）逐个填对；④ 顺序：保证转移引用的状态先算出（必要时画依赖方向）。
+
+    写不出来时先暴力递归把问题解出来（递归函数 f 就是状态的定义），再给它加缓存——记忆化与递推只是同一状态的两种执行方式。最后才谈空间压缩（滚动数组），别为了省空间先把逻辑写错。'
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: 动态规划讲义（状态与子问题设计）
+    claim: DP 设计流程为定义子问题、猜测选择、写出递推、确定计算顺序与复杂度
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 四步：状态 → 转移 → 边界 → 顺序
+    rows:
+    - label: 流程
+      cells:
+      - v: 状态一句话
+      - v: 最后决策枚举
+      - v: 边界填对
+      - v: 顺序保依赖
+        mark: found
+  log:
+  - mode: 方法
+    event: 先写对递归 + 缓存版，再优化成递推
+- id: ai-link
+  title: 与 AI 工程的连接
+  tldr: 解码里的 beam search 是近似版 DP 思想；强化学习的价值迭代就是字面意义的 DP。
+  body: '序列生成不能枚举全部句子（指数级），beam search 每步只保留得分最高的 k 条前缀——相当于把 DP 表按宽度截断、用近似换可行性（它与 Viterbi 的关系：Viterbi 是在隐马尔可夫模型上做精确 DP，beam 是它的工程近似）。
+
+    强化学习更直接：贝尔曼方程就是转移方程，价值迭代就是自底向上填表。序列对齐（注意力之前的时代）、语音识别解码、拼写纠正，也都是编辑距离家族。当你能把一个工程问题写成「状态 + 转移」，一半的解法已经在手里了。'
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 15（Viterbi 类序列解码的思想背景）
+    claim: 基于状态转移的精确动态规划（如 Viterbi）是序列解码的标准方法，束搜索是其实用的近似
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 精确 DP 太宽时，beam search 按得分把表截成 k 列
+    rows:
+    - label: 精确 DP
+      cells:
+      - v: 全部前缀状态
+      - v: 最优保证
+    - label: beam k=4
+      cells:
+      - v: 每步只留前 4
+        mark: active
+      - v: 近似最优
+  log:
+  - mode: 近似
+    event: 宽度换速度：beam 越宽越接近精确解
+level: 进阶
+minutes: 22
+prereq:
+- dsa/binary-search
+- dsa/merge-quick-sort
+objectives:
+- 判断一道题是否满足 DP 的两个前提
+- 独立写出 0/1 背包的状态、转移与一维优化（含倒序原因）
+- 用四步法为序列问题设计状态与转移
+aiLink: beam search 的近似 DP、强化学习的贝尔曼方程、序列对齐与解码——DP 是 AI 工程里最隐形的基本功。面试里它也是出现频率最高的题型之一，状态设计能力就是这里的分水岭。
+quiz:
+- q: 使用动态规划的两个前提是？
+  options:
+  - 数据有序 + 可以二分
+  - 最优子结构 + 子问题重叠
+  - 可以贪心 + 数据量小
+  - 递归深度有限
+  answer: 1
+  explain: 子问题的最优能拼出全局最优，且同一子问题被反复求解，存表才有意义。
+- q: 一维 0/1 背包为什么容量要倒序遍历？
+  options:
+  - 为了让数组更好看
+  - 正序会引用本轮刚更新的值，导致同一物品被重复使用（变成完全背包）
+  - 倒序速度更快
+  - 没有区别，随便选
+  answer: 1
+  explain: 倒序保证 dp[c−w] 还是「未考虑当前物品」时的值，每件物品至多用一次。
+- q: 记忆化递归与自底向上递推的关系是？
+  options:
+  - 完全不同的两种算法
+  - 同一状态定义的两种执行方式：前者按需计算，后者按依赖顺序全算
+  - 递推一定更慢
+  - 记忆化不需要定义状态
+  answer: 1
+  explain: 两者共享状态与转移方程；记忆化只算被用到的状态，递推按顺序算全部状态。

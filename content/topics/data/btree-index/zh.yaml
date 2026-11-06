@@ -1,0 +1,287 @@
+id: data/btree-index
+subject: data
+slug: btree-index
+order: 1
+status: published
+license: CC-BY-4.0
+title: B+ 树与数据库索引
+summary: 索引为什么不用二叉树而用 B+ 树？因为磁盘按页读写——让一页装几百个键，树就只有 3–4 层。
+premise: 以一张千万级行数、按用户 id 查询的表为例（页大小取 16KB 量级）。
+overview:
+- key: 一句话总结
+  value: B+ 树是为磁盘优化的多叉搜索树：内节点只放键做导航，数据全在叶子，叶子之间用链表相连
+- key: 为什么不用二叉树
+  value: 二叉树每层一次随机 IO，几十层就是几十次；B+ 树 3–4 层就装下千万级键
+- key: 扇出怎么来
+  value: 一页 16KB，每条导航项约 16B，一页约上千个键/指针
+- key: 范围查询
+  value: 先定位起点叶子，再顺着叶子链表顺序扫——这是哈希索引做不到的
+- key: 写的代价
+  value: 叶子满了要分裂、可能向上传播；索引本身也要维护，写多读少时是负担
+- key: 聚簇与二级索引
+  value: 主键索引的叶子直接是行数据（InnoDB 式）；二级索引叶子存主键值，查整行要再查一次（回表）
+visual: datastate
+logColumns:
+- key: mode
+  label: 当前状态
+- key: event
+  label: 发生了什么
+steps:
+- id: why
+  title: 没有索引时，查询在做什么
+  tldr: 全表扫描：一页一页读完所有数据。数据量翻倍，查询时间就翻倍。
+  body: 'SELECT * FROM users WHERE id = 42。没有索引时数据库只能全表扫描（sequential scan）：把表的每一页读进来逐行比对。表有 1000 万行时，每次点查都要扫完整张表——CPU 还在其次，主要是把几十 GB 数据过一遍的 IO 时间。
+
+    索引的本质：额外维护一份「按某个键排好序、能快速定位」的数据副本，用空间与写入时的维护成本，换查询时只读 O(层数) 页。选哪个数据结构，取决于存储介质：数据在磁盘上，就必须按「页」思考。'
+  derivation: original
+  sources:
+  - ref: cmu-15445
+    locator: Lecture 08 Indexes & Filters（索引定义）
+    claim: 索引是表属性子集的有序副本，使 DBMS 能比全表顺序扫描更快定位元组
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 全表扫描：每一页都要读
+    rows:
+    - label: 表的页
+      cells:
+      - v: 页1 读
+        mark: active
+      - v: 页2 读
+        mark: active
+      - v: ……
+      - v: 第 N 页 读
+        mark: active
+  log:
+  - mode: 扫描
+    event: 点查一次，读完整张表
+- id: fanout
+  title: 关键数字：一页能装多少键
+  tldr: 页 16KB ÷ 每条（键 8B + 指针 8B）约等于 1000——每多一层，容量乘以约 1000。
+  body: '搜索树的层数由扇出（每节点的孩子数）决定。二叉树扇出 2：装 10^9 个键要约 30 层，每层一次随机 IO，30 次 IO 一次点查就偏慢了。
+
+    磁盘的最小读写单位是页（常见 16KB 量级，具体因系统而异）。让一个节点恰好是一页：一页能装约 16KB / 16B ≈ 1000 条「键 + 子指针」，扇出就是约 1000。容量随层数乘 1000：1 层 10^3、2 层 10^6、3 层 10^9——三四层就够装下绝大多数业务表，每层还通常被缓存，真正的磁盘 IO 往往只剩叶子那 1 次。'
+  derivation: original
+  sources:
+  - ref: cmu-15445
+    locator: Lecture 08 B+Tree 性质（m 路搜索树与扇出）
+    claim: B+ 树是高扇出的平衡搜索树，节点按页大小设计以减少磁盘访问层数
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 扇出约 1000 时，层数与容量的关系（量级示意）
+    rows:
+    - label: 层数
+      cells:
+      - v: '1 层 ~10^3'
+      - v: '2 层 ~10^6'
+      - v: '3 层 ~10^9'
+        mark: found
+    - label: 二叉树对照
+      cells:
+      - v: 10^9 需要 ~30 层
+        mark: muted
+  log:
+  - mode: 扇出
+    event: 介质决定节点大小，节点大小决定树高
+- id: shape
+  title: B+ 树的形状：内节点导航，叶子装数据
+  tldr: 与 B 树的区别在「+」：内节点只放分隔键不放数据，全部数据（或行指针）在叶子层，叶子用链表串起来。
+  body: 'B+ 树是多路搜索树：每个内节点存 k 个分隔键、指向 k+1 个孩子，键把值域切成 k+1 段。查找时在节点内对分隔键做二分（和二分查找课同款），决定往哪个孩子走，直到叶子。
+
+    「+」的两个设计：其一，内节点不存数据行，于是同样一页能塞更多导航键、扇出更大；其二，所有叶子在同一深度（完美平衡）且按序用链表相连——定位到一个叶子后，范围扫描就是沿链表顺序读，不需要回树上折腾。真正的 B 树（无 +）数据散在各层，没有叶子链表，范围扫与扇出都吃亏，所以现代数据库索引几乎都用 B+ 树。'
+  derivation: original
+  sources:
+  - ref: cmu-15445
+    locator: Lecture 08 B+Tree 定义（叶存值、内节点 k 键 k+1 孩子、叶子同深度）
+    claim: B+ 树仅在叶子节点保存值、叶子层以兄弟指针相连支持高效范围扫描，且树是完美平衡的
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 内节点只导航；叶子层装全部数据并串成链表
+    rows:
+    - label: 内节点
+      cells:
+      - v: '分隔键 100 | 200'
+        mark: active
+    - label: 叶子（链表）
+      cells:
+      - v: '…87, 92…'
+      - v: '…130, 166… →'
+      - v: '…210, 258…'
+  log:
+  - mode: 结构
+    event: 查单点走树，查范围走叶子链表
+- id: lookup
+  title: 一次点查到底读几页
+  tldr: 从根到叶子读「层数」页（通常 3–4），上层页大概率在内存缓存里，真实磁盘 IO 往往只剩 1 次。
+  body: '查 id=166：读根页，在分隔键 [100, 200] 里定位到 100 ≤ 166 < 200，走中间孩子；读到内节点页再比一次，进对应叶子页；在叶子内二分找到 166，取行指针（或直接取行，见聚簇一节）。
+
+    账要算清楚：3–4 页的访问里，根与上层节点被反复使用、常驻缓冲池（buffer pool），所以慢的只有叶子那一次可能的磁盘读。对照全表扫描的几十万页，这就是索引快几个数量级的原因。'
+  derivation: original
+  sources:
+  - ref: cmu-15445
+    locator: Lecture 08 B+Tree 查找过程
+    claim: B+ 树查找从根逐层向下到叶子，访问页数等于树高
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 查 166 的路径：根 → 内节点 → 叶子
+    rows:
+    - label: 路径
+      cells:
+      - v: 根 [100|200]
+      - v: '→ 中间孩子'
+      - v: 叶子内二分命中
+        mark: found
+  log:
+  - mode: 查询
+    event: 页访问数 = 树高，与数据总量基本无关
+- id: split
+  title: 插入与分裂：树如何长高
+  tldr: 叶子写满就分裂成两个、向父节点塞一个分隔键；父节点也满就继续分裂，分裂传到根时树长高一层。
+  body: '插入先定位叶子。叶子还有空位，直接插入并保持有序。叶子满了：分裂成两个叶子，各装一半，原父节点插入一个新的分隔键指向新叶子。若父节点也满，递归向上分裂；根分裂时新建一个根，树高 +1——这是 B+ 树唯一长高的方式，所以所有叶子永远同深度。
+
+    删除对称地会触发合并。分裂/合并是索引的主要写成本之一，也是「批量导入时先建数据后建索引更快」的原因：逐条插入要不断分裂，自底向上批量构建则一次成型。'
+  derivation: original
+  sources:
+  - ref: cmu-15445
+    locator: Lecture 08 B+Tree 插入与节点分裂；自底向上批量构建
+    claim: B+ 树插入在节点满时分裂并向上传播，根分裂使树增高；排序后自底向上构建最快
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 叶子满 → 分裂 → 父节点多一个分隔键
+    rows:
+    - label: 分裂前
+      cells:
+      - v: 叶子 [10 20 30 40] 满
+        mark: active
+    - label: 分裂后
+      cells:
+      - v: '[10 20]'
+      - v: '[30 40]'
+      - v: 父节点插入键 30
+        mark: found
+  log:
+  - mode: 写入
+    event: 分裂保持「所有叶子同深度」
+- id: clustered
+  title: 聚簇索引、二级索引与回表
+  tldr: InnoDB 式组织：主键索引的叶子就是整行数据；二级索引的叶子只存主键值，查整行要再走一次主键索引。
+  body: '表数据本身怎么放？主流做法（InnoDB）是把表组织成一棵以主键为键的 B+ 树：叶子节点直接存整行，这棵树叫聚簇索引——所以主键查询最快，且主键范围扫描就是顺序读叶子。
+
+    在其他列上建的二级索引是另一棵 B+ 树，叶子存的是「该列值 → 主键值」。用它查整行要两次走树：先在二级索引拿到主键（回表），再去聚簇索引取行。若查询的列都在二级索引里（覆盖索引），就免了回表。建索引前先想清楚查询模式，就是这个原因。'
+  derivation: original
+  sources:
+  - ref: cmu-15445
+    locator: Lecture 08 索引组织与表存储讨论
+    claim: 表可按键组织为聚簇索引，二级索引保存主键引用，取完整行需二次查找
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 二级索引查整行：先拿主键，再回表
+    rows:
+    - label: 二级索引（email)
+      cells:
+      - v: email → 主键 42
+        mark: active
+    - label: 聚簇索引（主键）
+      cells:
+      - v: 主键 42 → 整行
+        mark: found
+  log:
+  - mode: 回表
+    event: 覆盖索引能在第一步就返回所需列，省掉回表
+- id: when-not
+  title: 索引的代价与用不上的情形
+  tldr: 每加一个索引，每次写入都要多维护一棵树；而有些查询模式，索引压根用不上。
+  body: '索引不是免费的：INSERT/UPDATE/DELETE 都要同步维护所有相关 B+ 树（还可能触发分裂）；索引占磁盘与缓存空间；列基数太低（如性别）时索引区分不了多少行，优化器干脆不用。
+
+    经典「用不上」清单（来自 CMU 讲义的例子）：LIKE ''%abc'' 前缀通配打头无法定位起点（''abc%'' 可以）；对索引列做函数/运算（如 WHERE lower(name)=…，除非建函数索引）；隐式类型转换导致走不了索引。写 SQL 时先想「这棵 B+ 树能不能帮我定位起点」，大半问题迎刃而解。'
+  derivation: original
+  sources:
+  - ref: cmu-15445
+    locator: Lecture 08/09 索引使用条件（LIKE 前缀示例）
+    claim: 以通配符开头的 LIKE 无法使用 B+ 树索引，而前缀匹配可以；索引增加写入维护成本
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 能定位起点才有索引可用
+    rows:
+    - label: 用得上
+      cells:
+      - v: id = 42
+        mark: found
+      - v: name LIKE 'ab%'
+        mark: found
+      - v: ts BETWEEN a AND b
+        mark: found
+    - label: 用不上
+      cells:
+      - v: name LIKE '%ab'
+      - v: lower(name) = 'x'
+  log:
+  - mode: 选型
+    event: 索引为读加速、为写收税
+  code:
+    lang: sql
+    code: "-- 建索引前，先写出你要加速的查询\nCREATE INDEX idx_users_email ON users(email);\n-- 命中：WHERE email = 'a@b.c'      （定位起点）\n-- 命中：WHERE email LIKE 'a@%'     （前缀范围）\n-- 不命中：WHERE email LIKE '%@b.c' （起点无法定位）"
+    note: 索引的全部技巧都在「能不能定位」
+    highlight: 2
+level: 进阶
+minutes: 20
+prereq:
+- dsa/bst-trees
+- os/file-system
+objectives:
+- 从页大小算出一棵 B+ 树的扇出与层数量级
+- 说清 B+ 与 B 树的三点区别与范围扫描的路径
+- 解释回表、覆盖索引与索引失效的典型情形
+aiLink: 向量数据库的索引（HNSW 等）是另一类结构，但「用空间与写成本换查速度、按介质设计结构」的思维完全同源；RAG 系统的元数据过滤、时序数据的按时间索引，也都是在 B+ 树与倒排索引之间做选择。先把这一课吃透，再看任何新型索引都不慌。
+quiz:
+- q: B+ 树为什么层数能做到 3–4 层就装千万级键？
+  options:
+  - 因为键都被压缩了
+  - 节点按磁盘页设计，一页装数百上千个键，扇出极大
+  - 因为数据只存一半
+  - 因为用了哈希
+  answer: 1
+  explain: 扇出约 10^3 时容量按层乘 10^3，三层即约 10^9 量级。
+- q: B+ 树相比 B 树最关键的两个设计是？
+  options:
+  - 节点更小、层数更多
+  - 数据只存在叶子且叶子同层并以链表相连
+  - 不用排序
+  - 根节点存全部数据
+  answer: 1
+  explain: 内节点只导航使扇出更大；叶子链表使范围扫描成为顺序读。
+- q: 哪种查询通常用不上普通 B+ 树索引？
+  options:
+  - WHERE id = 42
+  - WHERE name LIKE 'ab%'
+  - WHERE name LIKE '%ab'
+  - WHERE ts > 100
+  answer: 2
+  explain: 前缀通配打头无法在有序索引中定位起点，只能全扫。

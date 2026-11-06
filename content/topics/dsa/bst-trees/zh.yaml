@@ -1,0 +1,288 @@
+id: dsa/bst-trees
+subject: dsa
+slug: bst-trees
+order: 7
+status: published
+license: CC-BY-4.0
+title: 二叉搜索树与平衡：AVL 与红黑的直觉
+summary: 哈希表快但无序；要「有序地存、按范围取」，就用搜索树——再解决它退化成链表的问题。
+premise: 以一组整数的插入顺序不同导致树形不同为例。
+overview:
+- key: 一句话总结
+  value: BST 约定左 < 根 < 右，中序遍历即有序；平衡机制保证高度 O(log n)
+- key: 三种操作
+  value: 查/插/删都是从根向下走一条路，成本正比于树高
+- key: 退化
+  value: 按有序顺序插入普通 BST 会退化成链表，O(n)
+- key: AVL
+  value: 每个节点左右高度差 ≤ 1，靠旋转修复，平衡最严
+- key: 红黑树
+  value: 用颜色规则放宽平衡（最长路 ≤ 2× 最短路），旋转更少，工程最常用
+- key: 工程里
+  value: Java TreeMap、C++ std::map 是红黑树；数据库索引用它的多叉亲戚 B+ 树
+visual: datastate
+logColumns:
+- key: mode
+  label: 当前状态
+- key: event
+  label: 发生了什么
+steps:
+- id: why
+  title: 为什么哈希表之外还要树
+  tldr: 哈希表查单点 O(1)，但回答不了「大于 X 的最小元素」「X 到 Y 之间全部」这类有序问题。
+  body: '很多需求天生有序：排行榜取一段、时间线按范围截取、字典序找前后邻居。哈希表把键打散了，顺序信息全丢；排序数组查询快但插入要搬移一半元素。
+
+    二叉搜索树（BST）是折中：动态增删的同时保持全局有序，中序遍历输出即排序结果。它还是后面 B+ 树索引、各种有序容器的直系祖先。'
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 12 Binary Search Trees
+    claim: 二叉搜索树支持动态有序集合的查找、插入、删除与范围遍历，中序遍历得到有序序列
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: tree
+    caption: 左小右大：中序遍历 3, 5, 8, 10, 12 天然有序
+    tree:
+      nodes:
+      - v: 8
+        mark: found
+      - v: 3
+      - v: 12
+      - v: 1
+      - v: 5
+      - v: 10
+      - v: 14
+  log:
+  - mode: 有序
+    event: 哈希表做不到范围与邻居查询，树可以
+- id: search-insert
+  title: 查找与插入：一条向下的路
+  tldr: 从根开始，比根小往左、比根大往右；找到或走到空位——插入就落在那个空位上。
+  body: '查找 target：站在根上比较，小了去左子树、大了去右子树、相等命中。每一步排除一半候选（若树是平衡的），走到空指针说明不存在。插入就是一次失败的查找：新节点必然落在查找终止的那个空位置，成为叶子。
+
+    所以两者成本都正比于树高 h：平衡时 O(log n)，退化时 O(n)——树高就是 BST 的一切。'
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 12.2/12.3 查询与插入
+    claim: BST 查找与插入都沿唯一一条自根向下的路径进行，时间为 O(h)
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: tree
+    caption: 找 10：8 → 12 → 10，三步命中
+    tree:
+      nodes:
+      - v: 8
+      - v: 3
+      - v: 12
+        mark: active
+      - v: 1
+      - v: 5
+      - v: 10
+        mark: found
+      - v: 14
+  log:
+  - mode: 查找
+    event: 每比较一次排除一棵子树
+  code:
+    lang: typescript
+    code: "type Node = { key: number; left?: Node; right?: Node };\nfunction search(root: Node | undefined, x: number): Node | undefined {\n  let cur = root;\n  while (cur) {\n    if (x === cur.key) return cur;        // 命中\n    cur = x < cur.key ? cur.left : cur.right;  // 排除一半\n  }\n  return undefined;                        // 走到空 = 不存在\n}"
+    note: 插入 = 一路查到空位后把新节点挂上
+    highlight: 5
+- id: delete
+  title: 删除：三种情况，难在有两个孩子
+  tldr: 叶子直接删；一个孩子用孩子顶替；两个孩子用右子树最小值（后继）的值填进来再删后继。
+  body: '删除是 BST 最麻烦的操作，按孩子数分三种：没有孩子，直接摘掉；只有一个孩子，把父节点的指针绕过它、直连它的孩子；两个孩子都有，不能直接摘（会断成两截）——标准做法是找它的中序后继（右子树中最靠左的节点，它至多一个右孩子），把后继的值抄过来，再删后继那个节点（落回前两种情况）。
+
+    记住这套分工：真正被摘掉的节点永远至多一个孩子。'
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 12.3 删除
+    claim: BST 删除两孩子节点时以中序后继替代，并将问题归结为删除至多一个孩子的节点
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: tree
+    caption: 删 8（两孩子）：后继是 10，抄值后改删 10 所在的叶位置
+    tree:
+      nodes:
+      - v: 8→10
+        mark: active
+      - v: 3
+      - v: 12
+      - v: 1
+      - v: 5
+      - v: 10
+        mark: found
+      - v: 14
+  log:
+  - mode: 删除
+    event: 两孩子情形转化为「抄后继值 + 删后继」
+- id: degeneration
+  title: 退化：插入顺序能毁掉一棵树
+  tldr: 依次插入 1,2,3,4,5… 普通 BST 不做任何调整，树变成一条向右的链，O(log n) 变回 O(n)。
+  body: '把已排序的数据逐个插入 BST：每个新元素都比所有现存节点大，一路右拐到底——最后树是一条链表，查找退化为线性扫描。随机插入顺序时期望高度是 O(log n)，但「数据本来就接近有序」在工程里太常见了（自增 id、时间戳），不能赌运气。
+
+    结论：需要一种机制，在插入/删除后自动把树高摁在 O(log n)——这就是自平衡搜索树存在的理由。'
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 12.4 随机建树与期望高度
+    claim: 随机插入的 BST 期望高度为 O(log n)，但最坏情形（有序插入）退化为 O(n)
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 有序插入：每个新最大值都只能挂到最右端
+    rows:
+    - label: 退化链
+      cells:
+      - v: '1'
+      - v: '→ 2'
+      - v: '→ 3'
+      - v: '→ 4'
+      - v: '→ 5'
+        mark: active
+    - label: 查找 5
+      cells:
+      - v: 比较 5 次 = 链表
+        mark: muted
+  log:
+  - mode: 退化
+    event: 树高由插入顺序决定，必须主动平衡
+- id: avl
+  title: AVL：用旋转把高度差摁在 1 以内
+  tldr: 每个节点左右子树高度差 ≤ 1；插入后沿路检查，失衡就用单旋/双旋把结构转回来。
+  body: 'AVL 树是最早的自平衡 BST，规则最严：任一节点的平衡因子（左高 − 右高）只能是 −1、0、1。插入新节点后，从它往根回溯，发现第一个失衡的祖先，按四种形态（LL/RR/LR/RL）做一次或两次旋转——旋转是局部的指针调整，保持中序顺序不变、把高的那侧「压」下来。
+
+    严平衡的代价是插入/删除时旋转更频繁；回报是查找路径最短。适合读多写少的场景。'
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: 平衡搜索树相关章节（AVL 见习题与延伸阅读）
+    claim: AVL 树维持左右子树高度差至多 1，并用旋转在 O(log n) 内恢复平衡
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: tree
+    caption: 旋转只改指针，不改中序顺序（3,5,8 不变）
+    tree:
+      nodes:
+      - v: 5
+        mark: found
+      - v: 3
+      - v: 8
+  log:
+  - mode: 平衡
+    event: 失衡形态决定旋转方式：LL/RR 单旋，LR/RL 双旋
+- id: redblack
+  title: 红黑树：把平衡放松一点，换更少的旋转
+  tldr: 用颜色规则保证「最长路径 ≤ 2 倍最短路径」，高度仍是 O(log n)，但插入平均旋转次数远少于 AVL。
+  body: '红黑树给每个节点涂红/黑，规则是：根是黑的；红节点的孩子必须是黑的；从任一节点到其所有叶子后代的路径上，黑节点数目相同。由这几条可推出：最长可能路径不超过最短可能路径的两倍，于是高度被摁在 O(log n) 量级（CLRS 给出上界 2·lg(n+1)）。
+
+    它的平衡比 AVL 松，查找略慢一丁点，但插入/删除的调整（变色 + 至多几次旋转）平均更省——所以它成了语言标准库有序容器的默认选择：Java 的 TreeMap、C++ 的 std::map 都是红黑树。'
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 13 Red-Black Trees
+    claim: 红黑树的颜色性质保证树高至多 2lg(n+1)，从而查找/插入/删除均为 O(log n)
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: tree
+    caption: 规则管的是「黑高一致」，路径长度差被限制在两倍内
+    tree:
+      nodes:
+      - v: 8（黑）
+        mark: found
+      - v: 3（红）
+      - v: 12（红）
+      - v: 1（黑）
+      - v: 5（黑）
+      - v: 10（黑）
+      - v: 14（黑）
+  log:
+  - mode: 平衡
+    event: 松平衡 + 少旋转 = 标准库的最爱
+- id: engineering
+  title: 工程选型与通向 B+ 树
+  tldr: 内存里用红黑树（或跳表）；到了磁盘，节点内要装几百个键，树变成矮胖的 B+ 树。
+  body: '选型：需要有序 + 增删，用红黑树系容器；只要点查，用哈希表；并发场景里 Redis 的有序集合用了跳表（结构更简单、范围操作友好）——它们解决的是同一个「有序动态集合」问题。
+
+    但把这套搬到磁盘会翻车：二叉树每个节点只装一个键，查一次跨好几层 = 好几次随机 IO。磁盘按页（16KB 量级）读写，于是让一个节点装下整页的几百个键，树高从几十降到 3–4——这就是数据存储学科的 B+ 树，建议接着学它。'
+  derivation: original
+  sources:
+  - ref: cmu-15445
+    locator: Lecture 08 Indexes & Filters（B+Tree 与索引选型）
+    claim: 磁盘索引需要高扇出的 B+ 树以降低树高与 IO 次数，哈希索引不支持范围查询
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 同样的数据量：二叉树几十层 vs B+ 树 3–4 层
+    rows:
+    - label: 二叉树
+      cells:
+      - v: 每节点 1 键
+      - v: 高度 ~log2 n
+    - label: B+ 树
+      cells:
+      - v: 每节点数百键
+        mark: found
+      - v: 高度 3–4
+        mark: found
+  log:
+  - mode: 选型
+    event: 存储介质变了，最优的树形就变了
+level: 进阶
+minutes: 20
+prereq:
+- dsa/binary-search
+- dsa/binary-heap
+objectives:
+- 描述 BST 查找/插入/删除的完整过程（含两孩子删除）
+- 解释退化成因与 AVL/红黑两种平衡策略的取舍
+- 说清内存搜索树与磁盘 B+ 树的分工
+aiLink: 有序结构在 AI 系统里无处不在：向量检索的图索引之外，KV 缓存的块管理、特征存储的有序扫描、调度器的优先队列替代结构都建立在搜索树思想上；理解它才能理解下一课 B+ 树与 LSM 的分工。
+quiz:
+- q: BST 中删除一个有两个孩子的节点，标准做法是？
+  options:
+  - 直接摘掉，让两个子树断开
+  - 用中序后继的值填进来，再删除后继节点
+  - 把整棵树重建
+  - 随机选一个孩子顶替根
+  answer: 1
+  explain: 后继是右子树最小值，至多一个孩子，删它落回简单情况；值抄过来后有序性保持。
+- q: 红黑树为什么能保证高度 O(log n)？
+  options:
+  - 因为节点都是红色的
+  - 颜色规则保证最长路径不超过最短路径的两倍
+  - 因为它每年自动重建
+  - 因为插入总是完美的
+  answer: 1
+  explain: 黑高一致 + 红节点不能相邻，推出路径长度被限制在两倍内，于是高度至多 2lg(n+1)。
+- q: 把有序数据依次插入普通 BST 会怎样？
+  options:
+  - 自动变平衡
+  - 退化成一条链，操作变成 O(n)
+  - 报错
+  - 变成堆
+  answer: 1
+  explain: 每个新元素都更大、一路右拐，树高等于 n——这正是需要自平衡机制的原因。

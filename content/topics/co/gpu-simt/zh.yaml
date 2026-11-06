@@ -1,0 +1,297 @@
+id: co/gpu-simt
+subject: co
+slug: gpu-simt
+order: 7
+status: published
+license: CC-BY-4.0
+title: GPU 与并行架构：SIMT 是怎么回事
+summary: CPU 为少量线程的低延迟而生，GPU 为海量线程的高吞吐而生——理解 warp、分支分化与显存层级，就理解了 AI 计算的硬件底座。
+premise: 以 NVIDIA GPU 执行向量加法与矩阵乘法为例（术语用 CUDA 的说法）。
+overview:
+- key: 一句话总结
+  value: GPU 用成千上万个简单线程 + SIMT 执行掩盖延迟，靠吞吐而非单线程速度取胜
+- key: warp
+  value: 32 个线程一组（warp）同发一条指令，各自有自己的寄存器与程序计数状态
+- key: 分支分化
+  value: 同一 warp 内线程走不同分支时，各分支要轮流执行并掩码，效率按分支数打折
+- key: 显存层级
+  value: 寄存器 > 共享内存（片上、块内手动管理）> 全局显存（HBM，大但远）
+- key: 合并访存
+  value: 相邻线程访问相邻地址才能合并成少数几次内存事务
+- key: 延迟隐藏
+  value: 一个 warp 等内存时立刻换另一个 warp 执行——靠「人多」而不是靠缓存与乱序
+visual: datastate
+logColumns:
+- key: mode
+  label: 当前状态
+- key: event
+  label: 发生了什么
+steps:
+- id: why
+  title: 为什么需要另一种架构
+  tldr: 训练与推理的计算是「同一操作 × 海量数据」，CPU 的大核 + 大缓存是错配的投资。
+  body: 'CPU 把芯片面积花在：少数几个强力核心、深缓存层级、分支预测与乱序执行——目标是让单个线程尽快跑完。图形渲染与神经网络的负载恰好相反：同一个操作要作用在百万级数据元素上，元素之间大多独立。
+
+    GPU 的取舍因此完全不同：成千上万个简单得多的执行单元、相对弱的单线程性能、用海量并发线程的总吞吐取胜。理解这个取舍，就理解了为什么矩阵乘法在 GPU 上快一两个数量级，而串行逻辑（比如逐 token 的调度代码）放 GPU 上毫无意义。'
+  derivation: original
+  sources:
+  - ref: nvidia-cuda
+    locator: Programming Model / Hardware Model 一节
+    claim: GPU 由大量流多处理器（SM）组成，以线程级并行获得高吞吐，与 CPU 的低延迟取向不同
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 两种投资方向：少量强线程 vs 海量弱线程
+    rows:
+    - label: CPU
+      cells:
+      - v: 强核 ×8
+      - v: 大缓存
+      - v: 乱序/预测
+    - label: GPU
+      cells:
+      - v: 简单单元 ×数千
+        mark: found
+      - v: 海量线程
+        mark: found
+      - v: 高带宽显存
+  log:
+  - mode: 取舍
+    event: 吞吐来自并行量，不来自单线程速度
+- id: warp
+  title: SIMT 与 warp：32 个线程一条指令
+  tldr: SM 把线程按 32 个一组（warp）调度执行：同一时刻 warp 内发同一条指令，各线程处理不同数据。
+  body: 'CUDA 的执行模型叫 SIMT（Single-Instruction, Multiple-Thread）。SM 创建、调度与执行线程的单位是 warp：一组 32 个线程，从同一地址开始执行，warp 在任一时刻执行一条公共指令，每个线程用自己的寄存器与数据干自己的活。
+
+    它和 CPU 的 SIMD（一条指令操作一个向量寄存器）像但不同：SIMT 里每个线程是独立的编程单位，有自己的指令地址计数器与寄存器状态，形式上可以各走各的分支——只是分开走有代价（下一步）。编程时你写的是「一个线程做什么」，硬件按 warp 把它们成组执行。'
+  derivation: original
+  sources:
+  - ref: nvidia-cuda
+    locator: SIMT Execution Model 一节
+    claim: SM 以 32 个线程组成的 warp 为单位执行，每个线程有自己的指令地址计数器与寄存器状态
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 一个 warp：同一条指令，32 份不同的数据
+    rows:
+    - label: 指令
+      cells:
+      - v: c[i] = a[i] + b[i]
+        mark: active
+    - label: 线程
+      cells:
+      - v: 'i=0'
+      - v: 'i=1'
+      - v: 'i=2'
+      - v: …
+      - v: 'i=31'
+  log:
+  - mode: 执行
+    event: warp 是硬件调度单位，线程是编程单位
+  code:
+    lang: cuda
+    code: "// 向量加：每个线程负责一个元素（CUDA C）\n__global__ void add(const float* a, const float* b, float* c) {\n  int i = blockIdx.x * blockDim.x + threadIdx.x;  // 我的全局编号\n  c[i] = a[i] + b[i];                            // 只管自己这一个\n}\n// 启动时开成千上万个线程，硬件把它们按 32 个一组打包成 warp 执行"
+    note: 写的是单线程逻辑，跑的是海量并行
+    highlight: 3
+- id: divergence
+  title: 分支分化：warp 内吵架的代价
+  tldr: 同一 warp 的线程走不同分支时，硬件只能把各分支轮流执行、把不走的线程掩码掉，效率按份打折。
+  body: '如果 warp 里一半线程走 if、一半走 else：warp 先执行 if 分支（else 的线程被掩码、闲置），再执行 else 分支（反过来）。两条路都跑了一遍，总时间是两者之和而不是最大值——官方说法是「当 warp 内 32 个线程走同一条执行路径时效率最高」。
+
+    所以 GPU 代码的性能直觉与 CPU 相反：少用数据相关的分支，让同组线程做整齐划一的事；实在需要分支时，尽量让分化发生在 warp 之间而不是 warp 之内。现代 NVIDIA 架构（Volta 起）有独立线程调度，线程可以更自由地交错，但分化带来的工作膨胀并没有消失。'
+  derivation: original
+  sources:
+  - ref: nvidia-cuda
+    locator: SIMT Execution Model / Independent Thread Scheduling
+    claim: warp 执行一条公共指令，线程路径一致时效率最高；计算能力 7.0 起支持独立线程调度
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 一半 if 一半 else：两段时间里各有一半线程在闲置
+    rows:
+    - label: 先跑 if 半
+      cells:
+      - v: 执行中 ×16
+        mark: active
+      - v: 被掩码 ×16
+        mark: muted
+    - label: 再跑 else 半
+      cells:
+      - v: 被掩码 ×16
+        mark: muted
+      - v: 执行中 ×16
+        mark: active
+  log:
+  - mode: 分化
+    event: 分支数 × 每分支的工作量 ≈ 实际成本
+- id: memory
+  title: 显存层级：远近决定速度
+  tldr: 寄存器最快，共享内存是片上的「工作台」，全局显存（HBM）容量大但每趟访问都贵。
+  body: 'GPU 的存储层级和 CPU 像亲戚但性格不同：每线程的寄存器最快；共享内存（shared memory）在芯片上、由同一个线程块的线程协作读写，像一块手动管理的草稿纸，速度接近寄存器量级；全局显存（显存颗粒，现代卡用 HBM）容量几十 GB、带宽极高（靠位宽堆出来），但单个 warp 的访问延迟仍然很长，要靠大量 warp 轮换来掩盖。
+
+    关键区别：CPU 靠大缓存自动伺候局部性，GPU 把「把数据搬到片上反复用」这件事交给程序员（或库）显式安排——矩阵乘法 tiling 就是把块搬进共享内存反复用的典型。'
+  derivation: original
+  sources:
+  - ref: nvidia-cuda
+    locator: Memory Hierarchy / Device Memory Spaces 一节
+    claim: GPU 存储分为每线程寄存器、块内共享内存与全局设备内存等层级，带宽与延迟差异显著
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 离执行单元越远，容量越大、单次访问越贵
+    rows:
+    - label: 快而小
+      cells:
+      - v: 寄存器
+      - v: 共享内存（片上）
+    - label: 大而远
+      cells:
+      - v: 全局显存（HBM）
+      - v: 主机内存（PCIe/NVLink 之外）
+  log:
+  - mode: 层级
+    event: 优化 = 让数据在片上被复用足够多次
+- id: coalescing
+  title: 合并访存：排队买票 vs 一人一窗口
+  tldr: warp 内相邻线程访问相邻地址时，硬件把访问合并成少数几次事务；地址乱跳则每次都单开一趟。
+  body: 'warp 一次访存指令要取 32 个线程的地址。硬件按内存事务（一段连续地址）来服务：如果 32 个地址落在少数几个连续段里，只需少数几次事务；如果地址散落在 32 个不同段，就要 32 趟——带宽利用率相差一个数量级。
+
+    这就是「合并访存」（coalesced access）：让线程 i 访问基址 + i 附近的数据。转置、洗牌类操作在 GPU 上慢，十有八九是访存不合并或共享内存 bank 冲突，而不是算力不够。'
+  derivation: original
+  sources:
+  - ref: nvidia-cuda
+    locator: CUDA Best Practices / Memory Optimizations 相关章节
+    claim: 全局内存访问按事务服务，线程访问地址越连续合并程度越高、有效带宽越大
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 同样是 32 次访问，合并与否差出数倍到数十倍带宽
+    rows:
+    - label: 合并
+      cells:
+      - v: 地址连续
+        mark: found
+      - v: 少数几次事务
+        mark: found
+    - label: 散乱
+      cells:
+      - v: 地址乱跳
+      - v: 每次一趟事务
+  log:
+  - mode: 访存
+    event: GPU 性能问题先查访存模式，再查算力
+- id: latency-hiding
+  title: 延迟隐藏：人多就不怕排队
+  tldr: warp 等内存时 SM 立刻换另一个 warp 继续发指令——用并发量把延迟盖住，这是 occupancy 的意义。
+  body: 'CPU 掩盖内存延迟靠缓存与乱序；GPU 靠的是「备选 warp 足够多」：一个 SM 同时驻留多个 warp，当前 warp 发出访存、要等几百个周期时，调度器零成本切到另一个就绪 warp。所以 GPU 程序要提供足够多的并行工作（占用率 occupancy：驻留 warp 数与硬件上限之比）。
+
+    反过来，寄存器用太多、块太大都会压低驻留量，延迟没人掩盖，性能断崖。这也是为什么「GPU 没跑满」常见原因是并行度不足，而不是单条指令慢。'
+  derivation: original
+  sources:
+  - ref: nvidia-cuda
+    locator: Hardware Multithreading 一节
+    claim: SM 通过在多个驻留 warp 间零成本切换来掩盖访存延迟，执行上下文保存在片上
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: warp A 等内存时，SM 切去执行 warp B/C
+    rows:
+    - label: warp A
+      cells:
+      - v: 发出访存…
+      - v: 等待中
+        mark: muted
+    - label: warp B
+      cells:
+      - v: 执行中
+        mark: active
+      - v: 执行中
+        mark: active
+  log:
+  - mode: 调度
+    event: 延迟不是被消灭的，是被别人的工作盖住的
+- id: ai-link
+  title: 与 AI 计算的连接：为什么矩阵乘法是天选负载
+  tldr: 权重矩阵 × 输入：每个输出元素是一次点积，元素间独立、数据可分块复用——SIMT 的完美客户。
+  body: 'Transformer 的主体就是大矩阵乘法：每个输出元素 = 一行与一列的点积，成千上万个输出互不依赖（天然海量并行）；权重块搬进共享内存后被整行/整列反复用（tiling 复用），把昂贵的全局访存摊薄。
+
+    而解码阶段每步只生成一个 token，矩阵退化成矩阵 × 向量，算术强度骤降，瓶颈从算力变成「把权重从显存搬进来的带宽」——这正是 KV Cache 课里说的带宽瓶颈的硬件根源。batch 越大、复用越多，越接近算力瓶颈（compute-bound）；batch 越小，越是带宽瓶颈（memory-bound）。'
+  derivation: original
+  sources:
+  - ref: nvidia-cuda
+    locator: Programming Model 总览
+    claim: 数据并行负载（元素独立、规则访存）最适合 SIMT 架构
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 训练/预填充算力受限，逐 token 解码带宽受限
+    rows:
+    - label: 大矩阵乘
+      cells:
+      - v: 复用高
+      - v: 算力瓶颈
+        mark: active
+    - label: 逐 token 解码
+      cells:
+      - v: 权重只过一遍
+      - v: 带宽瓶颈
+        mark: active
+  log:
+  - mode: 瓶颈
+    event: 先分清 compute-bound 还是 memory-bound，再谈优化
+level: 进阶
+minutes: 20
+prereq:
+- co/pipeline
+- co/cache
+objectives:
+- 用 warp 说明 SIMT 与 SIMD 的异同
+- 解释分支分化与不合并访存为什么慢
+- 区分算力瓶颈与带宽瓶颈的典型场景
+aiLink: 这是理解一切推理性能数字的硬件底座：为什么 batch 变大吞吐涨、为什么解码被显存带宽卡住、为什么算子融合（少搬数据）比微调指令更值钱。读 profiler 之前，先有这一课的心智模型。
+quiz:
+- q: warp 在任一时刻执行什么？
+  options:
+  - 32 条完全不同的指令
+  - 一条公共指令，32 个线程各处理自己的数据
+  - 一条指令只处理一个数据
+  - 由操作系统决定
+  answer: 1
+  explain: SIMT 以 warp（32 线程）为调度单位发射公共指令，线程靠各自的寄存器与数据区分彼此。
+- q: 同一 warp 内一半线程走 else 分支时，硬件会怎样？
+  options:
+  - 并行执行两分支，互不影响
+  - 两分支轮流执行，不走的线程被掩码，成本约为两者之和
+  - 报错并终止 kernel
+  - 自动把线程重排到不同 warp
+  answer: 1
+  explain: 分支分化使各路径串行化，未选中路径的线程在对应时段闲置。
+- q: 逐 token 解码通常是什么瓶颈？
+  options:
+  - 算力瓶颈
+  - 显存带宽瓶颈（权重每步都要整表搬一遍，复用极低）
+  - PCIe 瓶颈
+  - 分支预测瓶颈
+  answer: 1
+  explain: 解码时矩阵×向量的算术强度低，性能由把权重读进来的带宽决定；加大 batch 才能把复用提上去。

@@ -1,0 +1,283 @@
+id: data/lsm-kv
+subject: data
+slug: lsm-kv
+order: 3
+status: published
+license: CC-BY-4.0
+title: LSM 树与 KV 存储：为写而生的数据结构
+summary: B+ 树是原地更新，LSM 是只追加、后合并——写密集场景（日志、时序、特征）为什么纷纷倒向 LSM。
+premise: 以 RocksDB/LevelDB 这类嵌入式 KV 存储的写读路径为例。
+overview:
+- key: 一句话总结
+  value: 写入先记 WAL + 进内存表，攒够了顺序刷成有序文件，后台再把文件逐层合并
+- key: 为什么写得快
+  value: 所有落盘都是顺序写，没有随机原地更新
+- key: 读的代价
+  value: 一个键可能在内存表与多层文件里，要逐层找，靠布隆过滤器跳过不存在的文件
+- key: 三个放大
+  value: 写放大（合并重写）、读放大（多层查找）、空间放大（旧版本未清）——LSM 的全部调优在三者间权衡
+- key: 与 B+ 树的分工
+  value: 读密集/范围扫用 B+ 树；写密集/键值型用 LSM
+- key: 工程里
+  value: RocksDB、Cassandra、LevelDB；向量与特征存储的底层也常见它的身影
+visual: datastate
+logColumns:
+- key: mode
+  label: 当前状态
+- key: event
+  label: 发生了什么
+steps:
+- id: why
+  title: 原地更新的问题：写为什么慢
+  tldr: B+ 树更新一行要把那一页读进来改再写回——随机 IO；写多时，IO 全花在找页与改页上。
+  body: 'B+ 树的叶子页散布在磁盘上。每次更新一个键，都要定位、（可能）换入、修改、写回它所在的页，键的分布越随机，IO 越碎。对读多写少的业务这很划算；但日志、埋点、时序、会话这类写密集负载，每秒几十万次写入，随机写先成为瓶颈。
+
+    LSM 树（Log-Structured Merge Tree）的思路是把问题反过来：落盘只做顺序追加，绝不原地修改；「整理成有序结构」这件苦差事推迟到后台慢慢做。'
+  derivation: original
+  sources:
+  - ref: cmu-15445
+    locator: 数据库存储讲义（log-structured 存储思想）
+    claim: 日志结构化存储通过顺序追加写入避免随机原地更新，适合写密集负载
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 两种写路径的 IO 形态
+    rows:
+    - label: B+ 树更新
+      cells:
+      - v: 定位页
+      - v: 随机读入改写
+        mark: active
+    - label: LSM 写入
+      cells:
+      - v: 顺序追加
+        mark: found
+      - v: 整理推迟到后台
+        mark: found
+  log:
+  - mode: 动机
+    event: 把随机写变成顺序写，是 LSM 的全部出发点
+- id: write-path
+  title: 写路径：WAL + MemTable
+  tldr: 一次 PUT 做两件事：顺序追加一条 WAL 日志（保命），把键值放进内存的有序表（MemTable）。
+  body: '写请求进来先写 WAL（就是事务课的预写日志：顺序落盘，便宜且保证崩溃可恢复），然后把键值对插入 MemTable——内存里一张有序结构（常用跳表）。两步都不碰磁盘上的数据文件，所以写延迟低且稳定。
+
+    MemTable 写满（比如几十 MB 量级，各实现不同）就冻结，换一张新的继续接客；冻结的表由后台线程整表顺序刷盘，成为一个不可变的有序文件（SSTable）。内存表 + WAL 的组合，就是「快」与「不丢」的分工。'
+  derivation: original
+  sources:
+  - ref: cmu-15445
+    locator: 数据库存储讲义（LSM 组件：memtable 与 SSTable）
+    claim: LSM 写入先进内存表并记日志，内存表写满后顺序刷成不可变的有序文件
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: PUT 的两步：先日志，后内存；磁盘数据文件不参与
+    rows:
+    - label: 写路径
+      cells:
+      - v: ① WAL 追加
+        mark: found
+      - v: ② MemTable 插入
+        mark: found
+      - v: 满了 → 刷成 SSTable
+  log:
+  - mode: 写入
+    event: 写延迟里没有随机 IO
+- id: levels
+  title: 文件分层：L0 与 L1…Ln
+  tldr: 新刷出的文件进 L0（可能互相重叠），后台合并（compaction）把它们与下层文件归并成有序、不重叠的层。
+  body: 'SSTable 按新鲜程度分层：刚刷出的在 L0，同层文件键范围可以重叠；越往下层数越大、文件越「冷」。后台 compaction 持续把上层文件与下一层重叠文件合并：排序归并、新版本覆盖旧版本、已删除的键真正丢弃（删除在 LSM 里只是写一条墓碑标记，要等合并才消失）。
+
+    合并保证了一个性质：任一键的「最新值」总是出现在更浅的层里，于是读路径有了确定的查找顺序。'
+  derivation: original
+  sources:
+  - ref: cmu-15445
+    locator: 数据库存储讲义（compaction 与分层组织）
+    claim: LSM 通过后台合并保持层间有序与版本新旧次序，删除以墓碑标记实现并在合并时回收
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 层越深，数据越老、越有序、总量越大
+    rows:
+    - label: L0（新）
+      cells:
+      - v: 文件 A（范围可重叠）
+      - v: 文件 B
+    - label: L1（旧）
+      cells:
+      - v: 文件 C（范围不重叠）
+      - v: 文件 D
+  log:
+  - mode: 合并
+    event: compaction 是 LSM 的心脏，也是它的主要成本
+- id: read-path
+  title: 读路径：为什么要布隆过滤器
+  tldr: 查一个键要从新到旧逐层找；大多数文件根本没有这个键——布隆过滤器用极小的内存先回答「肯定没有」。
+  body: '读一个键：先查 MemTable，再查 L0 的文件、L1、L2……同一键可能有多个版本，第一个找到的就是最新值。最坏情形要翻很多文件，每个文件还要读索引定位——读放大由此而来。
+
+    缓解靠布隆过滤器（Bloom Filter）：每个 SSTable 配一个位数组，对键做几次哈希置位。查一个键时先问过滤器：任一位为 0 → 这个文件肯定没有，直接跳过；全为 1 → 可能有（小概率误报），再去读文件。它只需要极低的内存（约每键十比特量级、误报率约 1% 量级，随参数而定），就把「查不存在的键」从灾难变成接近免费。'
+  derivation: original
+  sources:
+  - ref: cmu-15445
+    locator: Lecture 09 Indexes & Filters（Bloom Filter 一节）
+    claim: 布隆过滤器以少量内存回答集合成员问题：无假阴性，有小概率假阳性
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 读的顺序：新 → 旧；过滤器负责快速排除
+    rows:
+    - label: 查找顺序
+      cells:
+      - v: MemTable
+      - v: L0 过滤器 → 文件
+      - v: L1 过滤器 → 文件
+    - label: 不存在的键
+      cells:
+      - v: 过滤器说「肯定没有」
+        mark: found
+      - v: 跳过整文件
+        mark: found
+  log:
+  - mode: 读取
+    event: 读优化的目标：少碰文件、早下结论
+- id: tradeoffs
+  title: 三个放大：LSM 调优的全部内容
+  tldr: 写放大、读放大、空间放大此消彼长；compaction 策略就是在这三者之间选一个平衡点。
+  body: '写放大：一个键的数据在多次合并中被反复重写，实际落盘字节数是逻辑写入的数倍到数十倍（取决于策略与层数）。读放大：一次点查可能翻多层多文件。空间放大：旧版本与墓碑在合并前一直占着空间，磁盘里实际存的比有效数据多。
+
+    两种经典合并策略正好在光谱两端：分层（leveling）让每层内文件不重叠，读放大与空间放大低、写放高；分片（tiering）同层允许多个待合并文件堆积，写放低、读与空间放大高。没有免费午餐，只有场景选型。'
+  derivation: original
+  sources:
+  - ref: cmu-15445
+    locator: 数据库存储讲义（LSM 合并策略比较）
+    claim: LSM 的合并策略在写放大、读放大与空间放大之间权衡
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 三个放大不可能同时最小
+    rows:
+    - label: leveling
+      cells:
+      - v: 写放大 高
+      - v: 读/空间放大 低
+        mark: found
+    - label: tiering
+      cells:
+      - v: 写放大 低
+        mark: found
+      - v: 读/空间放大 高
+  log:
+  - mode: 权衡
+    event: 先量自己的读写比，再选策略
+- id: vs-btree
+  title: LSM vs B+ 树：一张选型表
+  tldr: 没有胜负，只有负载匹配：把两者的强弱逐项对齐自己的场景。
+  body: '点查：两者都可（缓存友好时 B+ 树更直接）；范围扫描：B+ 树叶子链表完胜，LSM 要跨层归并；写入吞吐：LSM 完胜（顺序写）；写延迟稳定性：B+ 树的分裂与刷脏更抖，LSM 的 MemTable 切换也有毛刺；空间：B+ 树有页内碎片，LSM 有未合并的旧版本；事务与复杂查询生态：B+ 树阵营的传统关系库更成熟。
+
+    现实里也有混血：很多系统用 B+ 树存元数据、LSM 存数据本体，或反过来。选型先问三个数：读写比、范围查询占比、单键大小。'
+  derivation: original
+  sources:
+  - ref: cmu-15445
+    locator: 数据库存储讲义（索引与存储结构对比）
+    claim: B+ 树与 LSM 各有读写特性上的优势，应按工作负载选择
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 按负载选结构，而不是按流行度
+    rows:
+    - label: B+ 树
+      cells:
+      - v: 读密集
+        mark: found
+      - v: 范围扫多
+        mark: found
+      - v: 传统关系库
+    - label: LSM
+      cells:
+      - v: 写密集
+        mark: found
+      - v: 键值型
+        mark: found
+      - v: 日志/时序
+  log:
+  - mode: 选型
+    event: 读写比 + 范围占比 + 键大小，先回答这三个问题
+- id: ai-link
+  title: 与 AI 工程的连接
+  tldr: 特征存储、会话状态、向量库的底层，绕不开在 B+ 与 LSM 之间做同样的权衡。
+  body: '训练特征的写入是典型写密集：离线批量灌、在线按 key 点查——很多特征存储选 LSM 系（RocksDB 内嵌或分布式 KV）。聊天会话与 Agent 状态也是键值型高频写。向量数据库里，向量索引（图或量化结构）之外，元数据与原始向量常落在 KV/对象存储上，过滤查询则回到 B+ 树/倒排那套。
+
+    更一般地：任何「写先追加日志、读再合并视图」的设计——从 Kafka 到流处理的状态存储——都是 LSM 思想的同构体。'
+  derivation: original
+  sources:
+  - ref: cmu-15445
+    locator: 数据库存储讲义（log-structured 的应用范围）
+    claim: 日志结构化思想广泛应用于现代键值与流式存储系统
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 同一思想的不同化身
+    rows:
+    - label: 同构体
+      cells:
+      - v: RocksDB 特徵/状态
+      - v: Kafka 日志段
+      - v: 流处理状态存储
+  log:
+  - mode: 迁移
+    event: 先追加、后整理——到处都是这个模式
+level: 进阶
+minutes: 18
+prereq:
+- data/transactions
+objectives:
+- 画出 LSM 的写路径与读路径并指出各自的成本来源
+- 解释布隆过滤器为什么没有假阴性
+- 用三个放大对比 leveling 与 tiering，并给 B+ 树一个选型结论
+aiLink: 特征存储、Agent 会话状态、训练数据管线的落地存储都在做 B+ vs LSM 的选型题；理解三个放大，才能读懂 RocksDB 的参数面板与各家 KV 数据库的 benchmark 争议。
+quiz:
+- q: LSM 写入快的主要原因是？
+  options:
+  - 它不用写日志
+  - 落盘只有顺序追加（WAL + 整表刷盘），没有随机原地更新
+  - 它把数据都放内存
+  - 它跳过了持久性
+  answer: 1
+  explain: 写路径 = WAL 顺序追加 + MemTable 内存插入；整理数据的随机/重写工作被推迟到后台合并。
+- q: 布隆过滤器回答「这个文件没有这个键」时，可信度是？
+  options:
+  - 完全可信：它无假阴性，说没有就一定没有
+  - 不可信
+  - 五五开
+  - 只对数字键可信
+  answer: 0
+  explain: 任一哈希位为 0 说明键从未被写入，无假阴性；反之全 1 只是可能有，小概率假阳性。
+- q: 删除一个键在 LSM 里立刻发生什么？
+  options:
+  - 找到所有版本并物理删除
+  - 写入一条墓碑标记，真正的回收在后续合并时发生
+  - 什么都不做
+  - 整层重建
+  answer: 1
+  explain: LSM 不原地修改：删除 = 追加一条更新的墓碑记录，合并归并时新版本压过旧版本、键被真正丢弃。

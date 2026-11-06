@@ -1,0 +1,323 @@
+id: network/http2-quic
+subject: network
+slug: http2-quic
+order: 5
+status: published
+license: CC-BY-4.0
+title: HTTP/2 与 QUIC：队头阻塞的三次战争
+summary: HTTP/1.1 有队头阻塞，HTTP/2 在应用层消除了它，却卡在 TCP 层；QUIC 把传输层整个换掉，才算打完这场仗。
+premise: 以一个要并发拉几十个资源的网页与一次流式 API 调用为例。
+overview:
+- key: 一句话总结
+  value: 每一代都在消灭一层队头阻塞：1.1 的请求排队、2 的 TCP 丢包连坐、3 用 QUIC 独立流根除
+- key: HTTP/2
+  value: 二进制分帧 + 一条连接多路复用（stream)+ 头部压缩（HPACK)
+- key: TCP 层队头阻塞
+  value: TCP 按序交付：丢一个包，后面所有 stream 的数据都得等重传
+- key: QUIC
+  value: 跑在 UDP 之上，每条 stream 独立交付；TLS 1.3 内置，握手 1-RTT、恢复连接 0-RTT
+- key: 连接迁移
+  value: QUIC 用连接 ID 而非四元组标识连接，Wi-Fi 切 5G 不用重连
+- key: 代价
+  value: UDP 可能被中间设备限速/拦截；用户态实现吃 CPU；排障工具链不如 TCP 成熟
+visual: swimlane
+lanes:
+- id: client
+  label: 客户端
+- id: net
+  label: 网络
+- id: server
+  label: 服务器
+logColumns:
+- key: mode
+  label: 当前状态
+- key: event
+  label: 发生了什么
+steps:
+- id: h1-problem
+  title: HTTP/1.1 的队头阻塞与六连接 workaround
+  tldr: 1.1 一条连接同时只能跑一个请求：前一个响应不回来，后一个请求干等。
+  body: 'HTTP/1.1 虽然有长连接（keep-alive）与流水线构想，但实际上一条连接上请求必须按序一问一答：响应慢，后面排队的请求全部堵住——应用层队头阻塞。浏览器的土办法是每个域名开约 6 条连接并行（具体上限随浏览器而异），站点则用域名分片、雪碧图、资源合并来绕。
+
+    这些 workaround 本身带来新问题：连接多了握手与拥塞慢开始的成本重复付，资源合并让缓存粒度变粗。根子在于协议：需要一条连接里真正并发多个请求。'
+  derivation: original
+  sources:
+  - ref: rfc-9113
+    locator: RFC 9113 Introduction（HTTP/1.1 的局限与设计目标）
+    claim: HTTP/2 的设计目标之一是消除 HTTP/1.1 单连接串行请求造成的队头阻塞与连接数膨胀
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: client
+      id: c
+      label: 浏览器
+      highlight: true
+    - lane: net
+      id: n
+      label: 网络
+    - lane: server
+      id: s
+      label: 服务器
+    messages:
+    - id: m-h1
+      from: c
+      to: s
+      label: 请求 2、3 排队等响应 1 回来
+      active: true
+  log:
+  - mode: 阻塞
+    event: 一条连接 = 一条单车道
+- id: h2-multiplex
+  title: HTTP/2：分帧与多路复用
+  tldr: 把报文切成带 stream 编号的帧，在一条 TCP 连接上交错发送——多条车道合流一条路。
+  body: 'HTTP/2（其前身是 Google 的 SPDY）把协议改成二进制分帧：请求/响应被拆成 HEADERS、DATA 等帧，每帧头部带 stream id。多个 stream 的帧可以在一条连接上交错发送，到对端按 id 重新组装——这就是多路复用（multiplexing）。加上 HPACK 头部压缩（头字段大量重复，压完省很多字节），一条连接就能并发几十个请求，六连接与域名分片的 workaround 随之退休。
+
+    语义层没变：方法、状态码、头字段与 HTTP/1.1 一一对应，所以升级 HTTP/2 不需要改业务代码。'
+  derivation: original
+  sources:
+  - ref: rfc-9113
+    locator: RFC 9113 Section 3-5（帧、流与多路复用、HPACK)
+    claim: HTTP/2 用带流标识的二进制帧在单个连接上多路复用多个请求响应，并用 HPACK 压缩头部
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: client
+      id: c
+      label: 浏览器
+    - lane: net
+      id: n
+      label: 一条 TCP 连接
+      highlight: true
+    - lane: server
+      id: s
+      label: 服务器
+    messages:
+    - id: m-h2
+      from: c
+      to: s
+      label: stream 1/3/5 的帧交错在同一连接里跑
+      active: true
+  log:
+  - mode: 复用
+    event: 应用层队头阻塞被消除
+- id: tcp-hol
+  title: 没想到：阻塞下沉到了 TCP 层
+  tldr: TCP 只认一条字节流、必须按序交付应用：丢一个包，所有 stream 的已到达数据都被压在内核里等重传。
+  body: '多路复用把许多逻辑流塞进了一条 TCP 字节流，而 TCP 的交付语义是整条流严格有序。传输中丢一个包，接收方 TCP 会把后续已到达的数据扣在接收缓冲里，必须等丢失段重传到齐、字节流连续了，才一起交给应用——哪怕那些数据属于毫不相干的 stream。
+
+    丢包率越高、并发流越多，这种「连坐」越严重：在高丢包网络上，HTTP/2 甚至可能比开多条连接的 HTTP/1.1 更慢，因为多条连接时丢包只堵住其中一条。要根治，必须让传输层本身认识「多条独立的流」。'
+  derivation: original
+  sources:
+  - ref: rfc-9000
+    locator: RFC 9000 Introduction（QUIC 的设计动机）
+    claim: 基于单字节流的 TCP 会使多路复用的逻辑流因单个丢包互相阻塞，QUIC 以独立流解决
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: client
+      id: c
+      label: 客户端
+    - lane: net
+      id: n
+      label: 网络（丢了 1 个包）
+      highlight: true
+    - lane: server
+      id: s
+      label: 服务器
+    messages:
+    - id: m-tcp
+      from: n
+      to: c
+      label: 其余 stream 的数据先到，也得等丢失段补齐
+      active: true
+  log:
+  - mode: 连坐
+    event: 独立性在应用层做了，传输层又给合并了
+- id: quic
+  title: QUIC：把多流做进传输层
+  tldr: 在 UDP 之上重写传输层：每条 stream 独立编号与交付，丢包只影响自己那条流。
+  body: 'QUIC（RFC 9000）跑在 UDP 之上（为了能穿透只认 TCP/UDP 的中间设备、且能在用户态快速迭代），自己实现可靠传输、拥塞控制与 TLS 1.3 加密——加密是内置的、不是可选的。它原生的 stream 就是独立的：每条流的数据独立编号、独立确认与重传，一条流丢包不阻塞其他流向应用交付。
+
+    握手也快了：传输与加密握手合并，首次连接通常 1 个 RTT 就能发数据；恢复连接（带上之前协商的参数）可以 0-RTT 直接发应用数据（0-RTT 数据可被重放，协议要求应用只把幂等请求放进去）。'
+  derivation: original
+  sources:
+  - ref: rfc-9000
+    locator: RFC 9000 Section 1-3（设计目标、流、握手）
+    claim: QUIC 在 UDP 上提供独立多路复用流与内置 TLS 1.3，合并握手并支持 0-RTT 恢复连接
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: client
+      id: c
+      label: 客户端
+    - lane: net
+      id: n
+      label: UDP 之上的 QUIC
+      highlight: true
+    - lane: server
+      id: s
+      label: 服务器
+    messages:
+    - id: m-q
+      from: n
+      to: c
+      label: stream A 丢包重传中，stream B 照常交付
+      active: true
+  log:
+  - mode: 根治
+    event: 队头阻塞在传输层被消除
+- id: migration
+  title: 连接迁移：换网络不断线
+  tldr: TCP 连接由四元组（源/目的 IP+端口）定义，IP 一变连接即死；QUIC 用连接 ID 标识，换个网络继续用。
+  body: '手机从 Wi-Fi 走到室外切到蜂窝网络，IP 地址变化：对 TCP 来说四元组变了，连接必须重建，长连接业务（通话、游戏、流式）全部重连。
+
+    QUIC 连接由双方协商的连接 ID（Connection ID）标识，与底层地址解耦：客户端换地址后，用同一个连接 ID 在新路径上继续，服务器验证新路径后无缝迁移。这解决的是移动时代最日常的一个痛点，也是「传输协议为什么要重写」最有说服力的例子之一。'
+  derivation: original
+  sources:
+  - ref: rfc-9000
+    locator: RFC 9000 Section 5/9（连接 ID 与连接迁移）
+    claim: QUIC 以连接 ID 标识连接，允许端点地址变化后保持连接（连接迁移）
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: client
+      id: c
+      label: 手机（Wi-Fi → 5G)
+      highlight: true
+    - lane: net
+      id: n
+      label: 网络
+    - lane: server
+      id: s
+      label: 服务器
+    messages:
+    - id: m-mg
+      from: c
+      to: s
+      label: 地址变了，连接 ID 没变：继续传
+      active: true
+  log:
+  - mode: 迁移
+    event: 连接的身份从四元组变成协商出的 ID
+- id: costs
+  title: 代价与边界：为什么 TCP 还没退休
+  tldr: QUIC 在用户态跑、吃 CPU 更多；UDP 在某些网络被限速或拦截；可观测性生态也要重建。
+  body: 'QUIC 的账也要算：实现在用户态（为了可迭代），包处理开销通常高于内核 TCP，老设备/高吞吐场景 CPU 成本明显；部分企业网络与运营商对 UDP 有限速或拦截策略，HTTP/3 需要保留回退到 HTTP/2 的路径；tcpdump 时代的排障直觉（看段、看重传）在加密的 QUIC 面前要换工具。
+
+    所以现实格局是分工：浏览器与大厂服务在公网上积极上 HTTP/3，内网与长尾服务继续 HTTP/2/1.1 与 gRPC(HTTP/2）跑很久。协议选型没有银弹，只有场景。'
+  derivation: original
+  sources:
+  - ref: rfc-9000
+    locator: RFC 9000 Introduction（部署考虑）
+    claim: QUIC 基于 UDP 部署，可穿透中间设备并在用户态迭代，但需考虑中间设备对 UDP 的处理差异
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: client
+      id: c
+      label: 客户端
+    - lane: net
+      id: n
+      label: 网络（个别会拦 UDP)
+    - lane: server
+      id: s
+      label: 服务器
+      highlight: true
+    messages:
+    - id: m-cost
+      from: s
+      to: c
+      label: HTTP/3 不通时自动回退 HTTP/2
+      active: true
+  log:
+  - mode: 共存
+    event: 新协议上线必须带回退路径
+- id: ai-link
+  title: 与 AI 工程的连接
+  tldr: gRPC 跑在 HTTP/2 上，推理网关的长流式连接最能体会多路复用与队头阻塞的区别。
+  body: '服务间调用的主力 gRPC 就是 HTTP/2 的亲生子：多路复用、双向流、头部压缩都是它性能的一部分；理解帧与流，才能看懂 gRPC 的流控窗口调参问题。
+
+    对 LLM 场景：流式响应（SSE over HTTP/1.1 或 2）与大量并发短请求的网关，选 1.1 还是 2 直接决定连接数与尾延迟；而移动端 App 的弱网体验（高丢包 + 网络切换）正是 QUIC 的主场。协议层每消灭一次队头阻塞，应用层就少一类「莫名其妙的卡顿」。'
+  derivation: original
+  sources:
+  - ref: rfc-9113
+    locator: RFC 9113（gRPC 等应用协议的传输基础）
+    claim: HTTP/2 的流与多路复用是 gRPC 等 RPC 框架的传输基础
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: client
+      id: c
+      label: 网关
+    - lane: net
+      id: n
+      label: 网络
+    - lane: server
+      id: s
+      label: 推理服务
+      highlight: true
+    messages:
+    - id: m-ai2
+      from: c
+      to: s
+      label: gRPC 双向流 = HTTP/2 stream
+      active: true
+  log:
+  - mode: 应用
+    event: 框架的性能上限由传输层语义决定
+level: 进阶
+minutes: 18
+prereq:
+- network/http-streaming
+- network/congestion
+objectives:
+- 逐层说清三次队头阻塞分别发生在哪一层、各被谁解决
+- 解释 QUIC 选 UDP、内置加密与连接 ID 的动机
+- 给出 HTTP/3 部署需要回退路径的理由
+aiLink: gRPC、服务网格、移动端弱网、流式网关——协议选型直接写进尾延迟。这一课让你在看到「HTTP/2 偶尔比 1.1 慢」「App 切网络就断流」时，能立刻定位到传输层语义。
+quiz:
+- q: HTTP/2 解决了什么、又留下了什么？
+  options:
+  - 全都解决了
+  - 消除了应用层队头阻塞（多路复用），但 TCP 按序交付使丢包仍连坐所有流
+  - 只解决了头部大小
+  - 让 TCP 不丢包了
+  answer: 1
+  explain: HTTP/2 的多流共享一条有序字节流；单个丢包会阻塞整条流的交付。
+- q: QUIC 为什么选 UDP 做地基？
+  options:
+  - UDP 更可靠
+  - 能穿透只认 TCP/UDP 的中间设备，且实现可放在用户态快速演进
+  - UDP 不丢包
+  - 因为 TCP 被禁用了
+  answer: 1
+  explain: QUIC 需要在现有互联网上部署并快速迭代：UDP 提供最小通道，其余语义（可靠、拥塞、加密）自己在用户态实现。
+- q: 连接迁移靠的是什么？
+  options:
+  - 更快的重连
+  - 连接由协商的连接 ID 标识，与源地址解耦
+  - 服务器记住用户密码
+  - 双倍带宽
+  answer: 1
+  explain: 地址变化后凭同一连接 ID 继续通信，服务器验证新路径即可，不必重新建连。
