@@ -58,3 +58,7 @@
 - id: vllm-pagedattention
   title: "Efficient Memory Management for Large Language Model Serving with PagedAttention (arXiv:2309.06180)"
   url: https://arxiv.org/abs/2309.06180
+- id: clrs
+  title: "Introduction to Algorithms (CLRS), 4th ed., MIT Press"
+  url: https://mitpressbookstore.mit.edu/book/9780262046305
+  license: copyrighted
