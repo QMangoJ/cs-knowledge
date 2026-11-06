@@ -116,6 +116,10 @@ const TopicBase = z.object({
   prereq: z.array(z.string()).optional(),
   objectives: z.array(z.string().min(1)).optional(),
   aiLink: z.string().min(1).optional(),
+  design: z.array(z.object({
+    mechanism: z.string().min(1), problem: z.string().min(1),
+    choice: z.string().min(1), tradeoff: z.string().min(1), root: z.string().min(1),
+  })).optional(),
   quiz: z.array(QuizItem).optional(),
   overview: z.array(KV),
   visual: z.enum(["swimlane", "datapath", "datastate", "lab"]),
@@ -154,6 +158,7 @@ export function checkTopic(t: Topic, sources: Map<string, SourceDef>): Issue[] {
   const base = `${t.subject}/${t.slug}`;
   if (t.id !== base) hard(base, `id 应为 ${base}`);
   if (t.status === "published" && t.steps.length < 1) hard(base, "published 主题没有步骤");
+  if (t.status === "published" && (!t.design || t.design.length < 2)) hard(base, "published 主题必须有至少 2 条 design（为什么这样设计）");
   const seen = new Set<string>();
   for (const s of t.steps) {
     const w = `${base} step ${s.id}`;

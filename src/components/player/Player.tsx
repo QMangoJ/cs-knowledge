@@ -33,6 +33,19 @@ export function Player({ topic, sources, initialStep, nextTopic }: { topic: View
             <div className="objectives"><h3>{t.objectives}</h3><ul>{topic.objectives.map((o) => <li key={o}>{o}</li>)}</ul></div>
           )}
           {topic.aiLink && <div className="ai-link"><h3>{t.aiLink}</h3><p>{topic.aiLink}</p></div>}
+          {topic.design && topic.design.length > 0 && (
+            <div className="design"><h3>{t.design}</h3>
+              {topic.design.map((d) => (
+                <div key={d.mechanism} className="design-item">
+                  <h4>{d.mechanism}</h4>
+                  <p><b>{t.dProblem}：</b>{d.problem}</p>
+                  <p><b>{t.dChoice}：</b>{d.choice}</p>
+                  <p><b>{t.dTradeoff}：</b>{d.tradeoff}</p>
+                  <p><b>{t.dRoot}：</b>{d.root}</p>
+                </div>
+              ))}
+            </div>
+          )}
           <details className="more">
             <summary>{t.overview}</summary>
             <p className="premise">{topic.premise}</p>

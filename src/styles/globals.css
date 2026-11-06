@@ -244,3 +244,11 @@ details.ref-sol summary{cursor:pointer;font-weight:700}
 .stepnav .speeds button{padding:0 10px;height:30px;font-size:12.5px}
 .stepnav .speeds button.on{border-color:var(--active);color:var(--active);font-weight:700}
 @media(max-width:900px){.stepnav .scrub{display:none}.stepnav .speeds button{padding:0 7px}}
+
+/* --- design rationale block --- */
+.design{margin-top:18px;border:1px solid var(--line-mid);border-radius:var(--radius-lg);padding:14px 16px;background:color-mix(in srgb,var(--active) 4%,transparent)}
+.design h3{margin:0 0 8px}
+.design-item{margin-top:12px;padding-top:10px;border-top:1px dashed var(--line-soft)}
+.design-item:first-of-type{border-top:none;padding-top:2px}
+.design-item h4{margin:0 0 6px;color:var(--active)}
+.design-item p{margin:4px 0;line-height:1.75}
