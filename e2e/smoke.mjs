@@ -39,4 +39,43 @@ for (const vp of [{ width: 1440, height: 900 }, { width: 1280, height: 800 }, { 
 const p = await browser.newPage();
 const r = await p.goto(`${base}/os/syscall/99/`);
 ok(r.status() === 404, "unknown step -> 404");
+
+// ---- phase 2: quiz removed, manual done, new interactions ----
+const q = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+const qerr = []; q.on("pageerror", (e) => qerr.push(e.message)); q.on("console", (m) => m.type() === "error" && qerr.push(m.text()));
+await q.goto(`${base}/os/syscall/7/`);
+ok((await q.locator(".quiz").count()) === 0, "phase2 no quiz rendered on last step");
+ok((await q.locator(".now-bar").count()) >= 1, "phase2 now-bar present on canvas");
+await q.locator(".mark-done").click();
+ok(await q.evaluate(() => localStorage.getItem("cs-done:os/syscall") === "1"), "phase2 manual mark-done writes cs-done key");
+await q.goto(`${base}/`);
+ok((await q.locator("text=数据存储").count()) >= 1 && (await q.locator("text=数学基础").count()) >= 1, "phase2 home has data + math sections");
+ok((await q.locator(".route-steps li").count()) === 7, "phase2 route has 7 stages");
+await q.goto(`${base}/dsa/binary-search/4/`);
+ok((await q.locator(".codeblock .cl.hl").count()) === 1, "phase2 code line highlight on binary search step");
+await q.locator(".stepnav .scrub").evaluate((el) => el.focus());
+await q.keyboard.press("ArrowRight"); await q.keyboard.press("ArrowRight");
+await q.waitForFunction(() => location.pathname.endsWith("/6/"), null, { timeout: 3000 }).catch(() => {});
+ok(q.url().endsWith("/dsa/binary-search/6/"), "phase2 scrub slider jumps to step 6");
+await q.goto(`${base}/dsa/hash-table/6/`);
+await q.locator(".lab-hash").waitFor({ timeout: 8000 }).catch(() => {});
+ok((await q.locator(".lab-hash").count()) === 1, "phase2 hash playground mounted");
+await q.locator(".lab-hash .lab-row button").nth(1).click();
+ok((await q.locator(".lab-hash .bs-cell").count()) === 8, "phase2 hash playground preset renders 8 slots");
+await q.goto(`${base}/dsa/bfs-dfs/6/`);
+await q.locator(".lab-graph").waitFor({ timeout: 8000 }).catch(() => {});
+ok((await q.locator(".lab-graph").count()) === 1, "phase2 graph walk mounted");
+await q.locator(".lab-graph .lab-row button").nth(1).click();
+await q.locator(".lab-graph .lab-row button").last().click(); // single-step may vary; ensure no crash
+await q.goto(`${base}/dsa/dijkstra/8/`);
+await q.locator(".lab-dij").waitFor({ timeout: 8000 }).catch(() => {});
+ok((await q.locator(".lab-dij").count()) === 1, "phase2 dijkstra lab mounted");
+await q.locator(".lab-dij .lab-row button", { hasText: "源点 F" }).click();
+ok((await q.locator(".lab-dij .bs-cell").count()) === 6, "phase2 dijkstra lab source F renders");
+for (const u of ["/data/btree-index/", "/data/transactions/", "/math/probability/", "/co/gpu-simt/", "/network/http2-quic/", "/os/file-system/"]) {
+  const rr = await q.goto(`${base}${u}`);
+  ok(rr.status() === 200, `phase2 new topic ${u} 200`);
+}
+ok(qerr.length === 0, `phase2 pages no console errors ${qerr.join(";")}`);
+await q.close();
 await browser.close();
