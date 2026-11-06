@@ -27,6 +27,17 @@ describe("content rules (no verification gate)", () => {
   it("unknown ref fails", () => expect(errors(topic({}, { sources: [{ ...verified, ref: "nope" }] }))[0]).toMatch(/ref=nope/));
 });
 
+describe("A: extended fields", () => {
+  it("accepts level/minutes/prereq/objectives/aiLink/quiz and step code/points/mistake", () => {
+    const t2 = topic({ subject: "network", id: "network/x", level: "基础", minutes: 10, prereq: ["os/syscall"], objectives: ["懂握手"], aiLink: "与流式 API 有关", quiz: [{ q: "q", options: ["a", "b", "c", "d"], answer: 1, explain: "e" }] }, { code: { lang: "ts", code: "let x=1" }, points: ["p"], mistake: "m" });
+    expect(t2.level).toBe("基础"); expect(t2.quiz?.[0]?.answer).toBe(1); expect(t2.steps[0]?.code?.lang).toBe("ts");
+  });
+  it("rejects quiz with wrong option count", () => {
+    expect(() => topic({ quiz: [{ q: "q", options: ["a"], answer: 0, explain: "e" }] })).toThrow();
+  });
+  it("old topics without new fields still parse", () => expect(errors(topic())).toEqual([]));
+});
+
 describe("paths", () => {
   it("round-trips step urls", () => {
     expect(stepPath("os", "syscall", 0)).toBe("/os/syscall/");

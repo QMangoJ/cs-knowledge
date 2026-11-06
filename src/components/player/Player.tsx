@@ -5,6 +5,7 @@ import type { ViewTopic, ViewSources } from "@/lib/view";
 import type { SourceCitation } from "@/lib/schema";
 import { t, REPO_URL } from "@/i18n";
 import { issueUrl, stepPath } from "@/lib/paths";
+import { Quiz, MarkDone } from "./Quiz";
 
 type NextTopic = { href: string; title: string } | null;
 
@@ -21,6 +22,17 @@ export function Player({ topic, sources, initialStep, nextTopic }: { topic: View
           <p className="eyebrow">{t.subjects[topic.subject]}</p>
           <h1>{topic.title}</h1>
           <p className="summary">{topic.summary}</p>
+          {(topic.level || topic.minutes || (topic.prereq && topic.prereq.length > 0)) && (
+            <p className="topic-meta">
+              {topic.level && <span className="badge">{t.level} · {topic.level}</span>}
+              {topic.minutes && <span className="badge">约 {topic.minutes} {t.minutes}</span>}
+              {topic.prereq && topic.prereq.length > 0 && <span className="badge">{t.prereq}：{topic.prereq.join("、")}</span>}
+            </p>
+          )}
+          {topic.objectives && topic.objectives.length > 0 && (
+            <div className="objectives"><h3>{t.objectives}</h3><ul>{topic.objectives.map((o) => <li key={o}>{o}</li>)}</ul></div>
+          )}
+          {topic.aiLink && <div className="ai-link"><h3>{t.aiLink}</h3><p>{topic.aiLink}</p></div>}
           <details className="more">
             <summary>{t.overview}</summary>
             <p className="premise">{topic.premise}</p>
@@ -32,6 +44,18 @@ export function Player({ topic, sources, initialStep, nextTopic }: { topic: View
           <h2>{step.title}</h2>
           <p className="tldr">{step.tldr}</p>
           <div className="body" dangerouslySetInnerHTML={{ __html: step.bodyHtml }} />
+          {step.code && (
+            <figure className="codeblock">
+              <figcaption>{step.code.lang}{step.code.note ? ` · ${step.code.note}` : ""}</figcaption>
+              <pre><code>{step.code.code}</code></pre>
+            </figure>
+          )}
+          {step.points && step.points.length > 0 && (
+            <div className="points"><h3>{t.points}</h3><ul>{step.points.map((pt) => <li key={pt}>{pt}</li>)}</ul></div>
+          )}
+          {step.mistake && <p className="mistake"><b>{t.mistake}：</b>{step.mistake}</p>}
+          {index === total - 1 && topic.quiz && topic.quiz.length > 0 && <Quiz items={topic.quiz} topicId={topic.id} />}
+          {index === total - 1 && <MarkDone topicId={topic.id} />}
           {step.keyFields && step.keyFields.length > 0 && (
             <details className="more"><summary>{t.keyFields}</summary>
               <dl className="kv">{step.keyFields.map((k) => <div key={k.key}><dt>{k.key}</dt><dd>{k.value}</dd></div>)}</dl>

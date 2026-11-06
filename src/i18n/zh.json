@@ -1,7 +1,12 @@
 {
   "siteName": "计算机科学",
   "tagline": "操作系统、组成原理、数据结构与算法的分步可视讲解",
-  "subjects": { "os": "操作系统", "co": "计算机组成原理", "dsa": "数据结构与算法" },
+  "subjects": {
+    "os": "操作系统",
+    "co": "计算机组成原理",
+    "dsa": "数据结构与算法",
+    "network": "计算机网络"
+  },
   "comingSoon": "即将推出",
   "draft": "草稿",
   "prev": "上一步",
@@ -19,5 +24,23 @@
   "home": "首页",
   "notFound": "页面不存在",
   "footer": "代码 MIT，内容 CC BY 4.0；引用材料各按其原许可。本站与上述大学无关联，不代表任何大学背书。",
-  "keyboardHint": "← / → 切换步骤，空格播放"
+  "keyboardHint": "← / → 切换步骤，空格播放",
+  "objectives": "学习目标",
+  "aiLink": "与 AI 工程的连接",
+  "quiz": "课末自测",
+  "quizDone": "全部答对，主题完成 ✓",
+  "quizProgress": "已答对 {ok} / {total}",
+  "points": "要点",
+  "mistake": "常见误区",
+  "codeNote": "代码",
+  "markDone": "标记为已学完",
+  "done": "已学完 ✓",
+  "minutes": "分钟",
+  "prereq": "前置",
+  "route": "学习路线",
+  "routeNote": "建议顺序：先操作系统打底，再组成原理理解硬件，接着数据结构与算法，然后计算机网络，最后到面试刷题里实战。",
+  "progress": "总进度",
+  "roadmap": "规划中",
+  "coding": "面试刷题",
+  "level": "难度"
 }

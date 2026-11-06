@@ -143,6 +143,14 @@ export function Datastate({ state }: { state: DatastateState }) {
           {state.graph && state.structure === "graph" && <Graph g={state.graph} h={gH} />}
         </svg>
         {state.caption && <p className="ds-caption">{state.caption}</p>}
+        <div className="ds-legend" aria-label="颜色图例">
+          <span><i style={{ background: "var(--line-soft)", borderColor: "var(--active)" }} />active 当前比较/处理中</span>
+          <span><i style={{ background: "var(--active)" }} />found 已找到/最终位置</span>
+          <span><i style={{ background: "#e8f3ec", borderColor: "#3f8f5f" }} />done 已完成</span>
+          <span><i style={{ background: "#fff4e5", borderColor: "#c77700" }} />pivot 基准元素</span>
+          <span><i style={{ background: "var(--panel)", opacity: 0.35 }} />muted 已排除</span>
+          <span><i style={{ background: "var(--line-soft)" }} />visited 已访问</span>
+        </div>
         {state.aux && state.aux.length > 0 && (
           <div className="ds-aux">
             {state.aux.map((a) => (

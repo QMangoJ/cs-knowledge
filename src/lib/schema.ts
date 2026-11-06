@@ -71,11 +71,21 @@ export const LabState = z.object({
 });
 export const CanvasState = z.discriminatedUnion("kind", [SwimlaneState, DatastateState, LabState]);
 
+export const StepCode = z.object({ lang: z.string().min(1), code: z.string().min(1), note: z.string().optional() });
+export const QuizItem = z.object({
+  q: z.string().min(1),
+  options: z.array(z.string().min(1)).length(4),
+  answer: z.number().int().min(0).max(3),
+  explain: z.string().min(1),
+});
 export const Step = z.object({
   id: z.string().regex(/^[a-z0-9-]+$/),
   title: z.string().min(1),
   tldr: z.string().min(1),
   body: z.string().min(1),
+  code: StepCode.optional(),
+  points: z.array(z.string().min(1)).optional(),
+  mistake: z.string().min(1).optional(),
   keyFields: z.array(KV).optional(),
   derivation: z.enum(["original", "adapted"]),
   sources: z.array(SourceCitation).default([]),
@@ -95,12 +105,18 @@ export function parseTerminal(v: string) {
 
 const TopicBase = z.object({
   id: z.string(),
-  subject: z.enum(["os", "co", "dsa"]),
+  subject: z.enum(["os", "co", "dsa", "network"]),
   slug: z.string().regex(/^[a-z0-9-]+$/),
   order: z.number().int(),
   status: z.enum(["published", "draft", "coming-soon"]),
   license: z.enum(["CC-BY-4.0", "CC-BY-NC-SA-4.0"]).default("CC-BY-4.0"),
   title: z.string(), summary: z.string(), premise: z.string(),
+  level: z.enum(["基础", "进阶"]).optional(),
+  minutes: z.number().int().positive().optional(),
+  prereq: z.array(z.string()).optional(),
+  objectives: z.array(z.string().min(1)).optional(),
+  aiLink: z.string().min(1).optional(),
+  quiz: z.array(QuizItem).optional(),
   overview: z.array(KV),
   visual: z.enum(["swimlane", "datapath", "datastate", "lab"]),
   lanes: z.array(z.object({ id: z.string(), label: z.string() })).optional(),
@@ -121,6 +137,8 @@ export const Topic = TopicBase.transform((t) => {
 export type SourceDef = z.infer<typeof SourceDef>;
 export type SourceCitation = z.infer<typeof SourceCitation>;
 export type Step = z.infer<typeof Step>;
+export type QuizItem = z.infer<typeof QuizItem>;
+export type StepCode = z.infer<typeof StepCode>;
 export type Topic = z.infer<typeof Topic>;
 export type CanvasState = z.infer<typeof CanvasState>;
 export type SwimlaneState = z.infer<typeof SwimlaneState>;
