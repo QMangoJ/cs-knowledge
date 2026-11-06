@@ -53,8 +53,10 @@ steps:
   - ref: ostep
     locator: CPU 虚拟化 / Limited Direct Execution 一章
     claim: 操作系统通过分时共享制造多个 CPU 的假象
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -90,8 +92,10 @@ steps:
   - ref: ostep
     locator: Limited Direct Execution 一章，时钟中断
     claim: 时钟中断让操作系统重新获得 CPU 控制权
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -130,8 +134,10 @@ steps:
   - ref: ostep
     locator: Limited Direct Execution 一章，上下文切换
     claim: 切换时内核保存当前进程的上下文
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -159,11 +165,11 @@ steps:
     event: 保存程序 A 的上下文
   code:
     lang: text
-    code: '保存现场 ≈ 把寄存器组、PC、栈指针写进 PCB
+    code: '保存现场 ≈ 把寄存器组、PC、栈指针存进进程的上下文记录（概念上称 PCB；Linux 实际存在内核栈与 task_struct 里）
 
       恢复现场 ≈ 从另一个 PCB 读回寄存器并跳过去执行
 
-      直接成本 ~1–5 μs；缓存/TLB 冷启动的间接成本常常更高'
+      直接成本：现代机器上约次微秒到数微秒（随机器与工作集变化）；缓存/TLB 冷启动的间接成本常常更高'
     note: 伪代码
 - id: schedule
   title: 调度：选下一个上场的程序
@@ -179,8 +185,10 @@ steps:
     locator: scheduler/sched-design-CFS、sched-eevdf
     url: https://docs.kernel.org/scheduler/sched-eevdf.html
     claim: CFS 按虚拟运行时间公平调度；EEVDF 在 6.6 中取代 CFS
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -211,14 +219,16 @@ steps:
     教科书里的先来先服务、短作业优先、轮转、多级反馈队列，都是在这几者之间做不同的取舍；Linux 的 CFS/EEVDF 按“谁用得少谁先上”来兼顾。
 
 
-    数字例子：Linux 的 CFS 给每个可运行任务按权重分配虚拟运行时间。8 个同权重任务在 1 个核上轮转，每个任务的时间片粒度约毫秒级——切换开销（微秒级）占比不到千分之一；但若任务数上千，切换与缓存抖动就会明显吃掉吞吐，这也是推理服务要控制并发线程数的原因。'
+    数字例子：Linux 的 CFS 给每个可运行任务按权重分配虚拟运行时间。8 个同权重任务在 1 个核上轮转，每个任务一次能连续跑约毫秒量级——按每次切换约 1 μs 估算，开销占比约千分之一量级；但若任务数上千，切换与缓存抖动就会明显吃掉吞吐，这也是推理服务要控制并发线程数的原因。'
   derivation: original
   sources:
   - ref: ostep
     locator: CPU 虚拟化 / Limited Direct Execution 一章
     claim: 调度器要在吞吐、响应速度和公平之间取舍，没有一种策略全都最好。
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -258,8 +268,10 @@ steps:
     locator: proc(5)，/proc/pid/status 中 voluntary_ctxt_switches
     url: https://man7.org/linux/man-pages/man5/proc.5.html
     claim: Linux 分别统计主动与被动上下文切换次数
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -295,14 +307,16 @@ steps:
     但任务搬到别的核心后，原来缓存里的数据用不上了，所以调度器倾向让任务留在原核心（亲和性），taskset 可以手动指定。
 
 
-    工程注记：vmstat 的 cs 列（每秒上下文切换次数）是现成的观测点：空载也常有上千次；若推理服务的 cs 冲到几十万且吞吐不动，多半是线程开太多在互相抢核。'
+    工程注记：vmstat 的 cs 列（每秒上下文切换次数）是现成的观测点：空载也常有上千次；从经验看，若推理服务的 cs 冲得很高且吞吐不动，多半是线程开太多在互相抢核。'
   derivation: original
   sources:
   - ref: ostep
     locator: CPU 虚拟化 / Limited Direct Execution 一章
     claim: 有多个核心时，每个核心有自己的运行队列，调度器还要在核心之间搬任务。
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:

@@ -55,8 +55,10 @@ steps:
   - ref: ostep
     locator: Address Spaces 一章
     claim: 地址空间为每个进程提供隔离的内存视图
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -90,8 +92,10 @@ steps:
     locator: proc(5)，/proc/pid/maps
     url: https://man7.org/linux/man-pages/man5/proc.5.html
     claim: /proc/pid/maps 列出进程的内存映射区域及权限
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -127,8 +131,10 @@ steps:
   - ref: ostep
     locator: Paging 一章
     claim: 分页以固定大小页为单位映射并检查权限
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -153,7 +159,7 @@ steps:
     event: 查页表，得到物理地址
   code:
     lang: c
-    code: '// 48 位 VA = [9|9|9|9|12]：四级索引 + 页内偏移（addr-split 实验可动手拆）
+    code: '// 48 位 VA = [9|9|9|9|12]：四级索引 + 页内偏移（addr-split 实验可动手拆）；下式 level=0 指最低一级页表（PT），level 越大越靠近根
 
       uint64_t idx = (va >> (12 + 9 * level)) & 0x1FF;
 
@@ -172,8 +178,10 @@ steps:
   - ref: ostep
     locator: Address Spaces 一章
     claim: 地址空间很大但大部分没用，所以页表分层，只为用到的部分建表。
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -217,8 +225,10 @@ steps:
   - ref: ostep
     locator: 'Paging: Smaller Tables 一章'
     claim: 多级页表按地址位段逐级索引
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: lab
     lab: addr-split
@@ -291,20 +301,24 @@ steps:
     对数据库这类大内存程序，Linux 支持大页（如 2MB），同样大小的 TLB 能覆盖更多内存。
 
 
-    数字感：TLB 命中约 1 个周期，未命中走 4 级页表约 4 次访存（数百周期），缺页去 SSD 读则要约 10 万个周期量级。三级代价差着数量级，这也是大模型推理用大页（huge page）减少 TLB 未命中的原因。'
+    数字感：TLB 命中是流水线里的一次快速查找；未命中最坏要走 4 级页表约 4 次访存（有页表行走缓存时通常少于 4 次内存访问），缺页去 SSD 读则要数万到数十万个周期量级（随介质而定）。三级代价差着数量级，这也是大模型推理用大页（huge page）减少 TLB 未命中的原因。'
   derivation: original
   sources:
   - ref: ostep
     locator: TLB 一章
     claim: TLB 缓存地址翻译，利用局部性加速
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   - ref: linux-kernel-docs
     locator: admin-guide/mm/transhuge
     url: https://docs.kernel.org/admin-guide/mm/transhuge.html
     claim: Linux 透明大页机制
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -340,8 +354,10 @@ steps:
   - ref: ostep
     locator: Address Spaces 一章
     claim: 同一块物理内存可以映射给多个进程，省内存，也让 fork 变快。
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -377,8 +393,10 @@ steps:
   - ref: ostep
     locator: 'Beyond Physical Memory: Mechanisms 一章'
     claim: 翻译失败时触发异常交由操作系统处理
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -408,7 +426,7 @@ steps:
 
     内核挑最近不常用的页写到交换区（swap）或丢掉可重新读取的文件页，并在页表里标记“不在内存”；再访问时触发缺页，再读回来。
 
-    读磁盘比读内存慢成千上万倍，所以频繁换进换出（抖动）时整台机器会变得非常卡。
+    换页介质比内存慢约三个数量级（SSD）到五个数量级（机械盘），所以频繁换进换出（抖动）时整台机器会变得非常卡。
 
 
     工程注记：一个 48 位虚拟地址空间是 256 TB，单个进程怎么映射都够用；真正稀缺的是物理内存与 TLB 覆盖范围——大页把单条 TLB 覆盖从 4 KB 提到 2 MB，正是给大模型这种大块连续访问准备的。'
@@ -417,8 +435,10 @@ steps:
   - ref: ostep
     locator: Address Spaces 一章
     claim: 物理内存不够时，内核可以把不常用的页写到磁盘，腾出空间。
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -449,7 +469,7 @@ objectives:
 - 把虚拟地址按多级页表拆成索引与页内偏移
 - 解释 TLB 的作用与未命中代价
 - 说清共享页与写时复制如何省内存
-aiLink: 这是全站与 AI 工程连接最紧的一课：vLLM 的 PagedAttention 直接借用了虚拟内存的分页思想管理 KV Cache——把 KV 切成固定大小的块、按需映射，于是显存碎片几乎消失、同一前缀的请求还能共享块。懂页表，就懂它为什么成立。
+aiLink: 这是全站与 AI 工程连接最紧的一课：vLLM 的 PagedAttention 直接借用了虚拟内存的分页思想管理 KV Cache——把 KV 切成固定大小的块、按需映射，于是显存碎片几乎消失；论文里同一请求内的并行采样等场景还能共享块，后来的 vLLM 又在此基础上做了跨请求的前缀缓存。懂页表，就懂它为什么成立。
 quiz:
 - q: 48 位虚拟地址、4 KB 页、每级 9 位时，页内偏移占几位？
   options:

@@ -9,7 +9,7 @@ summary: 多个线程同时改同一份数据会出错，锁保证同一时刻�
 premise: 以 Linux 上两个线程同时给计数器加 1、用 pthread_mutex 保护为例。
 overview:
 - key: 一句话总结
-  value: 共享数据要加锁，锁靠原子指令实现，抢不到时靠内核让线程睡眠
+  value: 共享数据要加锁，锁靠原子指令实现；futex 型互斥锁抢不到时靠内核让线程睡眠
 - key: 竞态
   value: 结果取决于谁先谁后，偶尔出错，很难复现
 - key: 临界区
@@ -53,8 +53,10 @@ steps:
   - ref: ostep
     locator: 'Concurrency: An Introduction 一章'
     claim: 对共享变量的非原子更新会产生竞态
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -95,8 +97,10 @@ steps:
   - ref: ostep
     locator: 'Concurrency: An Introduction 一章'
     claim: 调度不确定性使线程指令交错执行
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -139,8 +143,10 @@ steps:
   - ref: ostep
     locator: 'Concurrency: An Introduction 一章'
     claim: 非原子的读-改-写交错会丢失更新
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: lab
     lab: interleave
@@ -211,8 +217,10 @@ steps:
     locator: pthread_mutex_lock(3p)
     url: https://man7.org/linux/man-pages/man3/pthread_mutex_lock.3p.html
     claim: 互斥锁保证同一时刻只有一个线程持有
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -258,20 +266,24 @@ steps:
     没人抢锁时，加锁只是一条原子指令，完全不用进内核，很快。
 
 
-    数字例子：无锁原子自增在无竞争时约几纳秒；一旦两个核高频抢同一计数器，缓存行在核间来回弹跳（cache line ping-pong），单次操作能慢到上百纳秒——这就是计数器分片（per-core counter）在高并发服务里流行的原因。'
+    数字例子（量级示意）：无锁原子自增在无竞争时很快；一旦两个核高频抢同一计数器，缓存行在核间来回弹跳（cache line ping-pong），单次操作能慢一两个数量级——这就是计数器分片（per-core counter）在高并发服务里流行的原因。'
   derivation: original
   sources:
   - ref: ostep
     locator: Locks 一章，硬件原语
     claim: 锁的实现依赖原子指令
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   - ref: linux-man-pages
     locator: futex(7)
     url: https://man7.org/linux/man-pages/man7/futex.7.html
     claim: futex 在无竞争时完全在用户态完成
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -311,8 +323,10 @@ steps:
     locator: futex(2)
     url: https://man7.org/linux/man-pages/man2/futex.2.html
     claim: futex 提供等待与唤醒操作
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -351,8 +365,10 @@ steps:
   - ref: ostep
     locator: 'Concurrency: An Introduction 一章'
     claim: 两个线程各拿一把锁、又等对方那把，谁都走不动了。
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -395,8 +411,10 @@ steps:
   - ref: ostep
     locator: Common Concurrency Problems 一章
     claim: 循环等待是死锁条件之一，固定加锁顺序可预防
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: lab
     lab: interleave
@@ -451,14 +469,16 @@ steps:
     只是一个计数器时，直接用原子操作（如 atomic_fetch_add）就够了，不必加锁。
 
 
-    工程注记：排障时先分清锁竞争还是锁等待——perf lock 与 /proc/<pid>/status 能看出线程睡在 futex 上；睡得多但 CPU 不满，问题在锁粒度或临界区里做了慢操作（如在锁内打日志）。'
+    工程注记：排障时先分清锁竞争还是锁等待——perf lock 等工具能看出线程是否睡在 futex 上；睡得多但 CPU 不满，问题在锁粒度或临界区里做了慢操作（如在锁内打日志）。'
   derivation: original
   sources:
   - ref: ostep
     locator: 'Concurrency: An Introduction 一章'
     claim: 不同场景有更合适的同步方式：条件变量、读写锁、原子变量。
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:

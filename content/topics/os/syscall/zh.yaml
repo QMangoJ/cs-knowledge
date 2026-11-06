@@ -9,7 +9,7 @@ summary: 程序不能直接碰硬件，想读写文件、上网、打印，都�
 premise: 以 Linux（x86-64）上一个程序往终端打印一行字为例。
 overview:
 - key: 一句话总结
-  value: 系统调用是程序进入内核的唯一受控入口
+  value: 系统调用是程序主动请求内核服务的唯一受控入口（缺页、中断等也会进内核，但不是程序主动请求的）
 - key: 为什么需要
   value: 保护硬件和其他程序，不让一个程序为所欲为
 - key: 两种模式
@@ -53,8 +53,10 @@ steps:
   - ref: ostep
     locator: Limited Direct Execution 一章
     claim: 用户程序不能直接执行 I/O 等受限操作
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -81,7 +83,7 @@ steps:
   - 程序不能直接操作硬件，这是为了保护整台机器。
 - id: syscall-door
   title: 发起系统调用：敲响内核的门
-  tldr: 系统调用是程序进入内核的唯一受控入口。
+  tldr: 系统调用是程序主动请求内核服务的唯一受控入口。
   body: '程序调用 printf，最终由 C 库（glibc）执行 x86-64 的 syscall 指令，并带上“我要哪种服务”的编号。
 
     这条指令触发“陷入”，把控制权交给内核。
@@ -93,8 +95,10 @@ steps:
     locator: syscall(2)、strace(1)
     url: https://man7.org/linux/man-pages/man2/syscall.2.html
     claim: x86-64 Linux 通过 syscall 指令进入内核；strace 可跟踪系统调用
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -136,8 +140,10 @@ steps:
   - ref: ostep
     locator: Limited Direct Execution 一章，用户模式与内核模式
     claim: 处理器区分用户模式和内核模式，trap 时切换到内核模式
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -174,8 +180,10 @@ steps:
     locator: write(2) 的 ERRORS 部分
     url: https://man7.org/linux/man-pages/man2/write.2.html
     claim: write 对非法文件描述符或地址返回 EBADF、EFAULT 等错误
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -203,7 +211,7 @@ steps:
   tldr: 系统调用失败时返回 -1，具体原因放在 errno 里。
   body: '内核把结果当返回值交回：成功时是有意义的数（比如写了几个字节），失败时 C 库包装函数返回 -1。
 
-    具体原因记在全局变量 errno 里，比如 ENOENT 表示文件不存在、EACCES 表示没权限，用 perror 或 strerror 能变成人读的话。
+    具体原因记在线程本地变量 errno 里，比如 ENOENT 表示文件不存在、EACCES 表示没权限，用 perror 或 strerror 能变成人读的话。
 
     所以写系统级代码要养成习惯：每次调用都检查返回值，就像前端每次 fetch 都要看 response.ok。'
   derivation: original
@@ -211,8 +219,10 @@ steps:
   - ref: ostep
     locator: Limited Direct Execution 一章
     claim: 系统调用失败时返回 -1，具体原因放在 errno 里。
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -245,20 +255,24 @@ steps:
     用 strace 对比一下“逐字写”和“缓冲后写”，系统调用次数差别很明显。
 
 
-    具体数字：一 次普通函数调用约几纳秒，一次系统调用约几百纳秒到 1 微秒量级（视 CPU 与缓解措施而定）。推理服务每秒要处理成千上万个 token，日志若每 token 都 write 一次，光系统调用开销就能吃掉可观的吞吐。'
+    具体数字（量级示意，随机器差异可达数倍）：一次普通函数调用约几纳秒，一次系统调用约几百纳秒到 1 微秒量级（视 CPU 与漏洞缓解措施而定）。推理服务每秒要处理成千上万个 token，日志若每 token 都 write 一次，光系统调用开销就能吃掉可观的吞吐。'
   derivation: original
   sources:
   - ref: ostep
     locator: Limited Direct Execution 一章
     claim: 系统调用有切换开销
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   - ref: linux-man-pages
     locator: setvbuf(3)
     url: https://man7.org/linux/man-pages/man3/setvbuf.3.html
     claim: stdio 对输出进行缓冲
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -291,14 +305,16 @@ steps:
     这就像前端把不常变的数据放在本地缓存，不必每次都请求后端。
 
 
-    工程注记：用 strace -c 看一个真实程序，常会发现 read/write 之外还有大量 mmap 与 futex；推理框架启动慢常不是模型算得慢，而是成千上万次小文件 openat/read 累积出来的。'
+    工程注记：用 strace -c 看一个真实程序，常会发现 read/write 之外还有大量 mmap 与 futex；从经验看，程序启动慢常常不是算得慢，而是成千上万次小文件 openat/read 累积出来的（可用 strace -c 自己验证）。'
   derivation: original
   sources:
   - ref: ostep
     locator: Limited Direct Execution 一章
     claim: 有些只读的小请求，内核干脆把答案放到用户态，省掉一趟切换。
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -328,7 +344,7 @@ objectives:
 - 说清用户态/内核态为什么要隔离
 - 跟踪一次 read 系统调用的完整路径
 - 解释系统调用为什么比普通函数调用贵
-aiLink: LLM 应用里每次读模型文件、收发网络请求、写日志都经系统调用进入内核；推理服务调优常看 strace 与 syscall 次数，vLLM 等框架用批量与异步 I/O 减少陷入内核的次数——看懂 syscall 才看得懂这些开销从哪来。
+aiLink: LLM 应用里每次读模型文件、收发网络请求、写日志都经系统调用进入内核；推理服务调优常看 strace 与 syscall 次数，批量与异步 I/O 的价值之一就是减少陷入内核的次数——看懂 syscall 才看得懂这些开销从哪来。
 quiz:
 - q: 程序为什么不能直接读文件、非要请内核帮忙？
   options:
@@ -349,7 +365,7 @@ quiz:
 - q: read() 返回 -1 时，错误原因放在哪里？
   options:
   - 返回值里直接给原因
-  - 全局变量 errno
+  - 线程本地变量 errno
   - 函数参数里
   - 内核日志里
   answer: 1

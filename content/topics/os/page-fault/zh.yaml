@@ -52,8 +52,10 @@ steps:
     locator: malloc(3) NOTES、mmap(2)
     url: https://man7.org/linux/man-pages/man3/malloc.3.html
     claim: 大块分配通过 mmap 建立映射，物理页在访问时才分配
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -91,8 +93,10 @@ steps:
   - ref: ostep
     locator: 'Beyond Physical Memory: Mechanisms 一章'
     claim: 访问未在内存中的页触发缺页异常
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -123,7 +127,7 @@ steps:
 
       2. 文件页 → 从页缓存/磁盘读入该页
 
-      3. 匿名页 → 分配零页
+      3. 匿名页 → 读时映射共享零页，写时才分配清零的私有页
 
       4. COW 页 → 复制一份再写
 
@@ -142,8 +146,10 @@ steps:
   - ref: ostep
     locator: 'Beyond Physical Memory: Mechanisms 一章'
     claim: 操作系统区分合法缺页与非法访问
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -166,7 +172,7 @@ steps:
   tldr: 内核分一页内存填进页表，程序重新执行刚才那条指令。
   body: '内核拿一页空闲内存清零后映射过去；如果内容要从磁盘读（比如程序文件或被换出的页），就会慢很多。
 
-    只改页表、不读磁盘的叫“次要缺页”，要读磁盘的叫“主要缺页”。
+    无需磁盘 I/O 就能解决的（补映射、分配新页、COW 复制、页已在页缓存）叫“次要缺页”，必须去磁盘/交换区读的叫“主要缺页”。
 
     内核返回后，程序重做那次访问，这次成功，完全不知道中间发生了什么。'
   derivation: original
@@ -174,8 +180,10 @@ steps:
   - ref: ostep
     locator: Beyond Physical Memory 相关章节
     claim: 缺页处理分配或读回页面后重新执行指令
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -208,15 +216,17 @@ steps:
     所以“缺页”是内核偷懒和省内存的通用开关，不是错误。
 
 
-    工程注记：用 mmap 加载 70B 模型权重（约 140 GB，FP16）时，多个推理进程可以共享同一批文件页（页缓存只有一份）；若用 read 全量读入，每个进程各占一份私有内存。vLLM 与 llama.cpp 的 mmap 模式省的正是这笔账。'
+    工程注记（数字为量级示意）：用 mmap 加载 70B 模型权重（约 140 GB，FP16）时，多个推理进程可以共享同一批文件页（页缓存只有一份）；若用 read 全量读入，文件页在页缓存里仍只有一份，但每个进程还要再占一份用户态缓冲区的拷贝；mmap 省的正是这份拷贝，还能让多个进程直接共享同一批页。vLLM 与 llama.cpp 的 mmap 模式省的正是这笔账。'
   derivation: original
   sources:
   - ref: linux-man-pages
     locator: malloc(3) NOTES、mmap(2)
     url: https://man7.org/linux/man-pages/man3/malloc.3.html
     claim: 缺页不只用来按需分配，内核还靠它实现写时复制和按需读文件。
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -244,7 +254,7 @@ steps:
   tldr: 因为是按需分配，Linux 敢“超卖”内存；真不够时只能杀进程。
   body: '既然大部分申请的内存用不到，Linux 默认允许大家申请的总量超过实际内存，这叫超额承诺（overcommit）。
 
-    万一大家真的都来用，缺页时找不到空闲内存，内核就启动 OOM killer，挑一个占用大的进程杀掉。
+    万一大家真的都来用，缺页时找不到空闲内存，内核就启动 OOM killer，按 oom_score（主要看内存占用，可用 oom_score_adj 调整）挑一个进程杀掉。
 
     所以服务“莫名其妙被杀”，常常要去 dmesg 里找 OOM 记录。
 
@@ -256,8 +266,10 @@ steps:
     locator: mm/overcommit-accounting
     url: https://docs.kernel.org/mm/overcommit-accounting.html
     claim: Linux 的内存超额承诺策略
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
