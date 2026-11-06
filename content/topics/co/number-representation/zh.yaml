@@ -8,461 +8,566 @@ title: 数字在内存里长什么样：补码与浮点数
 summary: 整数用补码存，小数用浮点数存。这解释了为什么整数会溢出，为什么 0.1 + 0.2 不等于 0.3。
 premise: 以 C 语言的 int、double 和 JavaScript 的 Number 为例。
 overview:
-- key: 一句话总结
-  value: 一切都是固定位数的二进制，位数有限就有边界和误差
-- key: 整数
-  value: 用补码表示负数，加减法电路统一，超出范围会溢出
-- key: 浮点数
-  value: 按 IEEE 754 标准存成“符号 + 指数 + 尾数”，类似二进制的科学计数法
-- key: JS 的 Number
-  value: 就是 64 位双精度浮点数（double）
-- key: 实用建议
-  value: 比较浮点数要允许小误差；算钱用整数分或十进制库
-- key: 无符号 vs 有符号
-  value: 同样的位，解释方式不同；比较混用时容易出错
-- key: 字节序
-  value: x86-64 小端；网络字节序大端
-- key: 特殊值
-  value: Infinity、NaN（NaN !== NaN）、-0
-- key: 类型转换
-  value: 大整数转 double、double 转 int 都可能丢精度或截断
-- key: 在终端里看一看
-  value: python3 -c 'print(0.1+0.2)'　看到 0.30000000000000004；node -e 'console.log(Number.MAX_SAFE_INTEGER)'
+  - key: 一句话总结
+    value: 一切都是固定位数的二进制，位数有限就有边界和误差
+  - key: 整数
+    value: 用补码表示负数，加减法电路统一，超出范围会溢出
+  - key: 浮点数
+    value: 按 IEEE 754 标准存成“符号 + 指数 + 尾数”，类似二进制的科学计数法
+  - key: JS 的 Number
+    value: 就是 64 位双精度浮点数（double）
+  - key: 实用建议
+    value: 比较浮点数要允许小误差；算钱用整数分或十进制库
+  - key: 无符号 vs 有符号
+    value: 同样的位，解释方式不同；比较混用时容易出错
+  - key: 字节序
+    value: x86-64 小端；网络字节序大端
+  - key: 特殊值
+    value: Infinity、NaN（NaN !== NaN）、-0
+  - key: 类型转换
+    value: 大整数转 double、double 转 int 都可能丢精度或截断
+  - key: 在终端里看一看
+    value: python3 -c 'print(0.1+0.2)'　看到 0.30000000000000004；node -e 'console.log(Number.MAX_SAFE_INTEGER)'
 visual: swimlane
 lanes:
-- id: value
-  label: 数值
-- id: bits
-  label: 二进制
-- id: calc
-  label: 结果
+  - id: value
+    label: 数值
+  - id: bits
+    label: 二进制
+  - id: calc
+    label: 结果
 logColumns:
-- key: mode
-  label: 当前状态
-- key: event
-  label: 发生了什么
+  - key: mode
+    label: 当前状态
+  - key: event
+    label: 发生了什么
 steps:
-- id: bits
-  title: 一切都是固定位数的二进制
-  tldr: 内存里只有 0 和 1，而且每种类型的位数是固定的。
-  body: '一个 int 通常占 32 位，一个 double 占 64 位。
-
-    位数固定，意味着能表示的数有限：要么有最大最小值，要么有精度损失。
-
-    后面所有“奇怪现象”，都源于这一点。'
-  derivation: original
-  sources:
-  - ref: csapp
-    locator: 第 2 章
-    url: http://csapp.cs.cmu.edu/
-    claim: 数据以固定长度的位序列表示
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: value
-      id: v
-      label: 数值
-    - lane: bits
-      id: b
-      label: 二进制表示
-      highlight: true
-    - lane: calc
-      id: c
-      label: 运算结果
-    messages: []
-  log:
-  - mode: 存储
-    event: 数值被存成固定长度的二进制
-  points:
-  - 内存里只有 0 和 1，而且每种类型的位数是固定的。
-- id: unsigned-endian
-  title: 无符号整数、十六进制和字节序
-  tldr: 同样一串位，当无符号数和有符号数读，含义不同；多字节数据在内存里还有先后顺序。
-  body: 'n 位无符号整数表示 0 到 2ⁿ−1；写二进制太长，所以常用十六进制，每一位正好对应 4 个二进制位。
-
-    一个 4 字节整数在内存里占 4 个字节，x86-64 和大多数 ARM 设备把低位字节放在前面，这叫小端序；网络协议传输则约定大端序。
-
-    所以读网络数据或二进制文件时，必须知道它是哪种字节序。'
-  derivation: original
-  sources:
-  - ref: csapp
-    locator: 第 2 章
-    url: http://csapp.cs.cmu.edu/
-    claim: 同样一串位，当无符号数和有符号数读，含义不同；多字节数据在内存里还有先后顺序。
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: value
-      id: v
-      label: 数值
-    - lane: bits
-      id: b
-      label: 二进制表示
-      highlight: true
-    - lane: calc
-      id: c
-      label: 运算结果
-    messages:
-    - id: m-unsigned-endian
-      from: v
-      to: b
-      label: 低位字节放在低地址（小端）
-      active: true
-  log:
-  - mode: 存储
-    event: 多字节按小端存放
-- id: twos-complement
-  title: 补码：负数怎么存
-  tldr: 整数用补码表示负数，好处是加减法可以用同一套电路。
-  body: '补码把最高位当成“负的大数”，于是正负数的加法规则完全一样，CPU 不用为减法单独设计电路。
-
-    代价是范围有限：32 位整数加到最大再加 1，硬件上会“绕回”成最小的负数，这叫溢出。
-
-    注意：在 C 里有符号整数溢出是“未定义行为”，编译器不保证会绕回，不能依赖它；无符号整数才保证绕回。
-
-    很多安全漏洞就出在没想到整数会溢出。'
-  derivation: original
-  sources:
-  - ref: csapp
-    locator: 第 2 章 整数表示
-    url: http://csapp.cs.cmu.edu/
-    claim: 补码表示及其溢出行为
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  - ref: cs61c
-    locator: Number Representation 讲义
-    url: https://cs61c.org/
-    claim: 补码统一了加减法运算
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: value
-      id: v
-      label: 数值
-    - lane: bits
-      id: b
-      label: 二进制表示
-      highlight: true
-    - lane: calc
-      id: c
-      label: 运算结果
-    messages:
-    - id: m-twos-complement
-      from: v
-      to: b
-      label: 负数 → 补码
-      active: true
-  log:
-  - mode: 整数
-    event: 用补码表示，超范围会溢出
-- id: float
-  title: 浮点数：二进制的科学计数法
-  tldr: 小数用“符号 + 指数 + 尾数”存，像科学计数法，只不过底数是 2。
-  body: '浮点数能表示极大和极小的数，因为指数可以浮动。
-
-    但尾数位数有限，大多数小数只能存一个最接近的近似值。
-
-    JavaScript 的 Number 就是 64 位双精度浮点数，所以 JS 里的普通数字都遵守这套规则（BigInt 除外）。
-
-
-    数字感：FP16 的尾数只有 10 位，相对精度约 1e-3；权重从 FP32 降到 FP16 体积减半、带宽减半，权重 FP16 + 高精度累加（如 FP32）是常见做法，既快又守住精度。'
-  derivation: original
-  sources:
-  - ref: csapp
-    locator: 第 2 章 浮点数
-    url: http://csapp.cs.cmu.edu/
-    claim: IEEE 754 浮点表示由符号、指数、尾数组成
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: value
-      id: v
-      label: 数值
-    - lane: bits
-      id: b
-      label: 二进制表示
-      highlight: true
-    - lane: calc
-      id: c
-      label: 运算结果
-    messages:
-    - id: m-float
-      from: v
-      to: b
-      label: 小数 → 浮点格式
-      active: true
-  log:
-  - mode: 浮点
-    event: 存成近似值
-- id: point-one
-  title: 为什么 0.1 + 0.2 != 0.3
-  tldr: 0.1 在二进制里是无限循环小数，只能存近似值，误差加起来就露出来了。
-  body: '就像 1/3 在十进制里写不完，0.1 在二进制里也写不完，只能截断。
-
-    0.1 和 0.2 各带一点误差，相加后的结果和 0.3 的近似值不是同一个数，于是得到 0.30000000000000004。
-
-    这不是 JS 的 bug，C、Python、Java 用 double 都一样。'
-  derivation: original
-  sources:
-  - ref: csapp
-    locator: 第 2 章 浮点数
-    url: http://csapp.cs.cmu.edu/
-    claim: 十进制小数在二进制浮点中通常无法精确表示
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: value
-      id: v
-      label: 数值
-    - lane: bits
-      id: b
-      label: 二进制表示
-    - lane: calc
-      id: c
-      label: 运算结果
-      highlight: true
-    messages:
-    - id: m-point-one
-      from: b
-      to: c
-      label: 0.1 + 0.2 ≈ 0.30000000000000004
-      active: true
-  log:
-  - mode: 运算
-    event: 结果与 0.3 存在微小误差
-  code:
-    lang: python
-    code: '# Python 里一探究竟
-
-      >>> 0.1 + 0.2
-
-      0.30000000000000004      # float64 也只是误差更小，不是没有
-
-      >>> import struct; struct.pack(''>f'', 0.1).hex()
-
-      ''3dcccccd''               # float32 的实际位模式'
-    note: 动手验证
-- id: bit-lab
-  title: 动手：在位编辑器里看数字的二进制
-  tldr: 同样 8 个 1，当无符号数是 255，当补码是 -1；0.1 存进 float32 后其实是 0.100000001490116…。
-  body: '右边是一个位编辑器：每一位都可以点击翻转，下面同时显示这串位按不同规则解读出来的值。
-
-    先试补码：宽度选 8 位，把 8 位全部点成 1，也就是 11111111。按无符号读是 255，按补码读是 -1。补码里最高位代表 -128，其余 7 位加起来是 127，-128 + 127 = -1。
-
-    再把它加 1：8 位放不下第 9 位，进位被丢掉，结果绕回 00000000。按无符号看，255 + 1 变成 0，这是无符号溢出（进位超出位宽、绕回）。按补码看，这是 -1 + 1 = 0，结果完全正确，没有发生有符号溢出。
-
-    对比一下真正的有符号溢出：01111111（127）加 1 得 10000000，按补码读是 -128。两个正数相加得到负数，说明结果超出了 8 位补码能表示的范围 -128 到 127。这时没有向第 9 位进位，按无符号看 127 + 1 = 128 也是对的。
-
-    所以同一次加法，是否溢出要看你按哪种规则读：无符号看最高位有没有进位出去，补码看结果符号是否反常（同号相加得到异号）。
-
-    然后切到 float32 模式，输入 0.1。32 位分成三段：符号 0，指数 01111011（123，减去偏移 127 得 -4），尾数 10011001100110011001101。
-
-    0.1 的二进制是 0.000110011001100…，无限循环，尾数只有 23 位，最后一位被舍入成 1。所以实际存下的是 0.100000001490116119384765625，比 0.1 稍大。
-
-    JS 的 Number 是 64 位双精度，尾数有 52 位，误差小得多但仍然存在：0.1 实际是 0.1000000000000000055511151231257827…，这就是 0.1 + 0.2 != 0.3 的根源。
-
-    可以试试：把尾数最后一位改成 0，看值变成 0.0999999940395355…，比 0.1 小；说明 0.1 夹在两个相邻的 float32 之间，只能取更近的那个。'
-  derivation: original
-  sources:
-  - ref: csapp
-    locator: 第 2 章 整数表示与 IEEE 754 浮点
-    claim: 补码与单精度浮点的位模式
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: lab
-    lab: bit-editor
-    caption: 点击每一位翻转，对比无符号、补码、float32 三种读法
-    params:
-      width: 8
-      widths:
-      - 8
-      - 16
-      - 32
-      mode: twos
-      modes:
-      - unsigned
-      - twos
-      - float32
-      value: '11111111'
-    cases:
-    - input:
-        bits: '11111111'
-        mode: unsigned
-      expect:
-        decimal: 255
-    - input:
-        bits: '11111111'
+  - id: bits
+    title: 一切都是固定位数的二进制
+    tldr: 内存里只有 0 和 1，而且每种类型的位数是固定的。
+    body: 内存里只有 0 和 1，而且每种类型的位数是写死的。一个 char 占 8 位，一个 int 通常占 32 位，一个 double 占 64 位，JS 的 Number 干脆全员 64 位双精度。位数固定这句话听起来平淡，它却是后面一切奇怪现象的总源头，能表示的不同位模式总数只有 2 的位数次方个，int 只有约 42 亿个模式，可现实中的整数无穷无尽，于是必然有上限和下限，超出就溢出；小数更是连续的，固定模式数去套连续的实数轴，绝大多数实数压根没有对应模式，只能就近找一个冒充，这就是浮点误差的数学必然，不是哪个语言实现得不好。换个角度，位数就是预算，每多一位预算翻一倍，32 位到 64 位不是大了一倍而是大到约 42 亿倍，这解释了为什么 64 位时间戳和 64 位 ID 能用很久，也解释了为什么量化推理里每砍一位都要小心翼翼，每砍一位可表示的刻度就少一半。学习这一课的方法是把每个现象都追回到同一句话，模式总数有限，于是取舍无处不在。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 2 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 数据以固定长度的位序列表示
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: value
+          id: v
+          label: 数值
+        - lane: bits
+          id: b
+          label: 二进制表示
+          highlight: true
+        - lane: calc
+          id: c
+          label: 运算结果
+      messages: []
+    log:
+      - mode: 存储
+        event: 数值被存成固定长度的二进制
+    points:
+      - 内存里只有 0 和 1，而且每种类型的位数是固定的。
+  - id: unsigned-endian
+    title: 无符号整数、十六进制和字节序
+    tldr: 同样一串位，当无符号数和有符号数读，含义不同；多字节数据在内存里还有先后顺序。
+    body: 同一串位，换一种解释就是另一个数。8 位模式 11111111，按无符号读是 255，按补码读是负 1，位本身没有对错，类型决定解释规则，C 里有符号和无符号混着比较时编译器会把有符号悄悄转成无符号，负 1 一转就变成 42 亿量级的大数，比较结果当场反转，这是真实高频 bug。书写上二进制太长，人用十六进制，一位十六进制正好对应 4 位二进制，0xFF 就是 8 个 1，两位一组永不串位。再看字节序，一个 4 字节整数 0x12345678 在内存里占连续 4 个字节，小端序把最低字节 0x78 放最低地址，x86-64 和主流 ARM 都用小端；大端序把最高字节 0x12 放前面，网络协议统一用大端以便跨机器不歧义。走例，同一台小端机器把这个整数原样发上网，大端解读的对端会读成 0x78563412，值完全变了，所以序列化、文件格式、网络协议都必须写明字节序并在边界做转换，htonl 这类函数干的就是这件事。误解澄清，字节序只影响多字节数据在内存里的字节排列，不影响单个字节内部的位顺序，也不影响寄存器里值的大小，排查时先分清是字节级问题还是位级问题。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 2 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 同样一串位，当无符号数和有符号数读，含义不同；多字节数据在内存里还有先后顺序。
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: value
+          id: v
+          label: 数值
+        - lane: bits
+          id: b
+          label: 二进制表示
+          highlight: true
+        - lane: calc
+          id: c
+          label: 运算结果
+      messages:
+        - id: m-unsigned-endian
+          from: v
+          to: b
+          label: 低位字节放在低地址（小端）
+          active: true
+    log:
+      - mode: 存储
+        event: 多字节按小端存放
+  - id: twos-complement
+    title: 补码：负数怎么存
+    tldr: 整数用补码表示负数，好处是加减法可以用同一套电路。
+    body: 表示负数历史上试过好几种方案，原码直接拿最高位当符号位，结果是加法器遇到负数就要改做减法，还出现正零负零两个零。补码的规则是最高位权重取负，其余位照旧，8 位补码里最高位代表负 128，于是 11111111 等于负 128 加 127 等于负 1。它的杀手锏是统一，正数加负数、负数加负数，全部走同一条无符号加法电路逐位进位即可，减法就是加上对方的补码即取反加一，CPU 不需要第二套电路，溢出判断也收敛为看符号位是否反常。范围要背准，n 位补码是负 2 的 n 减 1 次方到正 2 的 n 减 1 次方减 1，负侧比正侧多一个，因为零只占正侧一个编码，那个多出来的负数没有对应的正搭档，对它取绝对值会溢出回它自己，是边界题的常客。溢出语义必须分语言说清，无符号整数溢出在 C 里定义明确就是绕回，即对 2 的 n 次方取模；有符号溢出在 C 里是未定义行为，编译器可以假设它永不发生并据此优化，依赖它绕回的代码会被优化得面目全非，Java 则明确规定有符号也绕回。同一次 8 位加法 01111111 加 1，按无符号是 128 正确，按补码是负 128 溢出，溢出与否从来都是相对于解释规则而言的。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 2 章 整数表示
+        url: http://csapp.cs.cmu.edu/
+        claim: 补码表示及其溢出行为
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+      - ref: cs61c
+        locator: Number Representation 讲义
+        url: https://cs61c.org/
+        claim: 补码统一了加减法运算
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: value
+          id: v
+          label: 数值
+        - lane: bits
+          id: b
+          label: 二进制表示
+          highlight: true
+        - lane: calc
+          id: c
+          label: 运算结果
+      messages:
+        - id: m-twos-complement
+          from: v
+          to: b
+          label: 负数 → 补码
+          active: true
+    log:
+      - mode: 整数
+        event: 用补码表示，超范围会溢出
+  - id: float
+    title: 浮点数：二进制的科学计数法
+    tldr: 小数用“符号 + 指数 + 尾数”存，像科学计数法，只不过底数是 2。
+    body: 浮点数是二进制版的科学计数法，值等于符号乘以尾数乘以 2 的指数次方。float32 的 32 位切成符号 1 位、阶码 8 位、尾数 23 位，double 的 64 位切成符号 1 位、阶码 11 位、尾数 52 位。阶码存的不是原值而是加了偏移的移码，float32 偏移 127，存 130 表示真指数 3，这样阶码按无符号比较大小就等价于指数比较，硬件比大小更省电路，这正是移码存在的理由，后面的 design 还会展开。规格化要求把数写成 1 点几乘 2 的几次方，二进制里规格化数的首位必然是 1，于是这一位干脆不存，白赚一位精度，叫隐藏位。能表示的范围靠阶码撑开，float32 最大约 3.4 乘 10 的 38 次方，最小正规格化数约 1.2 乘 10 的负 38 次方；精度靠尾数决定，float32 约 7 位十进制有效数字，double 约 15 到 17 位。JS 的 Number 就是 double，所以 JS 里整数超过 2 的 53 次方就开始丢低位、0.1 存不准，都是同一套位预算在生效。记住分工，阶码管范围、尾数管精度，选型时先问问题出在哪一维。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 2 章 浮点数
+        url: http://csapp.cs.cmu.edu/
+        claim: IEEE 754 浮点表示由符号、指数、尾数组成
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: value
+          id: v
+          label: 数值
+        - lane: bits
+          id: b
+          label: 二进制表示
+          highlight: true
+        - lane: calc
+          id: c
+          label: 运算结果
+      messages:
+        - id: m-float
+          from: v
+          to: b
+          label: 小数 → 浮点格式
+          active: true
+    log:
+      - mode: 浮点
+        event: 存成近似值
+  - id: point-one
+    title: 为什么 0.1 + 0.2 != 0.3
+    tldr: 0.1 在二进制里是无限循环小数，只能存近似值，误差加起来就露出来了。
+    body: 0.1 存不准可以手算验证。把 0.1 转成二进制要反复乘 2 取整，得到 0.0001100110011 无限循环，循环节是 0011，就像 1 除以 3 在十进制写不完一样，1 除以 10 在二进制也写不完，因为 10 含因子 5 而二进制只认因子 2。尾数只有 23 位或 52 位，循环再长也要在某一位截断并舍入，于是存下的必然是离 0.1 最近的那个可表示数，float32 存的是 0.100000001490116，略大；double 存的是 0.1000000000000000055511，也略大。0.2 同理带一个自己的小误差，两数相加后误差叠起来，再和 0.3 的最近可表示数一比，正好落在相邻的另一个可表示数上，打印出来就是 0.30000000000000004。这不是 JS 的 bug，换 C、Python、Java 用 double 做同一件事结果一字不差，因为大家用的是同一个 IEEE 754 标准。推论有两条，凡是分母含 2 和 5 以外因子的十进制小数都存不准，比如 0.1、0.2、0.3、0.7 全军覆没，只有 0.5、0.25、0.75 这类分母是 2 的幂的才精确；其二，浮点相等比较必须带容差，金额必须绕开浮点，这两条纪律都从这一次手算里长出来。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 2 章 浮点数
+        url: http://csapp.cs.cmu.edu/
+        claim: 十进制小数在二进制浮点中通常无法精确表示
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: value
+          id: v
+          label: 数值
+        - lane: bits
+          id: b
+          label: 二进制表示
+        - lane: calc
+          id: c
+          label: 运算结果
+          highlight: true
+      messages:
+        - id: m-point-one
+          from: b
+          to: c
+          label: 0.1 + 0.2 ≈ 0.30000000000000004
+          active: true
+    log:
+      - mode: 运算
+        event: 结果与 0.3 存在微小误差
+    code:
+      lang: python
+      code: |-
+        # Python 里一探究竟
+        >>> 0.1 + 0.2
+        0.30000000000000004      # float64 也只是误差更小，不是没有
+        >>> import struct; struct.pack('>f', 0.1).hex()
+        '3dcccccd'               # float32 的实际位模式
+      note: 动手验证
+  - id: bit-lab
+    title: 动手：在位编辑器里看数字的二进制
+    tldr: 同样 8 个 1，当无符号数是 255，当补码是 -1；0.1 存进 float32 后其实是 0.100000001490116…。
+    body: 右边是一个位编辑器，每一位都可以点击翻转，下面同时显示这串位按不同规则解读出来的值。先试补码，宽度选 8 位，把 8 位全部点成 1，也就是 11111111，按无符号读是 255，按补码读是负 1，补码里最高位代表负 128，其余 7 位加起来是 127，负 128 加 127 等于负 1。再把它加 1，8 位放不下第 9 位，进位被丢掉，结果绕回 00000000，按无符号看 255 加 1 变成 0，这是无符号溢出，按补码看这是负 1 加 1 等于 0，结果完全正确，没有发生有符号溢出。对比真正的有符号溢出，01111111 即 127 加 1 得 10000000，按补码读是负 128，两个正数相加得到负数，说明结果超出了 8 位补码范围负 128 到 127，这时没有向第 9 位进位，按无符号看 127 加 1 等于 128 又是对的。所以同一次加法是否溢出要看按哪种规则读，无符号看最高位有没有进位出去，补码看同号相加是否得到异号。然后切到 float32 模式输入 0.1，32 位分成三段，符号 0，阶码 01111011 即 123，减偏移 127 得负 4，尾数 10011001100110011001101。0.1 的二进制是 0.0001100110011 无限循环，尾数只有 23 位，最后一位被舍入成 1，实际存下 0.100000001490116119384765625，比 0.1 稍大。JS 的 Number 是 64 位双精度，尾数 52 位，误差小得多但仍在，0.1 实际是 0.1000000000000000055511151231257827，这就是 0.1 加 0.2 不等于 0.3 的根源。可以试试把尾数最后一位改成 0，值变成 0.0999999940395355，比 0.1 小，说明 0.1 夹在两个相邻 float32 之间，只能取更近的那个，舍入从来不是对错问题而是距离问题。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 2 章 整数表示与 IEEE 754 浮点
+        claim: 补码与单精度浮点的位模式
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: lab
+      lab: bit-editor
+      caption: 点击每一位翻转，对比无符号、补码、float32 三种读法
+      params:
+        width: 8
+        widths:
+          - 8
+          - 16
+          - 32
         mode: twos
-      expect:
-        decimal: -1
-    - input:
-        bits: '11111111'
-        mode: twos
-        op: '+1'
-      expect:
-        bits: '00000000'
-        decimal: 0
-        overflow: true
-        signedOverflow: false
-    - input:
-        bits: '01111111'
-        mode: twos
-        op: '+1'
-      expect:
-        bits: '10000000'
-        decimal: -128
-        overflow: false
-        signedOverflow: true
-    - input:
-        value: 0.1
-        mode: float32
-      expect:
-        bits: 0 01111011 10011001100110011001101
-        hex: '0x3DCCCCCD'
-        exponent: -4
-        stored: '0.100000001490116119384765625'
-    - input:
-        bits: 0 01111011 10011001100110011001100
-        mode: float32
-      expect:
-        hex: '0x3DCCCCCC'
-        stored: '0.0999999940395355224609375'
-  log:
-  - mode: 动手实验
-    event: 同一串位，换一种解读规则就是不同的数
-- id: float-special
-  title: 浮点数的特殊值
-  tldr: 浮点数里有正负无穷、NaN 和 -0，还有“越大越稀疏”的精度。
-  body: '浮点除法里非零数除以 ±0 得到 ±Infinity，0/0 得到 NaN（不是数），而且 NaN 不等于任何值，连它自己也不等于。
-
-    浮点数的精度是相对的：数越大，相邻两个可表示的数之间间隔越大，所以 2⁵³ 以上的整数在 double 里就不能一一表示了。
-
-    这就是 JS 的 Number.MAX_SAFE_INTEGER 是 2⁵³−1 的原因。'
-  derivation: original
-  sources:
-  - ref: csapp
-    locator: 第 2 章
-    url: http://csapp.cs.cmu.edu/
-    claim: 浮点数里有正负无穷、NaN 和 -0，还有“越大越稀疏”的精度。
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: value
-      id: v
-      label: 数值
-    - lane: bits
-      id: b
-      label: 二进制表示
-    - lane: calc
-      id: c
-      label: 运算结果
-      highlight: true
-    messages:
-    - id: m-float-special
-      from: b
-      to: c
-      label: 0/0 → NaN；NaN ≠ NaN
-      active: true
-  log:
-  - mode: 特殊值
-    event: 无穷、NaN、-0
-- id: lesson
-  title: 实际写代码怎么办
-  tldr: 了解边界和误差，按场景选合适的表示。
-  body: '比较浮点数时，判断两者之差是否足够小，而不是直接用 ==。
-
-    算钱用整数“分”来存，或者用十进制库，不要用浮点数。
-
-    JS 里超过 Number.MAX_SAFE_INTEGER 的整数会失去精度，需要用 BigInt，后端传来的 64 位 ID 最好当字符串处理。
-
-
-    工程注记：对计算得到的浮点结果不要直接用 == 比相等：0.1 + 0.2 !== 0.3 在所有语言里都成立。金额用整数分、误差敏感处用容差比较，是从表示误差里长出来的工程纪律。'
-  derivation: original
-  sources:
-  - ref: csapp
-    locator: 第 2 章
-    url: http://csapp.cs.cmu.edu/
-    claim: 浮点舍入误差与整数精度限制
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: value
-      id: v
-      label: 数值
-    - lane: bits
-      id: b
-      label: 二进制表示
-    - lane: calc
-      id: c
-      label: 运算结果
-      highlight: true
-    messages: []
-  log:
-  - mode: 总结
-    event: 按场景选择表示方式
+        modes:
+          - unsigned
+          - twos
+          - float32
+        value: "11111111"
+      cases:
+        - input:
+            bits: "11111111"
+            mode: unsigned
+          expect:
+            decimal: 255
+        - input:
+            bits: "11111111"
+            mode: twos
+          expect:
+            decimal: -1
+        - input:
+            bits: "11111111"
+            mode: twos
+            op: "+1"
+          expect:
+            bits: "00000000"
+            decimal: 0
+            overflow: true
+            signedOverflow: false
+        - input:
+            bits: "01111111"
+            mode: twos
+            op: "+1"
+          expect:
+            bits: "10000000"
+            decimal: -128
+            overflow: false
+            signedOverflow: true
+        - input:
+            value: 0.1
+            mode: float32
+          expect:
+            bits: 0 01111011 10011001100110011001101
+            hex: "0x3DCCCCCD"
+            exponent: -4
+            stored: "0.100000001490116119384765625"
+        - input:
+            bits: 0 01111011 10011001100110011001100
+            mode: float32
+          expect:
+            hex: "0x3DCCCCCC"
+            stored: "0.0999999940395355224609375"
+    log:
+      - mode: 动手实验
+        event: 同一串位，换一种解读规则就是不同的数
+  - id: float-special
+    title: 浮点数的特殊值
+    tldr: 浮点数里有正负无穷、NaN 和 -0，还有“越大越稀疏”的精度。
+    body: 阶码全 0 和全 1 被保留作特殊用途，这是理解浮点边界的关键。全 1 且尾数为 0 表示无穷大，非零数除以零或溢出上冲都会得到它；全 1 且尾数非 0 表示 NaN，来自 0 除以 0、负数开根号这类没有实数结果的运算。NaN 有个独一无二的性质，它和任何值包括它自己比较都不相等，连等号都返回假，所以判断 NaN 只能用专门的 isnan 或看它是否不等于自己，拿 NaN 做排序键和字典键都会得到诡异结果，因为它破坏了全序。符号位还要单独说，浮点有正零和负零两个零，位模式不同、比较起来相等，但 1 除以正零是正无穷、1 除以负零是负无穷，某些函数能把它们区分开。精度分布也不是均匀的，尾数固定位决定相对间隔，数越大相邻可表示数的间距越大，double 在 2 的 53 次方附近间距已经是 1，整数还能一一对应，再往上间距变 2、变 4，整数开始成片丢失，这正是 JS 的 MAX_SAFE_INTEGER 取 2 的 53 次方减 1 的原因，超过它的整数 ID 传给前端必然串号，必须当字符串传。另一端靠近零处还有非规格化数，阶码全 0 时放弃隐藏位换取更小的可表示数，让精度在零附近缓慢降级而不是突然断崖，这叫渐进下溢。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 2 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 浮点数里有正负无穷、NaN 和 -0，还有“越大越稀疏”的精度。
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: value
+          id: v
+          label: 数值
+        - lane: bits
+          id: b
+          label: 二进制表示
+        - lane: calc
+          id: c
+          label: 运算结果
+          highlight: true
+      messages:
+        - id: m-float-special
+          from: b
+          to: c
+          label: 0/0 → NaN；NaN ≠ NaN
+          active: true
+    log:
+      - mode: 特殊值
+        event: 无穷、NaN、-0
+  - id: float-add
+    title: 浮点加法走例：对阶、相加、规格化、舍入
+    tldr: 浮点加法不是逐位相加，要先对齐小数点，丢掉的低位就是误差来源。
+    body: 拿 float 的简化版走一遍 0.5 加 0.0625，再看大数吃小数。两个数先写成规格化形式，0.5 是 1.0 乘 2 的负 1 次方，0.0625 是 1.0 乘 2 的负 4 次方。浮点加法第一步对阶，小指数向大指数看齐，0.0625 的尾数右移 3 位变成 0.001 乘 2 的负 1 次方，有效位从 1.000 变成 0.001，移出去的位直接丢掉，这一步叫对阶，是误差的第一个来源。第二步尾数相加得 1.001，第三步检查规格化，1.001 已是 1 点几的形式无需再移，第四步舍入到尾数位宽，结果是 1.001 乘 2 的负 1 次方即 0.5625，本例恰好精确。再把差距拉大，1.0 加 2 的负 24 次方做 float32 加法，对阶时小数的尾数要右移 24 位，而尾数只有 23 位，整个有效位被移出门外，结果还是 1.0，小数被大数完全吃掉。这就是大数吃小数的机制本身，不是玄学，长序列求和时先累加的全是大数、后面每个小数都被部分吃掉，误差单向累积。缓解办法都围绕对阶做文章，从小往大加让中间和保持小、成对分块求和让对阶发生在相近量级之间，补偿求和则把每次对阶丢掉的尾巴单独记账再补回来。把这四步背下来，任何浮点加法题都能手推，面试里问浮点为什么不满足结合律，答案就在对阶丢位上。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 2 章 浮点数
+        url: http://csapp.cs.cmu.edu/
+        claim: 浮点加法依次经历对阶、尾数相加、规格化与舍入
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: value
+          id: v
+          label: 数值
+        - lane: bits
+          id: b
+          label: 二进制表示
+        - lane: calc
+          id: c
+          label: 运算结果
+          highlight: true
+      messages:
+        - id: m-fadd
+          from: b
+          to: c
+          label: 对阶 → 相加 → 规格化 → 舍入
+          active: true
+    log:
+      - mode: 浮点加法
+        event: 对阶移位丢掉低位
+  - id: rounding
+    title: 舍入模式：不只是四舍五入
+    tldr: IEEE 754 定义了四种舍入，默认是就近偶数，它能避免系统性偏大。
+    body: 尾数装不下时往哪边靠是个规则问题，IEEE 754 给了四种模式。就近舍入是默认，取最近的可表示数，正好卡在两数中间时取尾数最低位为偶数的那个，所以叫就近偶数或银行家舍入。为什么中间值要挑偶数而不是永远向上，因为大量中间值若一律向上，误差会单向累积成系统性偏大，而偶数规则让一半向上、一半向下，长期统计上误差互相抵消，长求和的漂移明显更小。其次是向零舍入即直接截断，C 里浮点转整数用的就是它，正数负数都往零靠。再有向上舍入恒取较大的、向下舍入恒取较小的，这两种合称定向舍入，单看每次都不准，但成对使用能算出结果的上下界，区间运算靠它给出保证包含真值的范围，数值验证里不可替代。硬件层面舍入模式是处理器状态寄存器里的一个开关，绝大多数程序全程保持就近偶数，只有做区间界或特定财务规则时才切换。走一个中间值例子，2.5 和 3.5 按就近偶数分别舍成 2 和 4，都取了偶数一边，而小学四舍五入会给 3 和 4，前者在成千上万次舍入后总和的偏差显著更小。记住一条实务结论，财务的四舍五入是十进制规则，和二进制硬件的就近偶数不是一回事，金额计算混用两者必在对账时差一分钱。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 2 章 浮点数
+        url: http://csapp.cs.cmu.edu/
+        claim: IEEE 754 舍入模式以就近偶数为默认
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: value
+          id: v
+          label: 数值
+        - lane: bits
+          id: b
+          label: 二进制表示
+        - lane: calc
+          id: c
+          label: 运算结果
+          highlight: true
+      messages:
+        - id: m-round
+          from: b
+          to: c
+          label: 中间值 → 取偶数一侧
+          active: true
+    log:
+      - mode: 舍入
+        event: 默认就近偶数
+  - id: overflow-wrap
+    title: 整数溢出的回绕语义再走深一层
+    tldr: 绕回不是硬件偷懒，它是模运算；危险来自代码默认它不会发生。
+    body: 无符号整数的绕回本质是模 2 的 n 次方运算，8 位无符号数就是一个 256 格的环，255 再加 1 回到 0，加法在这个环上永远封闭，所以绕回不是故障而是定义。补码有符号数共用同一个环，只是把环的上半段解释成负数，127 加 1 走到环的对面读成负 128。硬件只管在这个环上走，语义层是否算溢出由语言定。危险的真实场景从来不是绕回本身，而是代码在别处默认了不会绕回，比如用两个长度相加的结果去分配内存，相加绕回成一个小数字，分配出的缓冲区装不下随后按真实长度写入的数据，堆溢出漏洞就此成型，这类整数溢出转内存破坏是安全史上反复出现的模式。防御纪律有三条，范围可疑的加法乘法先判界再运算，或者先升到更宽的类型算完再检查能否装回，C 里用 __builtin_add_overflow 这类内建一次性拿到结果和溢出标志是最稳的写法。还要纠正一个流传很广的误解，认为有符号溢出在自己机器上测过会绕回就可以依赖，编译器优化时按标准假设有符号永不溢出，可能把 if (x + 1 < x) 这类判溢出代码整段优化没，因为在不溢出的前提下它恒为假，本地测着没事、开优化上线出事的事故正是这么来的。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 2 章 整数表示
+        url: http://csapp.cs.cmu.edu/
+        claim: 无符号溢出为模运算绕回，有符号溢出在 C 中为未定义行为
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: value
+          id: v
+          label: 数值
+        - lane: bits
+          id: b
+          label: 二进制表示
+          highlight: true
+        - lane: calc
+          id: c
+          label: 运算结果
+      messages:
+        - id: m-wrap
+          from: v
+          to: b
+          label: 255 + 1 → 绕回 0
+          active: true
+    log:
+      - mode: 溢出
+        event: 在 2 的 n 次方环上绕回
+  - id: fixed-vs-float
+    title: 定点与浮点的选型：什么时候不用浮点
+    tldr: 范围固定、要精确小数时定点数更合适，浮点赢在范围和通用性。
+    body: 定点数是把整数按固定比例缩放，小数点位置在约定里写死。比如用一个 32 位整数存金额的角分，或者用 Q16.16 约定高 16 位整数低 16 位小数，它的加减就是整数加减完全精确，乘法后要移位修正比例。优点是行为处处可预测、没有不可表示的十进制小数陷阱、低端硬件没有浮点单元时也快；缺点是范围被小数位数吃死，比例选错不是溢出就是精度不够，且每个量都要人工管理比例，代码可读性差。浮点正相反，指数让范围自动伸缩，同一套运算通吃极大极小，编程心智负担小，代价是误差无处不在且和量级挂钩。选型判断可以走三问，数值范围是否事先可知且跨度不大，是则定点可行；是否要求十进制意义上的精确，比如账务，是则用整数或十进制数而不是二进制浮点；是否要和通用库、GPU、模型推理互通，是则老老实实用浮点并按容差设计。真实系统常是混合的，账务核心用整数分、统计展示转浮点，嵌入式控制里定点至今常见，模型量化里的整数权重加浮点缩放因子，本质也是定点思想的一次还魂，看懂这一层，量化参数里为什么每组都带一个 scale 就不用背了。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 2 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 定点表示以固定缩放换取精确，浮点以指数换取范围
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: value
+          id: v
+          label: 数值
+          highlight: true
+        - lane: bits
+          id: b
+          label: 二进制表示
+        - lane: calc
+          id: c
+          label: 运算结果
+      messages:
+        - id: m-fixed
+          from: v
+          to: b
+          label: 范围固定选定点，范围大选浮点
+          active: true
+    log:
+      - mode: 选型
+        event: 按范围与精确要求选表示
+  - id: lesson
+    title: 实际写代码怎么办
+    tldr: 了解边界和误差，按场景选合适的表示。
+    body: 把这一课收成可执行的选型纪律。第一，浮点比较不用等号，用两者之差的绝对值小于一个按量级选的容差来判，或者把问题改写成整数比较；单元测试里断言浮点结果同样要带容差，否则测试会随机红。第二，钱和一切要求分毫不差的量用整数最小单位存，金额存分、费率存万分之一整数，要展示再除回去，或者用十进制数库按十进制做舍入，银行家舍入这类规则浮点二进制根本表达不了。第三，ID 和计数器超过 2 的 53 次方就离开 Number，后端 64 位 ID 给前端一律字符串，本地大整数运算用 BigInt，但要记得 BigInt 不能和 Number 混算。第四，累加很多浮点数时误差会累积，大数吃小数的现象真实存在，把小数先排序从小加到大、或用分块求和，能把误差压低一个量级，长循环累加器在高精度场景可以考虑补偿求和。第五，跨语言传数据要写清类型和字节序，同一串字节对方按另一种解释读，值会变得面目全非且不报错。最后一条是心态，浮点误差不是 bug 而是位预算的账单，工程上要做的是把误差控制在业务容忍带内，并让它在边界处可见可查，而不是假装它不存在。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 2 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 浮点舍入误差与整数精度限制
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: value
+          id: v
+          label: 数值
+        - lane: bits
+          id: b
+          label: 二进制表示
+        - lane: calc
+          id: c
+          label: 运算结果
+          highlight: true
+      messages: []
+    log:
+      - mode: 总结
+        event: 按场景选择表示方式
 level: 基础
-minutes: 16
+minutes: 28
 prereq: []
 objectives:
-- 用补码表示负数并解释只有一份 0
-- 拆解 float32 的符号/阶码/尾数并算出实际值
-- 解释 0.1 为什么存不准、量化为什么可行
+  - 用补码表示负数并解释只有一份 0
+  - 拆解 float32 的符号/阶码/尾数并算出实际值
+  - 解释 0.1 为什么存不准、量化为什么可行
 aiLink: 模型量化（FP16/INT8/INT4）的全部直觉都来自这课：位宽、范围与精度的取舍。理解浮点误差与补码范围，就理解低精度推理为什么会掉点、为什么需要缩放因子与校准。
 quiz:
-- q: 8 位补码能表示的范围是？
-  options:
-  - -127..127
-  - -128..127
-  - 0..255
-  - -255..0
-  answer: 1
-  explain: 补码负数多一个：-2^7 到 2^7-1，且 0 只有一份编码。
-- q: float32 中 0.1 存不准是因为？
-  options:
-  - CPU 太慢
-  - 二进制小数无法有限表示十进制 0.1，只能存最接近的值
-  - 内存位翻转
-  - 编译器 bug
-  answer: 1
-  explain: 1/10 在二进制下是无限循环小数，截断后得到 0.100000001490116…。
-- q: INT8 量化把权重压到 1 字节，精度损失靠什么补？
-  options:
-  - 更大的内存
-  - 缩放因子把浮点范围线性映射到 256 个整数刻度
-  - 更快的 CPU
-  - 更多层
-  answer: 1
-  explain: 每组权重配 scale（有时还有 zero-point），用可控误差换 4 倍的体积与带宽节省。
+  - q: 8 位补码能表示的范围是？
+    options:
+      - -127..127
+      - -128..127
+      - 0..255
+      - -255..0
+    answer: 1
+    explain: 补码负数多一个：-2^7 到 2^7-1，且 0 只有一份编码。
+  - q: float32 中 0.1 存不准是因为？
+    options:
+      - CPU 太慢
+      - 二进制小数无法有限表示十进制 0.1，只能存最接近的值
+      - 内存位翻转
+      - 编译器 bug
+    answer: 1
+    explain: 1/10 在二进制下是无限循环小数，截断后得到 0.100000001490116…。
+  - q: INT8 量化把权重压到 1 字节，精度损失靠什么补？
+    options:
+      - 更大的内存
+      - 缩放因子把浮点范围线性映射到 256 个整数刻度
+      - 更快的 CPU
+      - 更多层
+    answer: 1
+    explain: 每组权重配 scale（有时还有 zero-point），用可控误差换 4 倍的体积与带宽节省。
+design:
+  - mechanism: 补码用最高位负权重表示负数，让正负数的加减共用同一套无符号加法电路，0 只有一份编码，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    problem: 原码方案里符号位要单独处理，加法器遇到负数就得切换成减法，还出现正零负零两个零，比较和判零都要额外打补丁，硬件与语义都别扭，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    choice: 把负数定义成模 2 的 n 次方意义下的补数，加法在这个环上天然封闭，减法统一成加补码，一套电路走遍所有整数加减且零唯一，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    tradeoff: 代价是范围左右不对称，负侧多一个数，最小负数没有正搭档，取绝对值和取负都可能溢出，这类边界必须靠程序员和语言规则单独照顾，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    root: 根源是模运算的代数结构，加法群在环上封闭才允许电路复用，补码胜出不是因为它更像数学上的负数，而是因为它让硬件只剩一种运算，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+  - mechanism: 浮点阶码用移码即加固定偏移存储，float32 偏移 127，存下的阶码按无符号大小序与真实指数大小序完全一致，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    problem: 指数有正有负，若用补码存阶码，负指数的位模式会比正指数大，浮点数就不能再当作一个整体用整数比较器直接比大小，还要先拆字段，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    choice: 移码把指数整体平移到非负区间，符号相同的一串浮点位模式可以直接按无符号整数排序，比较、取最大最小都能复用整数通路，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    tradeoff: 代价是每个读到阶码的人都要先减偏移才得到真指数，心算和调试时多一步换算，全 0 与全 1 两个阶码还要被征用去表示非规格化数和特殊值
+    root: 根源是表示要服务于最频繁的操作，浮点比较的频率远高于人工读阶码，让位模式的字典序等于数值序，是用一次平移换全程便利的典型设计
+  - mechanism: 浮点用符号、阶码、尾数三段分配固定位宽，以相对精度换取随指数伸缩的巨大范围，尾数还靠隐藏位白赚一位，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    problem: 定点数范围与精度互相挤占，位宽固定时要么表示不了天文数字和微观量，要么小数位不够，而科学计算和通用编程要求同一类型通吃，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    choice: 让小数点随指数浮动，精度只和尾数位宽挂钩且是相对的，32 位就能覆盖 10 的正负 38 次方量级，范围问题被指数一次解决，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    tradeoff: 代价是精度随数值变大而变稀、十进制小数普遍存不准、加法要对阶且不满足结合律，正确性纪律从此成为每个程序员的必修课，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    root: 根源是实数轴的信息量无穷而位宽有限，浮点选择优先保住量级覆盖，把误差摊成相对误差，这是对物理世界测量方式最贴合的一种妥协，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。

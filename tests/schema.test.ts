@@ -11,6 +11,10 @@ function topic(over: Record<string, unknown> = {}, step: Record<string, unknown>
     id: "os/x", subject: "os", slug: "x", order: 1, status: "published", title: "T", summary: "S", premise: "P",
     overview: [], visual: "swimlane", lanes: [{ id: "u", label: "U" }], logColumns: [{ key: "e", label: "E" }],
     reviewedBy: "Daniel", reviewedAt: "2026-11-01",
+    design: [
+      { mechanism: "m1", problem: "p", choice: "c", tradeoff: "t", root: "r" },
+      { mechanism: "m2", problem: "p", choice: "c", tradeoff: "t", root: "r" },
+    ],
     steps: [{ id: "s1", title: "t", tldr: "t", body: "b", derivation: "original", sources: [verified], canvas: { kind: "swimlane", actors: [{ lane: "u", id: "a", label: "A" }], messages: [] }, log: [], ...step }],
     ...over,
   });

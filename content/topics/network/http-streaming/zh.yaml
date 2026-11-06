@@ -30,7 +30,7 @@ logColumns:
 - key: event
   label: 发生了什么
 level: 基础
-minutes: 18
+minutes: 32
 prereq:
 - network/tcp-handshake
 objectives:
@@ -38,6 +38,17 @@ objectives:
 - 说清 TLS 握手做了哪三件事
 - 解释 LLM API 用 SSE 流式的原因与它同 WebSocket 的区别
 aiLink: 你每天调的 LLM API 就是这一课本身：首 token 延迟里藏着 DNS/TCP/TLS 的握手账，流式输出用 SSE 把生成中的 token 逐块推给前端。理解 chunked 与 SSE，就理解为什么前端要用 ReadableStream 读响应、为什么连接复用能显著降低首字延迟。
+design:
+- mechanism: '流式响应的机制是把「一个响应」拆开时间维度：响应头先单独回来宣布开始，随后正文以 chunked 分块或事件帧的形式逐段下发，连接保持打开直到服务端明确宣告结束，客户端边收边解析边渲染。'
+  problem: 'LLM 生成一次回答要数秒到数十秒，若等全部生成完才一次性返回，用户要对着空白界面等完全程，网关与浏览器还可能因长时间无数据而超时断开——等待被集中成了一段最难熬的长空白。'
+  choice: '所以选择长连接逐块发：第一个 token 一生成就立刻下发，首字节延迟从「整段生成时间」压回「生成第一个 token 的时间」，后续 token 在用户阅读前文的同时在后台继续生成并流过来。'
+  tradeoff: '代价是复杂度转移：客户端要维护增量解析状态、处理半途断线与半截内容，服务端连接被长时间占用，中间代理的缓冲策略也必须逐个适配——流式省的是感知延迟，不是总资源消耗。'
+  root: '根本量是两种时延的区别：总时延由生成总量决定，流式改不了；但人感知的等待主要由首字节延迟与呈现连续性决定，把数据在时间上摊开交付，就能让感知等待远小于总时延。'
+- mechanism: '连接复用（keep-alive）的机制是让一条已完成 DNS、TCP、TLS 全部握手的连接连续承载多个请求响应，浏览器与 API 客户端都维护连接池，按域名复用空闲连接，而不是每个请求重新建连。'
+  problem: '冷连接的固定成本是串行叠加的：DNS 约一个往返、TCP 握手一个 RTT、TLS 1.3 再加一个 RTT，跨洋场景光建连就要数百毫秒；若每个 API 调用都重付一遍，首 token 延迟会被握手账直接主导。'
+  choice: '选择以连接池换延迟：复用摊薄了握手成本，后续请求近乎零建连开销即可发数据；同时限制每个域名的并发连接数与空闲连接存活时间，防止连接资源被无限期地占住不放。'
+  tradeoff: '代价是长连接要有人维护：服务端要为每条空闲连接保留状态，负载均衡时连接的亲和性会让流量分布不均，半开连接（对端已消失而本端不知）还会让复用时踩到已死的连接需要重试。'
+  root: '底层原理是固定成本摊销：握手成本只与往返次数有关、与请求大小无关，所以请求越小越频繁，复用省下的比例越大——这正是高频小请求的 LLM 网关比低频大下载更依赖连接池的原因。'
 quiz:
 - q: 第一次访问一个 HTTPS 站点，见到第一个数据字节前大约要几个 RTT？
   options:
@@ -70,7 +81,7 @@ steps:
   body: '浏览器先查 DNS（下一主题细讲）拿到服务器 IP；然后与该 IP 的 443 端口做 TCP 三次握手（上一主题）。这两步没完成之前，一个字节的应用数据都发不出去：DNS 命中缓存时近乎 0、问递归解析器约 1 个 RTT 起（未命中时解析器还要逐级问根/TLD/权威，更多），TCP 握手再 1 个 RTT。
 
 
-    好在浏览器会缓存 DNS、复用已有连接——第二次请求往往可以直接跳到发数据。'
+    好在浏览器会缓存 DNS、复用已有连接——第二次请求往往可以直接跳到发数据。这笔账值得单独拎出来算：所有阶段都是串行的，时延只能相加不能并行抵消；本机到同城服务器 RTT 约几毫秒时总账不显眼，跨洋 RTT 达到一两百毫秒时，光这两步就是小半秒。所谓「首屏慢」，很多时候慢的不是页面本身，而是见到第一个字节之前这段纯等待。'
   derivation: original
   sources: []
   canvas:
@@ -97,10 +108,10 @@ steps:
 - id: tls
   title: TLS 握手：验明身份，约定密钥
   tldr: 证书证明「你连的真是它」，双方协商出只有彼此知道的会话密钥。
-  body: 'TCP 之上再叠一层 TLS。TLS 1.3 的握手用 1 个 RTT 做三件事：协商加密套件、服务器出示证书（由 CA 签名，浏览器验证域名与有效期）、用 ECDHE 交换材料算出会话密钥。
+  body: 'TCP 之上再叠一层 TLS。TLS 1.3 的握手用 1 个 RTT 做三件事：协商加密套件、验证服务器身份、协商出会话密钥。具体机制要分清三者的分工：服务器证书上的签名用来验证身份（证明对端持有该域名证书对应的私钥、且证书由受信任的 CA 签发）；密钥协商靠 (EC)DHE 这类临时密钥交换，双方各出随机材料算出相同的共享秘密，且私钥材料不经过网络；之后真正加密数据的，是从共享秘密派生出的对称会话密钥，加密方式是 AEAD（带完整性校验的对称加密）。
 
 
-    之后的数据全部用这个对称密钥加密传输。没有 TLS，路径上的任何中间节点都能看光、篡改你的请求——调用付费 API 的密钥也会裸奔。'
+    所以「用 RSA 加密所有数据」是经典误解：非对称密码只在握手里做签名验身份与密钥协商这类低频动作，海量数据全程走快的对称加密。没有 TLS，路径上的任何中间节点都能看光、篡改你的请求——调用付费 API 的密钥也会裸奔。TLS 1.3 相比 1.2 把全握手从 2 个 RTT 压到 1 个，靠的正是把密钥份额提前塞进第一包 ClientHello。'
   derivation: original
   sources:
   - ref: rfc-8446
@@ -150,9 +161,15 @@ steps:
   body: '通道建好，浏览器发出请求（以 HTTP/1.1 为例）：第一行是方法与路径（POST /v1/chat/completions），随后是头部——Authorization 携带 API 密钥、Content-Type: application/json 指定体是 JSON，推理请求还会在体里写 stream: true 要求流式（这是 LLM API 厂商的约定字段，不是 HTTP 标准）。
 
 
-    服务器按头部做认证、限流与路由，再决定由哪个后端处理。这一步的解析与校验通常是毫秒级，真正的等待在生成阶段。'
+    服务器按头部做认证、限流与路由，再决定由哪个后端处理。这一步的解析与校验通常是毫秒级，真正的等待在生成阶段。这里有个容易忽略的语义点：请求是否「幂等」决定了失败时能不能安全重试——GET 这类读操作重试无副作用，POST 生成请求盲目重试可能重复计费或重复下单，所以客户端的重试策略必须按方法与业务语义区分，不能一律自动重发。连接中途断掉时同理：先分清请求有没有被服务端收到、处理到哪一步，再决定重发还是查询状态。'
   derivation: original
-  sources: []
+  sources:
+  - ref: rfc-9110
+    locator: §9 方法语义与幂等性
+    claim: HTTP 方法有安全与幂等语义之分，重试策略应据此区分
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
   canvas:
     kind: swimlane
     actors:
@@ -174,13 +191,89 @@ steps:
   log:
   - mode: 阶段 4
     event: HTTP 请求发出
+- id: keepalive
+  title: keep-alive 与连接复用：握手账只付一次
+  tldr: 一条连接连续跑多个请求，DNS/TCP/TLS 的固定成本被摊薄到近乎为零。
+  body: 'HTTP/1.0 时代每个请求都要新建一条连接，握手账逐请求重付；keep-alive（HTTP/1.1 起默认开启）把规则改成：一次响应结束不等于连接关闭，连接回到空闲池里等下一个请求复用。算一笔账：冷连接见数据前要付 DNS 约 1 次往返 + TCP 1 个 RTT + TLS 1.3 的 1 个 RTT，跨洋 RTT 按 150 毫秒算就是约 450 毫秒的纯等待；复用连接的后续请求这笔账是 0，直接从发请求开始。对一个页面几十个资源、或一个网关每秒成千上万次小调用的场景，复用与否就是数倍的延迟差距。
+
+
+    复用也有它的账要管：连接不能无限复用，服务端会设空闲超时与单连接最大请求数，超时后由一方主动关闭；客户端池子若捡到一条已被对端悄悄关掉的半开连接，第一次复用就会失败，需要识别并换新连接重试。长连接还与负载均衡相互作用：一条连接上的所有请求都落在同一台后端，扩缩容与下线时要考虑连接排空，不能把机器一关了之。'
+  derivation: original
+  sources:
+  - ref: rfc-9110
+    locator: §9.3/§9.4 连接复用与关闭
+    claim: HTTP/1.1 连接默认可复用承载多个请求，服务端可通过超时与 Connection 头管理连接生命周期
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: client
+      id: c
+      label: 浏览器（连接池）
+      highlight: true
+    - lane: server
+      id: s
+      label: 服务器
+    messages:
+    - id: m10
+      from: c
+      to: s
+      label: 请求 1、2、3 共用同一条连接
+      active: true
+  log:
+  - mode: 复用
+    event: 握手成本被多个请求摊薄
+- id: chunked
+  title: chunked 编码走例：不知道总长度怎么发
+  tldr: 没有 Content-Length 时，每块数据前标自己的长度，最后一块长度为 0 表示结束。
+  body: '普通响应靠 Content-Length 告诉客户端「正文一共多少字节」，读满即止。但流式响应在发第一个字节时根本不知道总长度——生成还没结束，长度无从谈起。HTTP/1.1 的解法是 chunked 传输编码：响应头写 Transfer-Encoding: chunked 代替 Content-Length，正文切成一块块发，每块的格式是「本块字节数（十六进制）+ 换行 + 本块数据 + 换行」，最后发一块长度为 0 的块宣告正文结束。
+
+
+    用一个小例子走一遍线缆上的样子：先发 5、换行、hello、换行，表示一块 5 字节的数据 hello；再发 6、换行和 world 加感叹号那一块；最后发 0 与换行，正文到此为止。客户端的解析器就是个计数状态机：读长度、按长度取数据、循环，直到读到 0。注意 chunked 切的是传输层的块，与 SSE 事件、与 token 都不对齐：一块可能装半个事件，也可能装三个事件，所以业务层解析必须自己再攒一层缓冲——这正是后面代码里要维护 buf 的原因。在 HTTP/2 里没有 chunked 这个概念了，等价功能由 DATA 帧的 END_STREAM 标志承担。'
+  derivation: original
+  sources:
+  - ref: rfc-9110
+    locator: §7.1 chunked 传输编码
+    claim: chunked 编码以十六进制长度前缀逐块发送正文，零长度块标志正文结束
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: client
+      id: c
+      label: 客户端（按长度逐块解析）
+    - lane: server
+      id: s
+      label: 服务器（逐块发出）
+      highlight: true
+    messages:
+    - id: m11
+      from: s
+      to: c
+      label: 5 hello / 6 world! / 0 结束
+      active: true
+  log:
+  - mode: 编码
+    event: 长度前缀分块，零块收尾
+  code:
+    lang: text
+    code: 'Transfer-Encoding: chunked 的线上样子：
+
+      5\r\n hello\r\n 6\r\n world!\r\n 0\r\n\r\n
+
+      （数字是十六进制字节数；0 长度块 = 正文结束）'
+    note: chunked 块与 SSE 事件边界无关，业务层要自己攒缓冲
 - id: stream
   title: 流式响应：边生成边发（SSE）
   tldr: 服务器用 chunked 分块传输逐段发 token，前端逐段解析渲染，不等全文。
   body: '模型生成是逐个 token 的，可能持续几秒到几十秒。若等全部生成完再一次性返回，用户要盯着空白等完全程，网关与浏览器也容易超时。
 
 
-    流式做法：响应头先回来（状态 200、Content-Type: text/event-stream），随后服务器把数据一块块发（HTTP/1.1 下通常是 chunked 编码；HTTP/2 则用流式 DATA 帧）。SSE 格式里每个事件由一行或多行 data: 字段组成、以一个空行结束，里面装着新生成的 token；OpenAI 等 API 约定最后再发一个 data: [DONE] 表示生成结束（这是厂商约定，不是 SSE 标准的一部分）。前端用 fetch 的 ReadableStream 边读边追加到界面上——你看到的打字机效果就是这么来的。'
+    流式做法：响应头先回来（状态 200、Content-Type: text/event-stream），随后服务器把数据一块块发（HTTP/1.1 下通常是 chunked 编码；HTTP/2 则用流式 DATA 帧）。SSE 格式里每个事件由一行或多行 data: 字段组成、以一个空行结束，里面装着新生成的 token；OpenAI 等 API 约定最后再发一个 data: [DONE] 表示生成结束（这是厂商约定，不是 SSE 标准的一部分）。前端用 fetch 的 ReadableStream 边读边追加到界面上——你看到的打字机效果就是这么来的。两个指标要分开看：首 token 时间（TTFT）决定体感顺不顺，生成全文的总时长决定任务何时真正完成，流式优化的是前者，后者由模型速度决定，两者不能混成一句「流式更快」。'
   derivation: original
   sources:
   - ref: mdn-sse
@@ -225,16 +318,85 @@ steps:
   points:
   - 首 token 时间（TTFT）决定体感，生下全文的时间决定总时长，两者要分开看
   - 流式不减少总生成时间，只是把等待摊开并提前呈现
+- id: sse-fields
+  title: SSE 的事件字段与重连：id、retry 与 Last-Event-ID
+  tldr: 每个事件可带 id 与 event 类型；断线后 EventSource 自动带上 Last-Event-ID 续接。
+  body: 'SSE 事件不止有 data。一个事件块里可以出现四类行：data 是正文（多行 data 会被拼成一段、用换行连接）、event 给事件起类型名（客户端可按类型分别监听）、id 给这个事件编号、retry 告诉客户端断线后隔多少毫秒再重连；以冒号开头的行是注释，常被服务端拿来发心跳保活，防止空闲连接被中间设备掐掉。事件之间仍以一个空行分隔，这与上一课的格式规则一致。
+
+
+    重连机制是 SSE 设计里容易被用错的一半。浏览器原生的 EventSource 在连接断开后会自动重连，并且自动在请求头里带上 Last-Event-ID（值是客户端收到的最后一个事件 id）；服务端据此只补发该 id 之后的事件，客户端就能无缝续上、不重不漏。但注意两条边界：EventSource 只能发 GET 请求，没有自动重连兜底的是另一条路——LLM API 是 POST 加 fetch 读流，断了不会有人替你重连，应用要自己决定是重发整个请求、还是放弃这次生成。把「SSE 会自动重连」当成普适结论，是接入流式 API 时最常见的误会之一。'
+  derivation: original
+  sources:
+  - ref: mdn-sse
+    locator: Using server-sent events（事件字段、重连与 Last-Event-ID）
+    claim: SSE 事件可含 data/event/id/retry 字段，EventSource 断线自动重连并发送 Last-Event-ID 请求头
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: client
+      id: c
+      label: EventSource（自动重连）
+      highlight: true
+    - lane: server
+      id: s
+      label: 服务器（按 id 补发）
+    messages:
+    - id: m12
+      from: c
+      to: s
+      label: 重连请求头 Last-Event-ID 等于 42
+      active: true
+    - id: m13
+      from: s
+      to: c
+      label: 只补发 id 大于 42 的事件
+  log:
+  - mode: 重连
+    event: 靠事件 id 实现断点续接，而非重发全流
+- id: cache-intro
+  title: 顺带一瞥：HTTP 缓存语义为什么也在这条链路上
+  tldr: 静态资源靠 Cache-Control 与验证头省掉整次请求；流式 API 响应则必须明确禁止缓存。
+  body: '同是 HTTP 响应，缓存语义天差地别，先建立一个引子级的认识。普通 GET 响应可以带 Cache-Control（比如 max-age 指定多少秒内直接用本地副本、连请求都不用发）和 ETag 这类验证标识：副本过期后，客户端带 If-None-Match 问服务端「变了没」，没变就回一个无正文的 304，省下整个响应体的传输。静态资源、文档、图片靠这套机制把大量重复请求消灭在客户端本地，这也是 CDN 能缓存的前提——CDN 本质上是部署在网络边缘的共享缓存。
+
+
+    反过来，流式生成响应是每个请求独一无二的结果，绝不能被任何缓存复用：API 通常显式标注不缓存，网关与代理也不应把 token 流攒下来当副本。若某个中间环节误把流式响应按普通响应缓存或缓冲，表现就是别人看到你的回答、或流变成一坨一次性吐出。记住对比即可：可缓存性由响应头声明决定，同一条链路上，静态内容拼命缓存、生成内容坚决不缓存。细节（缓存键、Vary、私有与共享缓存之分）留待专门主题展开。'
+  derivation: original
+  sources:
+  - ref: rfc-9110
+    locator: §13/§15 HTTP 缓存与条件请求
+    claim: Cache-Control 控制缓存新鲜期，ETag 与条件请求可让未变更资源以 304 响应免传正文
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: client
+      id: c
+      label: 客户端（缓存/验证）
+    - lane: server
+      id: s
+      label: 服务器/CDN
+      highlight: true
+    messages:
+    - id: m14
+      from: c
+      to: s
+      label: 静态资源可缓存；生成流标注不缓存
+      active: true
+  log:
+  - mode: 缓存
+    event: 同一条链路，两种相反的缓存策略
 - id: ws
   title: SSE 与 WebSocket 的区别
   tldr: 需要双向实时才上 WebSocket；单向推送用 SSE 就够了，还白得 HTTP 的全部基础设施。
   body: 'WebSocket 是在 HTTP 升级握手后切换成的独立全双工协议：双方随时互发消息，适合聊天、协作编辑、游戏。但它脱离了普通 HTTP 语义，代理、负载均衡、断线重连都要自己操心。
 
 
-    SSE 只是「一个迟迟不结束的普通 HTTP 响应」，单向（服务端→客户端）恰好匹配 LLM 生成场景，浏览器与网关天然支持。重连要分清：用浏览器的 EventSource（只能 GET）时断线会自动重连并补发 Last-Event-ID；但 LLM API 是 POST 请求、走 fetch 读流，没有自动重连，断了要应用自己重发请求。所以主流 LLM API 都选 SSE；只有需要客户端持续上行（如实时语音）时才考虑 WebSocket。
-
-
-    工程注记：流式接口要特别关照中间环节：某些代理默认缓冲响应（proxy buffering），会把逐块的 token 攒成一大坨再发，表现为「流式但一卡一卡」；网关侧关掉缓冲或给流式路由单独配置是常见修法。'
+    SSE 只是「一个迟迟不结束的普通 HTTP 响应」，单向（服务端→客户端）恰好匹配 LLM 生成场景，浏览器与网关天然支持。重连要分清：用浏览器的 EventSource（只能 GET）时断线会自动重连并补发 Last-Event-ID；但 LLM API 是 POST 请求、走 fetch 读流，没有自动重连，断了要应用自己重发请求。所以主流 LLM API 都选 SSE；只有需要客户端持续上行（如实时语音）时才考虑 WebSocket。选型判据一句话：数据流方向是单向还是双向——单向需求硬套 WebSocket，等于为用不上的能力支付代理穿透、心跳、重连状态机全部自维护的成本。'
   derivation: original
   sources:
   - ref: rfc-6455
@@ -266,3 +428,31 @@ steps:
   - mode: 对比
     event: 按方向需求选协议
   mistake: 以为流式必须用 WebSocket——对单向生成流，SSE 更简单且与 HTTP 基础设施完全兼容。
+- id: buffering
+  title: 收尾账：TTFT 的构成与代理缓冲这个坑
+  tldr: 首 token 时间等于建连、排队、生成首 token 与中间环节缓冲之和，其中缓冲最阴险。
+  body: '把整课收成一个排障视角：用户感知的首 token 时间（TTFT）可以拆成四段——建连时间（DNS 加 TCP 加 TLS，复用连接后约等于零）、服务端排队与预填充时间（请求在网关排队、模型读完提示词）、生成第一个 token 的时间、以及数据在回程各环节被耽搁的时间。前两段可以用时间戳打点量出来，最后一段最阴险：某些代理默认缓冲响应（proxy buffering），会把逐块到达的 token 攒成一大坨再统一发给客户端，功能没错但流式体感全毁，表现为「等很久、然后哗一下全出来」或「流式但一卡一卡」。
+
+
+    修法通常在网关侧：对流式路由关闭响应缓冲、或按响应类型单独配置，并确保没有中间层把 chunked 转成带总长度的普通响应。验证方法也很朴素：用 curl -N 直连后端与经网关各测一次，逐块到达的时间戳一比就知道缓冲发生在哪一跳。排查顺序建议：先量 TTFT 四段、再动配置，不要一上来就怀疑模型生成慢。'
+  derivation: original
+  sources: []
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: client
+      id: c
+      label: 客户端（等首 token）
+    - lane: server
+      id: s
+      label: 网关/代理（可能在缓冲）
+      highlight: true
+    messages:
+    - id: m15
+      from: s
+      to: c
+      label: 被攒成一大坨的 token 流
+      active: true
+  log:
+  - mode: 排障
+    event: TTFT 拆四段，逐段定位

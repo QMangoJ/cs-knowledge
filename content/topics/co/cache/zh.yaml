@@ -8,420 +8,567 @@ title: 缓存：命中、未命中与局部性
 summary: 内存比 CPU 慢太多，CPU 用小而快的缓存记住最近用过的数据。
 premise: 以一个程序遍历数组为例。
 overview:
-- key: 一句话总结
-  value: 常用的数据放离 CPU 近的地方；局部性让这招非常有效
-- key: 层级
-  value: 寄存器 → L1 → L2 → L3 → 内存，越往外越大越慢
-- key: 缓存行
-  value: 每次搬一小块相邻数据（x86-64 上通常 64 字节），而不是一个字节
-- key: 局部性
-  value: 时间局部性（刚用过的还会用）、空间局部性（用了这个，附近的也会用）
-- key: 类比
-  value: 浏览器 HTTP 缓存、CDN、React 的 useMemo
-- key: 映射方式
-  value: 直接映射、组相联（最常用）、全相联
-- key: 替换
-  value: LRU 或其近似
-- key: 写策略
-  value: 写回（标记脏行）与写直达
-- key: 未命中三类
-  value: 冷未命中、容量未命中、冲突未命中
-- key: 一致性
-  value: 多核用 MESI 类协议；注意伪共享
-- key: 在终端里看一看
-  value: lscpu | grep -i cache　看本机各级缓存大小
+  - key: 一句话总结
+    value: 常用的数据放离 CPU 近的地方；局部性让这招非常有效
+  - key: 层级
+    value: 寄存器 → L1 → L2 → L3 → 内存，越往外越大越慢
+  - key: 缓存行
+    value: 每次搬一小块相邻数据（x86-64 上通常 64 字节），而不是一个字节
+  - key: 局部性
+    value: 时间局部性（刚用过的还会用）、空间局部性（用了这个，附近的也会用）
+  - key: 类比
+    value: 浏览器 HTTP 缓存、CDN、React 的 useMemo
+  - key: 映射方式
+    value: 直接映射、组相联（最常用）、全相联
+  - key: 替换
+    value: LRU 或其近似
+  - key: 写策略
+    value: 写回（标记脏行）与写直达
+  - key: 未命中三类
+    value: 冷未命中、容量未命中、冲突未命中
+  - key: 一致性
+    value: 多核用 MESI 类协议；注意伪共享
+  - key: 在终端里看一看
+    value: lscpu | grep -i cache　看本机各级缓存大小
 visual: swimlane
 lanes:
-- id: cpu
-  label: CPU
-- id: cache
-  label: 缓存
-- id: mem
-  label: 内存
+  - id: cpu
+    label: CPU
+  - id: cache
+    label: 缓存
+  - id: mem
+    label: 内存
 logColumns:
-- key: mode
-  label: 当前状态
-- key: event
-  label: 发生了什么
+  - key: mode
+    label: 当前状态
+  - key: event
+    label: 发生了什么
 steps:
-- id: why
-  title: 为什么需要缓存
-  tldr: CPU 算得极快，但从内存取一次数据要等上百个周期。
-  body: '如果每次都去内存拿数据，CPU 大部分时间都在等待。
-
-    于是在 CPU 和内存之间放了几层小而快的缓存，存放最近用过的数据。
-
-    这和网站用 CDN 的思路一样：把常用内容放得离用户近一点。'
-  derivation: original
-  sources:
-  - ref: csapp
-    locator: 第 6 章
-    url: http://csapp.cs.cmu.edu/
-    claim: 存储层次结构中越靠近 CPU 越快越小
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: cpu
-      id: c
-      label: CPU
-      highlight: true
-    - lane: cache
-      id: k
-      label: 缓存
-    - lane: mem
-      id: m
-      label: 内存
-    messages:
-    - id: m-why
-      from: c
-      to: m
-      label: 去内存取数据：很慢
-      active: true
-  log:
-  - mode: 等待
-    event: CPU 等待内存
-  points:
-  - CPU 算得极快，但从内存取一次数据要等上百个周期。
-- id: miss
-  title: 未命中：第一次访问
-  tldr: 数据不在缓存里，只能去内存取，顺便把一整块搬进缓存。
-  body: '第一次访问数组开头，缓存里没有，这叫“未命中”。
-
-    CPU 去内存取数据，但不是只拿一个元素，而是把相邻的一整块（缓存行）一起搬回来。
-
-    这次很慢，但为后面的访问铺好了路。'
-  derivation: original
-  sources:
-  - ref: cs61c
-    locator: Caches 相关讲义
-    url: https://cs61c.org/
-    claim: 未命中时以缓存块为单位从下层读入
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: cpu
-      id: c
-      label: CPU
-    - lane: cache
-      id: k
-      label: 缓存
-    - lane: mem
-      id: m
-      label: 内存
-      highlight: true
-    messages:
-    - id: m-miss
-      from: m
-      to: k
-      label: 搬入一整块缓存行
-      active: true
-  log:
-  - mode: 未命中
-    event: 从内存读入一块数据
-- id: hit
-  title: 命中：之后的访问
-  tldr: 接下来访问相邻元素，数据已经在缓存里，几乎不用等。
-  body: '下一个数组元素就在刚搬来的那块里，这叫“命中”。
-
-    命中只需要几个周期，比去内存快几十倍。
-
-    顺序遍历数组时，绝大部分访问都能命中。'
-  derivation: original
-  sources:
-  - ref: cs61c
-    locator: Caches 相关讲义
-    url: https://cs61c.org/
-    claim: 命中时直接从缓存返回数据
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: cpu
-      id: c
-      label: CPU
-    - lane: cache
-      id: k
-      label: 缓存
-      highlight: true
-    - lane: mem
-      id: m
-      label: 内存
-    messages:
-    - id: m-hit
-      from: k
-      to: c
-      label: 直接返回：很快
-      active: true
-  log:
-  - mode: 命中
-    event: 从缓存读到数据
-- id: mapping
-  title: 数据放在缓存的哪里
-  tldr: 每个内存地址只能放进缓存里固定的几个位置，这叫组相联。
-  body: '最简单的是直接映射：每个地址只有一个固定位置，查得快，但两个常用地址撞到同一位置就会互相挤掉（冲突未命中）。
-
-    全相联可以放任意位置，冲突最少，但查找要比较所有位置，硬件太贵。
-
-    实际 CPU 折中用“组相联”：地址先决定放哪一组，组内若干个位置任选，查找时只比这一组。'
-  derivation: original
-  sources:
-  - ref: csapp
-    locator: 第 6 章
-    url: http://csapp.cs.cmu.edu/
-    claim: 每个内存地址只能放进缓存里固定的几个位置，这叫组相联。
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: cpu
-      id: c
-      label: CPU
-    - lane: cache
-      id: k
-      label: 缓存
-      highlight: true
-    - lane: mem
-      id: m
-      label: 内存
-    messages:
-    - id: m-mapping
-      from: c
-      to: k
-      label: 地址 → 第几组 → 组内找
-      active: true
-  log:
-  - mode: 查找
-    event: 按组定位缓存行
-- id: replace-write
-  title: 满了淘汰谁，写了怎么办
-  tldr: 组满了要淘汰一行，通常淘汰最久没用的；写数据时还要决定何时写回内存。
-  body: '淘汰策略常用 LRU（最近最少使用）或它的近似：最久没碰过的，最可能以后也不用。
-
-    写数据时，写直达是同时写缓存和内存，简单但慢；写回是只改缓存、标记为“脏”，被淘汰时才写回内存，现代 CPU 一般用写回。
-
-    未命中可以分三类：第一次访问（冷）、容量不够、位置冲突，改进方向各不相同。'
-  derivation: original
-  sources:
-  - ref: csapp
-    locator: 第 6 章
-    url: http://csapp.cs.cmu.edu/
-    claim: 组满了要淘汰一行，通常淘汰最久没用的；写数据时还要决定何时写回内存。
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: cpu
-      id: c
-      label: CPU
-    - lane: cache
-      id: k
-      label: 缓存
-    - lane: mem
-      id: m
-      label: 内存
-      highlight: true
-    messages:
-    - id: m-replace-write
-      from: k
-      to: m
-      label: 淘汰脏行 → 写回内存
-      active: true
-  log:
-  - mode: 淘汰
-    event: 写回被替换的脏行
-- id: locality
-  title: 局部性：缓存为什么有效
-  tldr: 程序访问数据有规律：刚用过的还会再用，用了这个附近的也会用。
-  body: '循环里反复用的变量体现了“时间局部性”，顺序访问数组体现了“空间局部性”。
-
-    缓存正是赌这两点，而大多数程序都满足，所以命中率通常很高。
-
-    反过来，在内存里到处乱跳的访问（比如很长的链表），会让缓存频繁失效。
-
-
-    数字例子：大矩阵按行求和与按列求和的差距可达数倍到一个数量级（具体倍数随矩阵大小与机器实测，没有固定值）。矩阵乘法做 tiling（分块让子块留在片上存储层级里）同理，这是包括 cuBLAS 在内的分块策略存在的原因之一。'
-  derivation: original
-  sources:
-  - ref: csapp
-    locator: 第 6 章
-    url: http://csapp.cs.cmu.edu/
-    claim: 局部性原理：时间局部性与空间局部性
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: cpu
-      id: c
-      label: CPU
-    - lane: cache
-      id: k
-      label: 缓存
-      highlight: true
-    - lane: mem
-      id: m
-      label: 内存
-    messages: []
-  log:
-  - mode: 命中率高
-    event: 局部性让大部分访问命中
-  code:
-    lang: c
-    code: "// 行遍历：顺序命中缓存行；列遍历：每步跳一行，未命中多得多\nfor (int i = 0; i < N; i++)\n  for (int j = 0; j < N; j++) sum += a[i][j];   // 快\nfor (int j = 0; j < N; j++)\n  for (int i = 0; i < N; i++) sum += a[i][j];   // 慢（大 N 时可达数倍）"
-    note: 遍历顺序与局部性
-- id: lesson
-  title: 对写代码的启示
-  tldr: 同样的计算，访问顺序不同，速度可能差好几倍。
-  body: '按行遍历二维数组（顺着内存顺序）通常比按列遍历快得多。
-
-    数组比链表更“缓存友好”，这也是很多高性能代码偏爱连续数组的原因。
-
-    缓存满了就要淘汰旧数据，缓存不够大时，热数据也会被挤出去。'
-  derivation: original
-  sources:
-  - ref: csapp
-    locator: 第 6 章
-    url: http://csapp.cs.cmu.edu/
-    claim: 编写缓存友好的代码
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: cpu
-      id: c
-      label: CPU
-      highlight: true
-    - lane: cache
-      id: k
-      label: 缓存
-    - lane: mem
-      id: m
-      label: 内存
-    messages: []
-  log:
-  - mode: 总结
-    event: 访问顺序影响性能
-- id: sim-lab
-  title: 动手实验：缓存模拟器
-  tldr: 换不同的访问模式跑一遍，看命中率如何从 75% 掉到 0%——局部性不是口号，是数字。
-  body: '实验室是一个 8 行 × 16B 块的直接映射缓存。先跑「按行扫一行」：16 次访问只有每块的第一次未命中，命中率 75%；再跑「按列扫一列」：地址每次跳 64B，不但每步都是新块，还反复挤占同一行，命中率 0%。最后「小数组重复两遍」展示时间局部性：第二遍全部命中。这就是正文里循环交换、tiling 能提速的全部秘密——亲手把数字跑出来，比看十遍结论都牢。'
-  derivation: original
-  sources: []
-  log: []
-  canvas:
-    kind: lab
-    lab: cache-sim
-    caption: 三种访问模式 × 直接映射缓存，命中/未命中实时统计
-    params:
-      lines: 8
-      block: 16
-    cases:
-    - input:
-        addrs: [0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60]
-      expect:
-        hits: 12
-        misses: 4
-    - input:
-        addrs: [0, 64, 128, 192]
-      expect:
-        hits: 0
-        misses: 4
-- id: coherence
-  title: 多核：缓存一致性
-  tldr: 每个核心有自己的缓存，一个核心改了数据，其他核心的旧副本必须作废。
-  body: 'L1、L2 通常每个核心私有，L3 多核共享。
-
-    硬件用一致性协议（如 MESI）保证：一个核心写某行时，其他核心缓存里的这一行会被作废，下次读要重新取。
-
-    副作用是“伪共享”：两个线程改的是不同变量，但它们在同一缓存行里，这一行会在核心之间来回搬，性能大降。
-
-
-    具体数字：典型延迟阶梯 L1 约 1 ns、L2 约 3–4 ns、L3 约 10–20 ns、主存约 60–100 ns、SSD 则 SATA 约 100 μs、NVMe 约 10–70 μs。相邻层级差数倍，从 L1 到 SSD 累计差约五个数量级，所以推理优化先量内存带宽利用率，再谈算力。'
-  derivation: original
-  sources:
-  - ref: csapp
-    locator: 第 6 章
-    url: http://csapp.cs.cmu.edu/
-    claim: 每个核心有自己的缓存，一个核心改了数据，其他核心的旧副本必须作废。
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: cpu
-      id: c
-      label: CPU
-      highlight: true
-    - lane: cache
-      id: k
-      label: 缓存
-    - lane: mem
-      id: m
-      label: 内存
-    messages:
-    - id: m-coherence
-      from: c
-      to: k
-      label: 写入 → 其他核心副本作废
-      active: true
-  log:
-  - mode: 一致性
-    event: 多核看到同一份数据
+  - id: why
+    title: 为什么需要缓存
+    tldr: CPU 算得极快，但从内存取一次数据要等上百个周期。
+    body: 如果每次都去内存拿数据，CPU 大部分时间都在等待。走一组数字：一颗 3 GHz 的 CPU 一个周期约 0.33 ns，一次主存访问约 60 到 100 ns，相当于 200 到 300 个周期白白空转。也就是说，CPU 算 1 次加法只要 1 个周期，取 1 个操作数却要等几百个周期，算力再强也会被访存饿死。于是在 CPU 和内存之间塞进几层小而快的 SRAM 缓存，存放最近用过的数据副本，命中时几个周期就能返回。这和网站用 CDN 把热门内容推到离用户近的边缘节点是同一个思路，区别只是这里的距离用纳秒计、副本一致性由硬件协议兜底。缓存不是锦上添花，而是现代 CPU 能跑满主频的前提，没有它，多发射和乱序执行攒下的并行度都会被访存延迟吃光。这一段的每个数字和结论都应当能自己复算或手推一遍，读时先遮住结论自测，再对照正文核对差在哪一步。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 6 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 存储层次结构中越靠近 CPU 越快越小
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: cpu
+          id: c
+          label: CPU
+          highlight: true
+        - lane: cache
+          id: k
+          label: 缓存
+        - lane: mem
+          id: m
+          label: 内存
+      messages:
+        - id: m-why
+          from: c
+          to: m
+          label: 去内存取数据：很慢
+          active: true
+    log:
+      - mode: 等待
+        event: CPU 等待内存
+    points:
+      - CPU 算得极快，但从内存取一次数据要等上百个周期。
+  - id: miss
+    title: 未命中：第一次访问
+    tldr: 数据不在缓存里，只能去内存取，顺便把一整块搬进缓存。
+    body: 第一次访问数组开头，缓存里没有这块数据，这叫未命中，也叫冷未命中，因为这块数据从未被装进来过。CPU 只能向内存发出请求，但它不会只取用到的那 4 个字节，而是把该地址所在的整个缓存行一起搬回来，x86-64 上通常是 64 字节，也就是连续 16 个 int。原因是总线和内存颗粒本来就以突发方式成批传数据更划算，而且程序大概率马上要用邻居。代价是这一次访问要付完整的内存延迟，约上百个周期；收益是后面 15 个相邻元素的访问全部变成命中。判断一段代码快不快，先数它触发多少次这种整行搬运，再看搬回来之后到底用上了多少，这正是空间局部性的量化方式，未命中次数乘以行大小就是实际从内存搬运的字节数。再补一个可检验的推论，把数组元素从 4 字节的 int 换成 64 字节的结构体后，每行只装得下 1 个元素，顺序遍历的未命中率会从约十六分之一恶化到接近 100%，元素大小和行大小的比值直接决定空间局部性能兑现多少分，这个比值是设计热点数据结构时最该先算的一笔账。
+    derivation: original
+    sources:
+      - ref: cs61c
+        locator: Caches 相关讲义
+        url: https://cs61c.org/
+        claim: 未命中时以缓存块为单位从下层读入
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: cpu
+          id: c
+          label: CPU
+        - lane: cache
+          id: k
+          label: 缓存
+        - lane: mem
+          id: m
+          label: 内存
+          highlight: true
+      messages:
+        - id: m-miss
+          from: m
+          to: k
+          label: 搬入一整块缓存行
+          active: true
+    log:
+      - mode: 未命中
+        event: 从内存读入一块数据
+  - id: hit
+    title: 命中：之后的访问
+    tldr: 接下来访问相邻元素，数据已经在缓存里，几乎不用等。
+    body: 下一个数组元素就落在刚搬回来的那一行里，这叫命中。命中时硬件先用地址的组索引定位到组，再并行比较组内每一行的标记，匹配且有效位为 1 就直接把行内偏移选出的字节送回寄存器，L1 命中通常只要约 4 个周期。对比一下，L1 未命中去 L2 约十几个周期，去 L3 约几十个周期，去主存则要上百个周期，相邻层级差数倍。顺序遍历长度为 N 的 int 数组，理想情况下每 16 个元素才有 1 次未命中，未命中率约 6%，其余 94% 都是廉价命中。反过来，如果步长是 64 字节，每个元素都落在不同行里，未命中率会直接变成 100%，同样的循环慢数倍，差别全在访问模式，不在指令条数。还有一个常被忽略的细节，命中路径上标记比较是并行做的，组内所有行的标记同时和地址高位比对，所以组相联的路数增加主要贵在比较器和多路选择器上，而不是比较次数上，这也是路数通常停在 4 到 16 之间、不再往上堆的硬件原因。
+    derivation: original
+    sources:
+      - ref: cs61c
+        locator: Caches 相关讲义
+        url: https://cs61c.org/
+        claim: 命中时直接从缓存返回数据
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: cpu
+          id: c
+          label: CPU
+        - lane: cache
+          id: k
+          label: 缓存
+          highlight: true
+        - lane: mem
+          id: m
+          label: 内存
+      messages:
+        - id: m-hit
+          from: k
+          to: c
+          label: 直接返回：很快
+          active: true
+    log:
+      - mode: 命中
+        event: 从缓存读到数据
+  - id: mapping
+    title: 数据放在缓存的哪里
+    tldr: 每个内存地址只能放进缓存里固定的几个位置，这叫组相联。
+    body: 缓存不能把数据随便放，因为查找必须在一个周期量级内完成，所以每个内存地址能放的位置被地址位直接算死。地址被切成三段，低位是块内偏移，中间位是组索引，高位是标记。直接映射时组内只有 1 个位置，查得最快，但两个高频地址只要组索引相同就反复互相驱逐，这就是冲突未命中。全相联时组只有 1 个、位置任意，冲突最少，但每次要并行比较全部标记，比较器面积和功耗随容量爆炸，只适合很小的结构。实际 CPU 用组相联折中，例如 32 KB、64 字节行、8 路组相联，就有 64 组，查找只并行比 8 个标记。走例，地址的组索引是 5，它只能进第 5 组，组内 8 个位置任选空位，满了才按替换策略赶走一行。再把三段的位数算一遍加深印象，32 KB 缓存、64 字节行、8 路相联，总行数 512 行、组数 64 组，组索引占 6 位，块内偏移占 6 位，剩下的高位全是标记，任何一个地址进来先看中间 6 位定组、再看低 6 位选字节，这套切法在习题里要能闭着眼算出来。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 6 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 每个内存地址只能放进缓存里固定的几个位置，这叫组相联。
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: cpu
+          id: c
+          label: CPU
+        - lane: cache
+          id: k
+          label: 缓存
+          highlight: true
+        - lane: mem
+          id: m
+          label: 内存
+      messages:
+        - id: m-mapping
+          from: c
+          to: k
+          label: 地址 → 第几组 → 组内找
+          active: true
+    log:
+      - mode: 查找
+        event: 按组定位缓存行
+  - id: replace-write
+    title: 满了淘汰谁，写了怎么办
+    tldr: 组满了要淘汰一行，通常淘汰最久没用的；写数据时还要决定何时写回内存。
+    body: 组满了又来了新行，必须赶走一行腾位置。理想策略是赶走未来最晚才用的行，但硬件预知不了未来，只能用过去猜未来，常用 LRU 或其近似，比如用几个引用位做时钟算法。写策略分两条路线，写直达是改缓存的同时同步写内存，数据永远一致但每次写都吃内存带宽；写回是只改缓存并把脏位标成 1，等这一行被驱逐时才一次性写回，多次改写合并成一次回写，现代 CPU 的 L1 数据缓存普遍用写回。还有一个细节是写未命中怎么办，后面的步骤会专门讲。未命中按成因分三类，第一次访问的冷未命中靠预取缓解，工作集超过容量的容量未命中靠加大缓存或分块缓解，映射撞车的冲突未命中靠提高相联度缓解，三类对症下药，不能混为一谈。补一个判断口径，评估替换策略好坏不能只看某一次驱逐选得对不对，要看一段真实访问序列上的总未命中率，LRU 在顺序扫描加重复访问的混合负载里表现稳定，但在纯循环扫描且工作集略大于缓存时会被一次次整轮驱逐，这类负载反而是最简单的随机替换更抗造，策略没有绝对高下只有和访问模式的匹配。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 6 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 组满了要淘汰一行，通常淘汰最久没用的；写数据时还要决定何时写回内存。
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: cpu
+          id: c
+          label: CPU
+        - lane: cache
+          id: k
+          label: 缓存
+        - lane: mem
+          id: m
+          label: 内存
+          highlight: true
+      messages:
+        - id: m-replace-write
+          from: k
+          to: m
+          label: 淘汰脏行 → 写回内存
+          active: true
+    log:
+      - mode: 淘汰
+        event: 写回被替换的脏行
+  - id: locality
+    title: 局部性：缓存为什么有效
+    tldr: 程序访问数据有规律：刚用过的还会再用，用了这个附近的也会用。
+    body: 循环里反复用的累加变量和循环计数器，体现的是时间局部性，刚访问过的数据短时间内还会再访问；顺序扫数组、顺序执行指令，体现的是空间局部性，用了某个地址，附近地址很快也会被用到。缓存的全部赌注就押在这两条经验规律上，而编译器和程序员写出的绝大多数程序都满足它们，所以实际命中率常在 95% 以上。数字例子最有说服力，一个 2048 乘 2048 的 int 矩阵占 16 MB，远超 L2，按行求和时每行连续命中，按列求和时每走一步跳 8 KB，不但每步都是新行，还会反复冲掉同一组，耗时可达数倍到一个数量级，具体倍数随机器实测。矩阵乘法做分块也是同理，把子块切到能整块留在缓存里反复用，未命中次数随之大降，这正是高性能库普遍分块的根本原因。这一段的每个数字和结论都应当能自己复算或手推一遍，读时先遮住结论自测，再对照正文核对差在哪一步。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 6 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 局部性原理：时间局部性与空间局部性
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: cpu
+          id: c
+          label: CPU
+        - lane: cache
+          id: k
+          label: 缓存
+          highlight: true
+        - lane: mem
+          id: m
+          label: 内存
+      messages: []
+    log:
+      - mode: 命中率高
+        event: 局部性让大部分访问命中
+    code:
+      lang: c
+      code: |-
+        // 行遍历：顺序命中缓存行；列遍历：每步跳一行，未命中多得多
+        for (int i = 0; i < N; i++)
+          for (int j = 0; j < N; j++) sum += a[i][j];   // 快
+        for (int j = 0; j < N; j++)
+          for (int i = 0; i < N; i++) sum += a[i][j];   // 慢（大 N 时可达数倍）
+      note: 遍历顺序与局部性
+  - id: lesson
+    title: 对写代码的启示
+    tldr: 同样的计算，访问顺序不同，速度可能差好几倍。
+    body: 对写代码的人，这一课的启示可以落成几条可执行纪律。第一，数据结构优先选连续数组而不是指针串起来的链表，链表节点散落在堆上，每跳一次大概率一次未命中。第二，循环的嵌套顺序要顺着内存的存储顺序走，C 语言里二维数组按行连续，就该让最内层循环走列下标。第三，热数据要尽量挤进更小的字节数，比如把只用到的字段拆成单独数组，让一行 64 字节装下更多有用元素，而不是装一堆冷字段。第四，工作集超过缓存时用分块把问题切小，让每一块在被换出前被反复使用。反例也要记住，如果访问模式本身就是随机的，比如哈希表探查，缓存帮不上多少忙，这时该优化的是减少访问次数，而不是指望调整遍历顺序。还有一个立竿见影的例子是结构体数组与数组结构体之争，把每个对象的全部字段捆在一起存放，遍历时只用其中一个字段也要把整行搬进来，等于为冷字段付了带宽，把同一字段拆成独立数组存放，遍历该字段时每行装的全是有用数据，游戏引擎和列式存储都在用这招，前者叫 AoS、后者叫 SoA，选哪个先看访问是整对象用还是单字段扫。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 6 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 编写缓存友好的代码
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: cpu
+          id: c
+          label: CPU
+          highlight: true
+        - lane: cache
+          id: k
+          label: 缓存
+        - lane: mem
+          id: m
+          label: 内存
+      messages: []
+    log:
+      - mode: 总结
+        event: 访问顺序影响性能
+  - id: write-alloc
+    title: 写未命中：写分配还是不按写分配
+    tldr: 写一个不在缓存里的数据时，要不要先把整行搬进来？两种策略各有适用场景。
+    body: 写操作也会未命中，CPU 写一个地址时发现它不在缓存里，这时有两条路线。写分配是先把该行从内存整行读进来再改其中几个字节，好处是后续对同一行的读写都能命中，适合写完马上还要读、或者总是成片写的场景，现代通用 CPU 的 L1 大多采用写分配。不按写分配则绕过缓存直接写内存，缓存里不留副本，适合流式写出再也不回头看的数据，比如一次性写出大块结果，把它灌进缓存只会把热数据挤走。要注意写分配的代价，那次整行读入本身就是一次未命中的内存往返，如果程序只写其中 4 字节就再也不碰，这笔搬运纯属浪费。还有一个配套机制是写缓冲，CPU 把待写数据先丢进一个小队列就继续往下执行，不必等内存确认，队列满了才会真正停顿。判断题里看到写未命中，先问这块数据接下来还用不用，用就写分配划算，不用就直达绕过更划算。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 6 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 写未命中时的写分配与不按写分配策略
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: cpu
+          id: c
+          label: CPU
+        - lane: cache
+          id: k
+          label: 缓存
+          highlight: true
+        - lane: mem
+          id: m
+          label: 内存
+      messages:
+        - id: m-write-alloc
+          from: c
+          to: k
+          label: 写未命中 → 先整行读入再改
+          active: true
+    log:
+      - mode: 写未命中
+        event: 写分配先读入整行
+  - id: prefetch
+    title: 预取：把未命中藏起来
+    tldr: 与其等未命中发生，不如提前把马上要用的行搬进来，让延迟和计算重叠。
+    body: 预取的思路是预测，既然顺序访问时下一个行地址几乎必然是当前行加 64，那就趁 CPU 还在算这一行时，提前把下一行甚至下两行从内存搬进来。硬件预取器会观察未命中的地址序列，发现固定步长就自动沿着步长往前跑，步长为 0 的重复访问、步长为 64 的顺序扫、甚至跨页的固定步长都能识别。预取不改变命中和未命中的计数口径，它改变的是代价，未命中如果提前几百个周期就发起了，等指令真正用到数据时行已经到了，停顿被计算盖住。预取也有翻车的时候，预测错了会白白占用内存带宽，还可能把真正有用的行挤出缓存，所以硬件预取通常只往空位或低优先级位置放。软件预取指令则把判断交给程序员或编译器，在循环里提前若干次迭代发出预取。边界情况是随机访问，比如图遍历的邻居表，地址毫无规律，预取器无从下手，这时只能靠减少访问次数或改数据布局，预取不是万能药。
+    derivation: original
+    sources:
+      - ref: cs61c
+        locator: Caches 相关讲义
+        url: https://cs61c.org/
+        claim: 硬件预取利用固定步长提前装入缓存行
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: cpu
+          id: c
+          label: CPU
+        - lane: cache
+          id: k
+          label: 缓存
+        - lane: mem
+          id: m
+          label: 内存
+          highlight: true
+      messages:
+        - id: m-prefetch
+          from: m
+          to: k
+          label: 提前搬入下一行
+          active: true
+    log:
+      - mode: 预取
+        event: 下一行提前进入缓存
+  - id: mesi-states
+    title: 一致性协议的状态机怎么转
+    tldr: 把 MESI 的状态迁移走一遍例子，才算真懂多核为什么有时会莫名变慢。
+    body: 把 MESI 当成一台状态机来走例最清楚。设变量 x 所在的行起初只在核心 0 的缓存里且未被改过，状态是 E 独占干净。核心 1 读 x，总线广播读请求，核心 0 把状态降为 S，两核各持一份只读副本。接着核心 1 要写 x，它必须先发出升级请求，让核心 0 的副本变 I，自己升为 M 独占脏，写完内存里仍是旧值，只有核心 1 的副本是新值。此后核心 0 再读 x，核心 1 要把行转交过去，两边回到 S，必要时把脏数据刷回下层。关键点是任何从 S 到 M 的写都要付一次让别人失效的通信代价，这正是伪共享贵的根源，两个变量同行时每次写都触发这套流程。对比之下，只读共享的数据人人都是 S，零额外流量，所以把频繁写的变量各自独占一行、把只读数据放心共享，是多线程调优里最基础的一对动作。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 6 章、第 12 章
+        url: http://csapp.cs.cmu.edu/
+        claim: MESI 协议的状态与状态迁移
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: cpu
+          id: c
+          label: CPU
+          highlight: true
+        - lane: cache
+          id: k
+          label: 缓存
+        - lane: mem
+          id: m
+          label: 内存
+      messages:
+        - id: m-mesi
+          from: c
+          to: k
+          label: 写共享行 → 他核置 I，自升 M
+          active: true
+    log:
+      - mode: 状态迁移
+        event: S 经失效升为 M
+  - id: multilevel
+    title: 多级缓存与包含策略
+    tldr: L1、L2、L3 之间还要约定谁包含谁，这决定了查找和失效的路径。
+    body: 多级缓存之间有个包含关系的约定。包含策略要求下层装着上层的全部行，比如 L2 包含 L1 的所有行，好处是别的核心来问某行在不在时，只查 L3 或 L2 就能过滤，不必打扰每个核心的 L1，而且下层驱逐一行时可以顺带让上层失效，保证一致性好维护，代价是同一份数据在多层重复存放，浪费了有效容量。排斥策略则让各层尽量不重复，同一行只存在于其中一层，等效容量更大，但管理和失效逻辑更复杂。现实里常见混合做法，L3 做成包含或近似包含兼当一致性目录，L2 与 L1 之间则相对宽松。走一个查找例子，L1 未命中查 L2，L2 未命中查 L3，L3 再未命中才去内存，每多查一级多付那一级的延迟，所以平均访存时间是各级命中率和延迟的加权和。设计题里问为什么不把 L1 直接做大，答案也在这里，单级大缓存的查找延迟会被连线和比较器拖长，分级是用命中率换延迟的唯一现实解。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 6 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 多级缓存的包含与排斥策略
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: cpu
+          id: c
+          label: CPU
+        - lane: cache
+          id: k
+          label: 缓存
+          highlight: true
+        - lane: mem
+          id: m
+          label: 内存
+      messages:
+        - id: m-multilevel
+          from: k
+          to: m
+          label: 逐级查找 L1 → L2 → L3 → 内存
+          active: true
+    log:
+      - mode: 多级查找
+        event: 逐级未命中才到内存
+  - id: sim-lab
+    title: 动手实验：缓存模拟器
+    tldr: 换不同的访问模式跑一遍，看命中率如何从 75% 掉到 0%——局部性不是口号，是数字。
+    body: 实验室是一个 8 行、每块 16 字节的直接映射缓存，三个预置用例把局部性变成了可数的数字。先跑按行扫一行，16 次访问里只有每块的第一次未命中，命中率 75%，因为一块 16 字节正好装 4 个 int，空间局部性把后面 3 次都救成了命中。再跑按列扫一列，地址每次跳 64 字节，不但每一步都是新块，而且这些地址的组索引反复落在同一行上互相驱逐，命中率直接掉到 0%，这就是冲突未命中和空间局部性缺失叠加的最坏情况。最后跑小数组重复两遍，第一遍是冷未命中，第二遍全部命中，展示时间局部性。可以自己改地址序列验证两个预测，把步长从 4 字节改成 16 字节，命中率应从 75% 掉到 0%，因为每个元素独占一块；再把块大小的直觉换成真实机器的 64 字节，就能估算真实循环的未命中率。这就是正文里循环交换和分块能提速的全部秘密，把数字亲手跑出来，比背十遍结论都牢。
+    derivation: original
+    sources: []
+    log: []
+    canvas:
+      kind: lab
+      lab: cache-sim
+      caption: 三种访问模式 × 直接映射缓存，命中/未命中实时统计
+      params:
+        lines: 8
+        block: 16
+      cases:
+        - input:
+            addrs:
+              - 0
+              - 4
+              - 8
+              - 12
+              - 16
+              - 20
+              - 24
+              - 28
+              - 32
+              - 36
+              - 40
+              - 44
+              - 48
+              - 52
+              - 56
+              - 60
+          expect:
+            hits: 12
+            misses: 4
+        - input:
+            addrs:
+              - 0
+              - 64
+              - 128
+              - 192
+          expect:
+            hits: 0
+            misses: 4
+  - id: coherence
+    title: 多核：缓存一致性
+    tldr: 每个核心有自己的缓存，一个核心改了数据，其他核心的旧副本必须作废。
+    body: 多核机器上，每个核心都有私有的 L1 和 L2，L3 则由所有核心共享，于是同一份数据可能在多个核心的私有缓存里各存一份副本。一致性协议要保证的是，任何核心读到的都不能是别人已经改掉的旧值。MESI 是经典实现，每行有四种状态，M 是已修改且独占，E 是未修改且独占，S 是多核共享只读，I 是无效。走例，核心 0 写一行时要先发出请求让其他核心把该行置为 I，自己转成 M 才能写；之后核心 1 再读这一行，核心 0 必须把最新值转给它并一起降为 S。副作用是伪共享，两个线程改的是同一行里的两个不同变量，语义上毫无关系，但协议以行为粒度工作，这一行会在两核之间反复易主，每次都要走一致性流量，性能大降，解法是把两个变量填充到不同行。数量级上记住延迟阶梯即可，L1 约 1 ns 量级，往外逐级变慢，SSD 约 10 到 100 微秒量级，从 L1 到 SSD 累计约五个数量级。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 6 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 每个核心有自己的缓存，一个核心改了数据，其他核心的旧副本必须作废。
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: cpu
+          id: c
+          label: CPU
+          highlight: true
+        - lane: cache
+          id: k
+          label: 缓存
+        - lane: mem
+          id: m
+          label: 内存
+      messages:
+        - id: m-coherence
+          from: c
+          to: k
+          label: 写入 → 其他核心副本作废
+          active: true
+    log:
+      - mode: 一致性
+        event: 多核看到同一份数据
 level: 进阶
-minutes: 18
+minutes: 30
 prereq:
-- co/instruction-cycle
+  - co/instruction-cycle
 objectives:
-- 按地址拆出标记/组索引/块内偏移
-- 用时间与空间局部性解释命中率
-- 解释为什么按行遍历比按列遍历快几倍
+  - 按地址拆出标记/组索引/块内偏移
+  - 用时间与空间局部性解释命中率
+  - 解释为什么按行遍历比按列遍历快几倍
 aiLink: 单请求或小批量解码时，推理性能的第一瓶颈往往是内存带宽而不是算力：权重以几十 GB 流过缓存与 HBM，KV Cache 的布局、算子的分块（tiling）本质都是在伺候缓存局部性。这一课是读懂所有推理性能分析的钥匙。
 quiz:
-- q: 缓存行（cache line）64 字节意味着？
-  options:
-  - 每次只能读 64 个数
-  - 取 1 字节会把所在 64 字节整行搬进缓存，空间局部性由此而来
-  - 缓存总共 64 字节
-  - 地址是 64 位
-  answer: 1
-  explain: 整行搬运让顺序访问几乎免费命中、随机访问的未命中率则大增。
-- q: 按列遍历大矩阵比按行慢，主要是？
-  options:
-  - 编译器问题
-  - 相邻元素跨了很多缓存行，空间局部性差、未命中暴增
-  - CPU 不支持按列
-  - 内存损坏
-  answer: 1
-  explain: 行优先存储下同行元素连续；按列每走一步跳一整行。
-- q: 直接映射缓存的冲突未命中来自？
-  options:
-  - 容量不够
-  - 多个地址映射到同一个位置，只能互相挤掉
-  - 程序写错
-  - TLB 未命中
-  answer: 1
-  explain: 提高相联度就是给同一组多几个位置，代价是硬件更复杂。
+  - q: 缓存行（cache line）64 字节意味着？
+    options:
+      - 每次只能读 64 个数
+      - 取 1 字节会把所在 64 字节整行搬进缓存，空间局部性由此而来
+      - 缓存总共 64 字节
+      - 地址是 64 位
+    answer: 1
+    explain: 整行搬运让顺序访问几乎免费命中、随机访问的未命中率则大增。
+  - q: 按列遍历大矩阵比按行慢，主要是？
+    options:
+      - 编译器问题
+      - 相邻元素跨了很多缓存行，空间局部性差、未命中暴增
+      - CPU 不支持按列
+      - 内存损坏
+    answer: 1
+    explain: 行优先存储下同行元素连续；按列每走一步跳一整行。
+  - q: 直接映射缓存的冲突未命中来自？
+    options:
+      - 容量不够
+      - 多个地址映射到同一个位置，只能互相挤掉
+      - 程序写错
+      - TLB 未命中
+    answer: 1
+    explain: 提高相联度就是给同一组多几个位置，代价是硬件更复杂。
+design:
+  - mechanism: 缓存行以几十字节为单位整行搬运，x86-64 上通常 64 字节，命中判断也以行为粒度而不是字节，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    problem: 总线每次传输都有固定开销，只传用到的 4 字节既浪费带宽，又放弃了相邻数据马上会被用到的空间局部性，白白多付后续未命中，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    choice: 宁可多传，把整个 64 字节行一次搬齐，让顺序访问里每 16 个 int 只付 1 次未命中，未命中率被行大小直接摊薄到约十六分之一
+    tradeoff: 行越大摊薄越狠，但随机访问时搬回的大部分字节永远用不上，污染缓存又耗带宽，所以行大小停在几十字节这个量级而不是几 KB，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    root: 根源是程序访问的空间局部性统计规律加上 DRAM 突发传输的物理特性，两者共同决定了整行搬运的期望收益为正且边际收益递减，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+  - mechanism: 存储层次分多级，寄存器、L1、L2、L3 到主存逐级变大变慢，每一级都是上一级的缓存，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    problem: 单级缓存无法同时满足又快又大，SRAM 单元面积大，做大后连线变长、比较器变多，查找延迟随容量上升，一级大缓存会慢到失去意义
+    choice: 分级妥协，L1 小到能在一个周期量级返回，靠极高命中率兜底，漏下的少量访问再由更大的 L2 和 L3 接住，平均延迟仍接近 L1
+    tradeoff: 分级带来数据重复存放、包含策略和一致性协议的复杂度，多核下还要维护 MESI 这类状态机，硬件面积和验证成本都显著上升，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    root: 根源是物理账，SRAM 延迟随容量和连线长度增长而内存便宜但慢，只有按命中率把访问量逐级过滤，才能让平均访存时间逼近最快一级
+  - mechanism: 缓存对软件基本透明，硬件自动搬运、淘汰和维护一致性，程序员只能通过数据布局间接影响它，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    problem: 如果让软件显式管理每一块数据的存放位置，编程模型会复杂到不可用，而且不同机器容量不同，写死的布局无法移植，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    choice: 硬件全自动管理，软件侧只提供局部性这个输入，访问模式越规律硬件越能发挥，随机访问则自动退化为接近内存的速度，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    tradeoff: 透明的代价是性能不可控，同样的算法换个遍历顺序能差数倍，程序员必须理解缓存才能解释和消除这类非直观的性能悬崖，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    root: 根源是抽象与性能的经典张力，透明抽象隐藏了硬件细节，却隐藏不了延迟差五个数量级这个物理事实，局部性因此成为必修课，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。

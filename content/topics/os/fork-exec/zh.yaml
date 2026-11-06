@@ -47,7 +47,10 @@ steps:
 
     操作系统把“一个正在运行的程序”包装成进程，给它独立的内存和资源账本，用一个进程号（PID）标识。
 
-    就像 Chrome 给标签页单独开进程：一个页面崩了，其他页面不受影响。'
+    就像 Chrome 给标签页单独开进程：一个页面崩了，其他页面不受影响。
+
+
+    把账本说具体：一个进程在内核里对应一个 task_struct，里面记着打开的文件表、内存映射、信号处理方式、父子关系和资源用量，PID 只是这本账的编号。走例：在终端跑 ps -o pid,ppid,stat,cmd，能看到 bash 的 PPID 是登录会话的进程、自己跑的 sleep 又挂在 bash 下面，整台机器的进程就是这样一棵以 PID 1 为根的树。边界：PID 是有限循环复用的（上限由 pid_max 控制），所以 PID 相同不等于同一个进程，长期运行的系统辨认进程还要结合启动时间等信息。'
   derivation: original
   sources:
   - ref: ostep
@@ -86,7 +89,10 @@ steps:
     Linux 用“写时复制”，有人改内存时才真正复制，所以 fork 并不慢。
 
 
-    写时复制的数字感：fork 一个占 10 GB 的进程，瞬间只复制页表（叶级页表约 20 MB 量级），物理页全部共享、只读标记；谁写谁才复制那一页。所以 Redis 的 RDB 持久化敢用 fork；注意 Python 这类带引用计数的运行时会频繁写对象头、触发大量 COW 复制，用 fork 时要算这笔账。'
+    写时复制的数字感：fork 一个占 10 GB 的进程，瞬间只复制页表（叶级页表约 20 MB 量级），物理页全部共享、只读标记；谁写谁才复制那一页。所以 Redis 的 RDB 持久化敢用 fork；注意 Python 这类带引用计数的运行时会频繁写对象头、触发大量 COW 复制，用 fork 时要算这笔账。
+
+
+    再补两个容易踩的边界：第一，fork 只复制调用它的那个线程，父进程里其他线程在子进程中直接消失，正被它们握着的锁可能永远没人释放，所以多线程程序 fork 后，子进程在 exec 之前只能调用异步信号安全的函数。第二，fork 也会失败：进程数或内存超限时返回 -1 并设 errno 为 EAGAIN 或 ENOMEM，健壮的父进程必须检查这个返回值，不能假设复制总会成功。'
   derivation: original
   sources:
   - ref: linux-man-pages
@@ -127,6 +133,44 @@ steps:
 
       /* 父进程 */ int st; waitpid(pid, &st, 0);'
     note: fork + exec + wait 的最小骨架
+- id: between-fork-exec
+  title: fork 与 exec 之间：布置子进程的舞台
+  tldr: 子进程在变成新程序之前，还是父进程的代码，可以自由重定向、改目录、关文件。
+  body: '这一段是 fork 与 exec 拆开后白赚的舞台，走一个完整走例：bash 执行 ls 重定向到 out.txt。fork 之后子进程还跑着 bash 的代码，它先 open 打开 out.txt 拿到比如 3 号描述符，再用 dup2 把 3 号复制到 1 号标准输出，关掉 3 号，然后才 exec 成 ls。
+
+    ls 对此一无所知，它照常往 1 号写，数据却进了文件——重定向不需要 ls 提供任何参数支持。同一个舞台还能做很多布置：chdir 换工作目录、改环境变量、umask 设权限掩码、把不需要的文件描述符逐个关掉、给自己改进程组。关键洞察：这些布置用的全是影响进程状态的普通系统调用，不需要 exec 提供一长串参数，更不需要每个程序自己实现重定向逻辑——shell 布置一次，世上所有程序都自动支持重定向。'
+  derivation: original
+  sources:
+  - ref: linux-man-pages
+    locator: dup2(2)
+    url: https://man7.org/linux/man-pages/man2/dup2.2.html
+    claim: dup2 把文件描述符复制到指定编号，是重定向的实现机制
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: parent
+      id: sh
+      label: bash（父进程）
+    - lane: kernel
+      id: k
+      label: 内核
+    - lane: child
+      id: c
+      label: 子进程
+      highlight: true
+    messages:
+    - id: m-between-fork-exec
+      from: c
+      to: k
+      label: dup2 把输出改到文件
+      active: true
+  log:
+  - mode: 子进程布置中
+    event: 标准输出已被指向 out.txt
 - id: exec
   title: exec：换上新程序
   tldr: 子进程调用 execve，把自己整个换成 ls。
@@ -134,7 +178,10 @@ steps:
 
     PID 和打开的文件保留下来（未设 close-on-exec 的那些），所以 bash 可以在 exec 之前先把输出重定向到文件。
 
-    这就是拆成两步的好处：中间留出了“布置环境”的机会。'
+    这就是拆成两步的好处：中间留出了“布置环境”的机会。
+
+
+    execve（path, argv, envp）的内部走一遍：内核打开目标文件、按它的 ELF 头把代码段与数据段映射进全新的地址空间、建好新栈并把 argv 与 envp 压进去，然后从程序入口开始执行。继承与重置的边界要分清：PID、打开的文件（除标了 close-on-exec 的）、当前工作目录会保留；被捕获的信号处理函数被重置为默认，因为新程序里根本不存在旧处理函数的代码，被忽略的则保持忽略。这也解释了 setuid 程序为什么靠 exec 完成提权：换程序的那一刻，就是换权限的时刻。'
   derivation: original
   sources:
   - ref: linux-man-pages
@@ -167,6 +214,44 @@ steps:
   log:
   - mode: 子进程运行 ls
     event: 子进程变成了 ls
+- id: fd-inherit
+  title: 文件描述符的继承与 close-on-exec 例外
+  tldr: exec 换掉代码与内存，却保留文件描述符表；标了 O_CLOEXEC 的描述符会在 exec 时被自动关掉。
+  body: '为什么 exec 后文件还开着？因为文件描述符表是进程状态的一部分，exec 只换代码与内存映射，不动这张表。走例：bash 的 0、1、2 分别连着终端的输入、输出与错误输出，子进程 exec 成 ls 后原样继承，所以 ls 一出生就知道往哪读、往哪写。
+
+    例外是标了 close-on-exec 的描述符（打开时带 O_CLOEXEC），exec 时会被自动关掉：服务器监听的套接字、库内部自用的文件都应该这么标，否则子进程会莫名其妙攥着父进程的端口与文件，出现端口明明在父进程手里、新程序却说地址被占用这类灵异故障。对比着记：内存是 exec 时全换的，描述符表是全留的（除 CLOEXEC），信号处置是部分重置的——exec 的继承规则不是一刀切，而是按新程序是否还认得这份状态逐类决定的。'
+  derivation: original
+  sources:
+  - ref: linux-man-pages
+    locator: execve(2) 与 fcntl(2) 的 FD_CLOEXEC
+    url: https://man7.org/linux/man-pages/man2/execve.2.html
+    claim: exec 保留未设 close-on-exec 的文件描述符，设了的在 exec 时关闭
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: parent
+      id: sh
+      label: bash（父进程）
+    - lane: kernel
+      id: k
+      label: 内核
+      highlight: true
+    - lane: child
+      id: c
+      label: 子进程
+    messages:
+    - id: m-fd-inherit
+      from: k
+      to: c
+      label: 描述符表保留，CLOEXEC 的关掉
+      active: true
+  log:
+  - mode: 子进程运行 ls
+    event: 0、1、2 号描述符照常可用
 - id: wait
   title: wait：父进程等孩子结束
   tldr: bash 调用 wait 暂停自己，直到 ls 运行完。
@@ -174,7 +259,10 @@ steps:
 
     wait 让父进程睡眠，内核在子进程结束时把它唤醒。
 
-    这像前端 await 一个 Promise：不占着 CPU 空转，结果来了再继续；在命令末尾加 & 就是不等它。'
+    这像前端 await 一个 Promise：不占着 CPU 空转，结果来了再继续；在命令末尾加 & 就是不等它。
+
+
+    细节上 wait 是一族：waitpid 可以等指定的子进程，加 WNOHANG 就变成非阻塞的问一下、没结束先干别的，事件驱动的父进程靠它加 SIGCHLD 信号避免僵死。子进程的结束信息被编码在一个状态字里：正常退出时用 WEXITSTATUS 取出退出码（只保留低 8 位，所以 exit（300）实际记录的是 44），被信号杀死时则要用 WIFSIGNALED 与 WTERMSIG 判断。把状态字直接当退出码读，是 shell 脚本里经典的误判来源。'
   derivation: original
   sources:
   - ref: linux-man-pages
@@ -214,7 +302,10 @@ steps:
 
     父进程取走退出码后，子进程才彻底消失。
 
-    如果父进程一直不 wait，子进程就成了“僵尸”，在 ps 里显示为状态 Z。'
+    如果父进程一直不 wait，子进程就成了“僵尸”，在 ps 里显示为状态 Z。
+
+
+    僵尸到底占什么？它不占内存映像、不占 CPU，只剩内核里一条进程表记录和退出状态，所以单个僵尸几乎无害；但它的 PID 不能被复用，海量僵尸会耗尽 PID 并让新进程无法创建，ps 里满屏 Z 就是父进程长期不回收的证据，处理办法是让父进程去 wait，或者结束父进程让 PID 1 接管回收。工程上守护进程常用二次 fork 正是借这条规则：让中间子进程退出、工作进程被 PID 1 收养，从此与终端和原父进程彻底脱钩。'
   derivation: original
   sources:
   - ref: linux-man-pages
@@ -247,6 +338,82 @@ steps:
   log:
   - mode: bash 继续运行
     event: 子进程被回收，显示下一个提示符
+- id: pipeline-walkthrough
+  title: 完整走例：一条管道命令的创建全过程
+  tldr: ls 管道到 wc，需要两次 fork、两边 dup2、四处 close，父进程最后 wait 两次。
+  body: '把管道命令完整走一遍，以 ls | wc -l 为例：bash 先用 pipe 造出一对描述符（读端 r、写端 w），再 fork 两次。子进程一用 dup2 把 w 复制到 1 号后关掉 r 与 w，exec 成 ls；子进程二用 dup2 把 r 复制到 0 号后关掉 r 与 w，exec 成 wc。父进程自己也必须关掉 r 与 w，然后 wait 两次收两个退出码，整条命令的退出状态取最后一个进程（wc）的。
+
+    这张图里藏着两个高频考点：一是四处 close 缺一不可，任一处漏关写端，wc 就收不到 EOF 会一直等；二是 ls 与 wc 是并发跑的，管道只有 64KB 缓冲，ls 写满时自动阻塞、wc 读走后又被自动唤醒，生产与消费靠内核的阻塞与唤醒天然同步，不需要任何轮询。数据再大也不会先落盘等 ls 写完，这正是管道与临时文件方案的根本差别。'
+  derivation: original
+  sources:
+  - ref: linux-man-pages
+    locator: pipe(2)
+    url: https://man7.org/linux/man-pages/man2/pipe.2.html
+    claim: pipe 创建单向字节流通道，容量有限，写满时阻塞
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: parent
+      id: sh
+      label: bash（父进程）
+    - lane: kernel
+      id: k
+      label: 内核（管道）
+      highlight: true
+    - lane: child
+      id: c
+      label: 子进程 ls 与 wc
+    messages:
+    - id: m-pipeline-walkthrough
+      from: c
+      to: k
+      label: ls 写管道，wc 读管道
+      active: true
+  log:
+  - mode: 两个子进程并发
+    event: 数据在管道中边写边读
+- id: posix-spawn
+  title: 不需要中间布置时：posix_spawn 与 vfork
+  tldr: posix_spawn 一步创建并执行新程序，跳过中间窗口，更快也更安全；vfork 更极端，只适合受限场景。
+  body: '既然中间布置这么有用，为什么还要 posix_spawn 与 vfork？因为 fork 加 exec 有两笔隐性账：第一，fork 要复制页表并把父进程的页全部改成只读的写时复制，大进程（比如占几 GB 的 JVM 或浏览器）fork 瞬间也要付页表与标记的成本，还可能因为地址空间预留策略被误判为内存不足而失败；第二，多线程进程 fork 后子进程能安全调用的函数极少，写错一步就死锁。
+
+    posix_spawn 让实现内部用 clone 加标志位直接完成创建加 exec，不给中间代码执行的机会，只允许通过参数声明要布置的文件动作与属性，常见的直接启动新程序因此更快也更安全。vfork 更极端：子进程借用父进程的地址空间、父进程挂起直到 exec 或退出，省到极致但子进程改任何变量都会污染父进程，只适合老式或嵌入式场景。取舍口诀：要布置就 fork 加 exec，要直达就 posix_spawn。'
+  derivation: original
+  sources:
+  - ref: linux-man-pages
+    locator: posix_spawn(3) 与 vfork(2)
+    url: https://man7.org/linux/man-pages/man3/posix_spawn.3.html
+    claim: posix_spawn 高效创建子进程执行新程序；vfork 共享地址空间直至 exec
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: parent
+      id: sh
+      label: 父进程
+      highlight: true
+    - lane: kernel
+      id: k
+      label: 内核
+    - lane: child
+      id: c
+      label: 子进程
+    messages:
+    - id: m-posix-spawn
+      from: sh
+      to: c
+      label: posix_spawn：一步到位
+      active: true
+  log:
+  - mode: 子进程运行新程序
+    event: 没有中间布置窗口
 - id: ipc
   title: 进程之间怎么说话：IPC 一览
   tldr: 进程内存互相隔离，合作靠内核提供的通道：管道、共享内存、消息队列、套接字。
@@ -254,7 +421,10 @@ steps:
 
     要传大数据或追求速度，用共享内存（mmap 同一个文件或匿名共享段）：数据不经内核拷贝，但「谁写谁读」的同步要自己用锁/信号量解决，所以它总和同步原语成套出现。要传结构化消息，用消息队列或 Unix 域套接字（unix socket）：按条收发、能跨非亲缘进程，本机的服务间通信（如 Docker 与守护进程）多走它。
 
-    选型口诀：字节流小数据用管道；同机服务用 Unix 套接字；大块数据用共享内存 + 自己的同步；跨机器只能走网络套接字。'
+    选型口诀：字节流小数据用管道；同机服务用 Unix 套接字；大块数据用共享内存 + 自己的同步；跨机器只能走网络套接字。
+
+
+    管道最常见的边界坑是 EOF 的判定：只有当所有持有写端的进程都关闭写端，读端 read 才会返回 0 表示结束；父进程 fork 后若忘了关自己手里的写端，子进程就会永远等下去，看起来像死锁，其实是在等一个永远不会来的 EOF。记住这条，shell 管道卡住时先查谁还攥着写端。'
   derivation: original
   sources:
   - ref: linux-man-pages
@@ -299,7 +469,10 @@ steps:
     进程可以自己处理大多数信号，但 SIGKILL 无法捕获，一定会被杀掉。
 
 
-    具体数字：fork 一个 RSS 10 GB 的推理进程，复制页表的代价远小于复制数据本身；真正被复制的是之后被写脏的页。所以 worker 数 × 每 worker 写脏量，才是多进程部署的真实内存账。'
+    具体数字：fork 一个 RSS 10 GB 的推理进程，复制页表的代价远小于复制数据本身；真正被复制的是之后被写脏的页。所以 worker 数 × 每 worker 写脏量，才是多进程部署的真实内存账。
+
+
+    信号再补三点：每个信号都有默认动作（终止、忽略、暂停、继续等几类），kill 命令与 kill 调用只是发信号，杀不杀取决于目标信号的处置，名字很有误导性；SIGSTOP 与 SIGKILL 一样不可捕获、不可忽略，所以卡死的进程总能被停住或杀掉；进程也可以暂时屏蔽某些信号，但屏蔽不是拒绝，只是延迟处理，标准信号在屏蔽期间多次到达也只记一次。'
   derivation: original
   sources:
   - ref: ostep
@@ -332,7 +505,7 @@ steps:
   - mode: 回收
     event: 孤儿被 init 收养并回收
 level: 基础
-minutes: 15
+minutes: 27
 prereq:
 - os/syscall
 objectives:
@@ -340,6 +513,22 @@ objectives:
 - 解释写时复制为什么让 fork 很便宜
 - 说清僵尸进程与孤儿进程的成因
 aiLink: 容器与推理服务的进程模型全建立在 fork/exec 之上：Python multiprocessing、vLLM 的多 worker、数据加载子进程都靠 fork 复用已加载的模型与解释器状态；理解写时复制，就理解为什么 fork 出 8 个 worker、只要写脏的页不多，就不会立刻吃掉 8 倍内存（只读页全共享）。
+design:
+- mechanism: fork 与 exec 拆成两个调用：中间留一段可任意布置的窗口，让重定向与管道靠组合已有系统调用免费得到，而不是靠大接口预先列全参数
+  problem: 根本约束是布置新程序运行环境的需求组合无穷多：重定向、管道、改目录、改权限、关文件，任何一个大而全的创建接口都要预先列全参数，可新需求永远会冒出来，接口注定永远缺一项；同时复制进程与加载新程序又是两个正交的动作，本没有理由绑在一起。
+  choice: 拆成 fork 与 exec 两个小调用，中间留一段任意代码可执行的窗口，布置需求由调用者用已有系统调用自由组合。替代方案如 Windows 式的一个 CreateProcess 大调用，要把重定向等常见布置写成结构体字段，遇到没预想到的布置就无能为力，还让简单场景也被迫填十几个参数。
+  tradeoff: 换来极强的组合性，代价是每次启动要两次系统调用、子进程先背着父进程的整份状态再扔掉，看起来浪费；这笔账靠写时复制把复制成本压到接近零才成立。承担者是大进程的启动延迟与写代码的人的心智成本：三段式套路必须人人都会写。
+  root: 根源是机制与策略分离：内核只提供复制进程与替换映像两块最小机制，把新程序该长什么样这份策略完全留给用户态组合。小机制的组合数随机制数指数增长，大接口的参数组合却只能线性添加，缺的那一项永远补不上——这是组合数学决定的，不是工程努力能弥补的。
+- mechanism: 写时复制：fork 只复制页表并把双方页面标为只读共享，真正写入时才由缺页异常复制那一页，把复制成本推迟到真正分叉的那一刻
+  problem: fork 的语义要求父子各有一份独立内存，可进程动辄占几 GB，创建瞬间全量复制在时间与空间上都不可接受；而实际上多数 fork 之后紧接着 exec，复制的数据立刻被扔掉，全量复制几乎是纯浪费，成本与真正需要的东西完全脱钩。
+  choice: fork 时只复制页表，把双方页面都标为只读共享，真正写入时由缺页异常触发单页复制。替代方案如 fork 时全量复制，简单直接但大进程启动慢且内存翻倍；如完全共享永不复制，则父子互相污染，进程隔离荡然无存。写时复制是唯一让成本跟随实际分叉程度的方案。
+  tradeoff: 换来 fork 成本只与页表大小相关，牺牲的是第一次写每页时要付一次缺页加复制的延迟，且引用计数式的运行时会频繁改对象头，不经意间把共享页逐页写脏；部署多进程服务时要按写脏量而不是进程数算内存账，这份隐蔽的账单由运维与容量规划承担。
+  root: 根源是写少读多的经验规律加上硬件的页级保护：MMU 能以页为粒度拦截第一次写，异常机制让逻辑上已复制、物理上未复制成为可能，本质是把复制从急切求值改成懒求值，只为真正分叉的那部分付费——懒惰由硬件异常兜底才敢做。
+- mechanism: 僵尸进程与 wait 回收协议：内核替已退出的子进程暂存一份最小的退出状态记录，等父进程来取，谁创建谁回收，PID 1 只做最后兜底
+  problem: 子进程先于父进程结束时，它的退出码是父进程可能需要的信息，不能随进程一起销毁；可进程本身已经死了，资源必须释放。退出码这份遗言由谁保管、保管多久，还受到 PID 不能被无限占用这一资源约束：记录留得越久，能创建的新进程就越少。
+  choice: 内核保留一条最小记录（僵尸状态）只存退出状态，等父进程 wait 取走后才彻底删除，父进程先死则由 PID 1 代为回收。替代方案如子进程结束立刻彻底消失，父进程就永远读不到退出码，shell 的退出状态判断与条件执行全都无从谈起，异步协作会缺一块地基。
+  tradeoff: 换来可靠的状态传递协议，代价是父进程若长期不 wait 就会积压僵尸占住 PID，责任被明确压在父进程身上——这是有意的：谁创建谁回收，内核只做最后兜底，避免内核替应用的疏忽无限买单，疏忽的成本必须回到疏忽者账上。
+  root: 根源是异步并发下信息不能先于其消费者销毁：生产者（退出的子进程）与消费者（wait 的父进程）之间没有时间上的会合点，只能由第三方（内核）暂存这份信息，本质与消息队列、期货的暂存逻辑同构——凡是没有会合点的交接，都需要一个可信的暂存者。
 quiz:
 - q: fork 之后父子进程的区别首先体现在？
   options:

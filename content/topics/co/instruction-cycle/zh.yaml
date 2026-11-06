@@ -8,359 +8,452 @@ title: 一条指令是怎么执行的
 summary: CPU 不停重复同一个循环：取一条指令、看懂它、做它、必要时读写内存、把结果存好。
 premise: 以一条“从内存读一个数放进寄存器”的加载（load）指令为例，用经典五阶段（RISC 教学）模型讲解。
 overview:
-- key: 一句话总结
-  value: 取指 → 译码 → 执行 → 访存 → 写回，周而复始
-- key: 程序计数器
-  value: 记着“下一条指令在哪”，每执行完一条就往前走
-- key: 寄存器
-  value: CPU 内部极快的小存储，运算用的数据和结果大多放在这里
-- key: 说明
-  value: 五阶段是教学模型；真实的 x86-64 会先把复杂指令拆成更简单的微操作，再乱序、并行地执行
-- key: 指令集
-  value: x86-64（CISC）、ARM、RISC-V（RISC）；机器码互不通用
-- key: 性能公式
-  value: CPU 时间 = 指令数 × CPI × 时钟周期
-- key: 控制流
-  value: 跳转和函数调用就是改写 PC
-- key: 在终端里看一看
-  value: objdump -d ./a.out | less　看程序的机器指令
+  - key: 一句话总结
+    value: 取指 → 译码 → 执行 → 访存 → 写回，周而复始
+  - key: 程序计数器
+    value: 记着“下一条指令在哪”，每执行完一条就往前走
+  - key: 寄存器
+    value: CPU 内部极快的小存储，运算用的数据和结果大多放在这里
+  - key: 说明
+    value: 五阶段是教学模型；真实的 x86-64 会先把复杂指令拆成更简单的微操作，再乱序、并行地执行
+  - key: 指令集
+    value: x86-64（CISC）、ARM、RISC-V（RISC）；机器码互不通用
+  - key: 性能公式
+    value: CPU 时间 = 指令数 × CPI × 时钟周期
+  - key: 控制流
+    value: 跳转和函数调用就是改写 PC
+  - key: 在终端里看一看
+    value: objdump -d ./a.out | less　看程序的机器指令
 visual: swimlane
 lanes:
-- id: ctl
-  label: 控制
-- id: alu
-  label: 运算
-- id: mem
-  label: 存储
+  - id: ctl
+    label: 控制
+  - id: alu
+    label: 运算
+  - id: mem
+    label: 存储
 logColumns:
-- key: mode
-  label: 当前状态
-- key: event
-  label: 发生了什么
+  - key: mode
+    label: 当前状态
+  - key: event
+    label: 发生了什么
 steps:
-- id: fetch
-  title: 取指：拿到下一条指令
-  tldr: CPU 按程序计数器指的位置，从内存取出一条指令。
-  body: '程序计数器（PC）记着下一条指令在哪。
-
-    CPU 按这个地址把指令读进来，再让 PC 指向下一条。
-
-    程序之所以能一条接一条往下走，靠的就是这个简单的机制。'
-  derivation: original
-  sources:
-  - ref: cs61c
-    locator: CPU datapath 相关讲义
-    url: https://cs61c.org/
-    claim: 处理器根据 PC 取指并更新 PC
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: ctl
-      id: c
-      label: 控制（取指/译码）
-      highlight: true
-    - lane: alu
-      id: a
-      label: 运算单元
-    - lane: mem
-      id: m
-      label: 寄存器与内存
-    messages:
-    - id: m-fetch
-      from: m
-      to: c
-      label: 按 PC 取出指令
-      active: true
-  log:
-  - mode: 取指
-    event: 读入一条指令
-  points:
-  - CPU 按程序计数器指的位置，从内存取出一条指令。
-- id: decode
-  title: 译码：看懂要做什么
-  tldr: CPU 拆开指令，弄清楚是什么操作、用哪些数据。
-  body: '指令就是一串二进制，不同的位段分别表示“做什么”和“对谁做”。
-
-    译码电路把它拆开，同时读出要用的寄存器里的值。
-
-    这一步像解析一条 JSON 命令：先看 type，再取参数。'
-  derivation: original
-  sources:
-  - ref: cs61c
-    locator: 指令格式与译码相关讲义
-    url: https://cs61c.org/
-    claim: 译码阶段解析操作码并读取寄存器
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: ctl
-      id: c
-      label: 控制（取指/译码）
-      highlight: true
-    - lane: alu
-      id: a
-      label: 运算单元
-    - lane: mem
-      id: m
-      label: 寄存器与内存
-    messages:
-    - id: m-decode
-      from: c
-      to: m
-      label: 读出要用的寄存器
-      active: true
-  log:
-  - mode: 译码
-    event: 确定是“读内存”，读出地址所在的寄存器
-- id: execute
-  title: 执行：做计算
-  tldr: 运算单元（ALU）完成加减、比较或算出内存地址。
-  body: 'ALU 是 CPU 里真正“算数”的电路。
-
-    对加法指令，它算出两数之和；对我们这条读内存的指令，它算出要访问的地址。
-
-    跳转指令也在这里判断条件，决定下一条该去哪里。'
-  derivation: original
-  sources:
-  - ref: mit-6004
-    locator: 处理器设计相关讲义
-    url: https://ocw.mit.edu/courses/6-004-computation-structures-spring-2017/
-    claim: ALU 执行算术逻辑运算并计算地址
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: ctl
-      id: c
-      label: 控制（取指/译码）
-    - lane: alu
-      id: a
-      label: 运算单元
-      highlight: true
-    - lane: mem
-      id: m
-      label: 寄存器与内存
-    messages:
-    - id: m-execute
-      from: c
-      to: a
-      label: 交给 ALU 计算
-      active: true
-  log:
-  - mode: 执行
-    event: 算出地址或结果
-- id: memory
-  title: 访存：需要时读写内存
-  tldr: 只有读写内存的指令才真正访问内存，其余直接跳过。
-  body: '如果指令要读内存，就按上一步算出的地址把数据取回来。
-
-    内存比寄存器慢得多，所以 CPU 前面挡着多级缓存（后面的主题会讲）。
-
-    这也是编译器尽量把常用变量放在寄存器里的原因。'
-  derivation: original
-  sources:
-  - ref: cs61c
-    locator: datapath 相关讲义
-    url: https://cs61c.org/
-    claim: 访存阶段执行 load/store
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: ctl
-      id: c
-      label: 控制（取指/译码）
-    - lane: alu
-      id: a
-      label: 运算单元
-    - lane: mem
-      id: m
-      label: 寄存器与内存
-      highlight: true
-    messages:
-    - id: m-memory
-      from: a
-      to: m
-      label: 按地址读内存
-      active: true
-  log:
-  - mode: 访存
-    event: 从内存取回数据
-- id: writeback
-  title: 写回：保存结果，进入下一轮
-  tldr: 把结果写进目标寄存器，一条指令结束，下一条开始。
-  body: '结果写回寄存器后，这条指令就完成了。
-
-    然后 CPU 回到第一步，按 PC 取下一条，周而复始，每秒可以重复数十亿次。
-
-    真实的 CPU 会把多条指令的不同阶段叠在一起做，这就是下一个主题：流水线。'
-  derivation: original
-  sources:
-  - ref: csapp
-    locator: 第 4 章
-    url: http://csapp.cs.cmu.edu/
-    claim: 处理器按阶段执行指令并写回结果
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: ctl
-      id: c
-      label: 控制（取指/译码）
-    - lane: alu
-      id: a
-      label: 运算单元
-    - lane: mem
-      id: m
-      label: 寄存器与内存
-      highlight: true
-    messages:
-    - id: m-writeback
-      from: a
-      to: m
-      label: 结果写入寄存器
-      active: true
-  log:
-  - mode: 写回
-    event: 指令完成，开始下一条
-- id: isa
-  title: 指令集：软件和硬件之间的约定
-  tldr: 指令集（ISA）规定 CPU 认哪些指令，同一份机器码只能在同一指令集的 CPU 上跑。
-  body: 'x86-64 和 ARM（如手机、Apple M 系列芯片）是两种不同的指令集，编译出来的机器码互不通用。
-
-    RISC 风格的指令格式整齐、每条只做简单的事；x86-64 属于 CISC，一条指令能做较复杂的事，长度也不固定。
-
-    指令集就像接口文档：只要约定不变，CPU 内部怎么实现都可以随便改。'
-  derivation: original
-  sources:
-  - ref: cs61c
-    locator: CPU datapath 相关讲义
-    url: https://cs61c.org/
-    claim: 指令集（ISA）规定 CPU 认哪些指令，同一份机器码只能在同一指令集的 CPU 上跑。
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: ctl
-      id: c
-      label: 控制（取指/译码）
-      highlight: true
-    - lane: alu
-      id: a
-      label: 运算单元
-    - lane: mem
-      id: m
-      label: 寄存器与内存
-    messages:
-    - id: m-isa
-      from: c
-      to: c
-      label: x86-64 机器码 ≠ ARM 机器码
-      active: true
-  log:
-  - mode: 约定
-    event: ISA 决定能执行哪些指令
-- id: clock-perf
-  title: 时钟与性能：什么决定快慢
-  tldr: 程序耗时 = 指令条数 × 每条平均周期数 × 每周期时长。
-  body: 'CPU 由时钟驱动，主频 3GHz 表示每秒 30 亿个周期。
-
-    程序快慢取决于三件事：要执行多少条指令（算法和编译器决定）、平均每条要几个周期（CPI，受流水线和缓存影响）、一个周期多长（主频）。
-
-    所以只比主频不够：缓存命中差、分支总猜错的程序，主频再高也慢。
-
-
-    工程注记：矩阵乘算子用 AVX-512 后一条指令能处理 16 个 float，可向量化的那段循环指令数最多降至约 1/16（整体收益还受访存与不可向量化部分限制）——这就是 SIMD 对推理加速的本质：不是时钟变快，而是指令数变少。
-
-
-    工程注记：perf stat 一次给出 instructions、cycles 与算出的 IPC（=1/CPI）：计算密集型算子 IPC 经验上常在 2–4，访存密集型常掉到 0.5 以下（经验范围，依微架构与负载实测）——先看 IPC 再猜瓶颈，是性能分析的基本功。'
-  derivation: original
-  sources:
-  - ref: cs61c
-    locator: CPU datapath 相关讲义
-    url: https://cs61c.org/
-    claim: 程序耗时 = 指令条数 × 每条平均周期数 × 每周期时长。
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: ctl
-      id: c
-      label: 控制（取指/译码）
-    - lane: alu
-      id: a
-      label: 运算单元
-      highlight: true
-    - lane: mem
-      id: m
-      label: 寄存器与内存
-    messages:
-    - id: m-clock-perf
-      from: c
-      to: a
-      label: 耗时 = 指令数 × CPI × 周期
-      active: true
-  log:
-  - mode: 性能
-    event: 三个因素相乘
-  code:
-    lang: text
-    code: "CPU 时间 = 指令数 × CPI ÷ 主频\n例：10 亿条指令、CPI=1.5、主频 3 GHz\n   = 1e9 × 1.5 ÷ 3e9 = 0.5 秒"
-    note: 性能公式
+  - id: fetch
+    title: 取指：拿到下一条指令
+    tldr: CPU 按程序计数器指的位置，从内存取出一条指令。
+    body: 程序计数器 PC 记着下一条指令的地址，这是整个执行循环的锚点。取指阶段，CPU 把 PC 的值送上地址总线，从指令缓存里取出这条指令放进指令寄存器，同时算好顺序执行的下一个地址，定长指令下就是 PC 加指令长度。走一条具体的，设 PC 等于 0x400000 处放着一条 4 字节的 load 指令，取指后 PC 先变成 0x400004 待命，但这只是默认去向，如果这条指令最后是跳转，PC 还会被改写成别的值。程序之所以能一条接一条自动往下走，靠的不是谁在发号施令，就是这个取完自增、偶尔被改写的计数器。要区分指令地址和数据地址，取指走的是指令侧通路，后面访存走数据侧通路，两者第一级缓存都是分开的，这也是流水线一课里结构冒险能被化解的硬件基础。现代 CPU 还会一次取出多条指令塞进队列，因为单条取指的吞吐喂不饱后面的多发射流水线。
+    derivation: original
+    sources:
+      - ref: cs61c
+        locator: CPU datapath 相关讲义
+        url: https://cs61c.org/
+        claim: 处理器根据 PC 取指并更新 PC
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: ctl
+          id: c
+          label: 控制（取指/译码）
+          highlight: true
+        - lane: alu
+          id: a
+          label: 运算单元
+        - lane: mem
+          id: m
+          label: 寄存器与内存
+      messages:
+        - id: m-fetch
+          from: m
+          to: c
+          label: 按 PC 取出指令
+          active: true
+    log:
+      - mode: 取指
+        event: 读入一条指令
+    points:
+      - CPU 按程序计数器指的位置，从内存取出一条指令。
+  - id: decode
+    title: 译码：看懂要做什么
+    tldr: CPU 拆开指令，弄清楚是什么操作、用哪些数据。
+    body: 取回来的只是一串二进制位，译码阶段要把位段拆开读懂。RISC-V 这类定长格式里，低 7 位是操作码决定大类，中间位段给出源寄存器编号和目标寄存器编号，高位是立即数或功能码。以 add x3, x1, x2 为例，译码器认出这是寄存器加法，立刻并行读出 x1 和 x2 的当前值送往执行级，同时生成一串控制信号，告诉后面各级这条指令要用 ALU、不用访存、最后要写回 x3。这一步像解析一条结构化命令，先看类型字段再取参数，字段位置固定所以纯硬件并行拆解，一个周期内完成。译码还负责发现这条指令需要哪些资源，为流水线的冒险检测提供依据。x86-64 在这里要多一道工序，它指令变长、格式历史包袱重，要先切分指令边界再翻译成内部微操作，所以 x86 的前端比 RISC 复杂得多，功耗和面积都花在这里。
+    derivation: original
+    sources:
+      - ref: cs61c
+        locator: 指令格式与译码相关讲义
+        url: https://cs61c.org/
+        claim: 译码阶段解析操作码并读取寄存器
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: ctl
+          id: c
+          label: 控制（取指/译码）
+          highlight: true
+        - lane: alu
+          id: a
+          label: 运算单元
+        - lane: mem
+          id: m
+          label: 寄存器与内存
+      messages:
+        - id: m-decode
+          from: c
+          to: m
+          label: 读出要用的寄存器
+          active: true
+    log:
+      - mode: 译码
+        event: 确定是“读内存”，读出地址所在的寄存器
+  - id: execute
+    title: 执行：做计算
+    tldr: 运算单元（ALU）完成加减、比较或算出内存地址。
+    body: 执行阶段是 ALU 真正干活的地方。ALU 是组合逻辑电路，输入操作数和运算种类，输出结果和几个标志位，比如结果是否为零、是否溢出。对加法指令它算两数之和，对比较指令它实际做减法只保留标志，对 load 指令它并不读内存，而是把基址寄存器加偏移算出有效地址交给访存阶段。走例，load 要取地址为 x2 的值加 8 的地方，执行级算出 x2 内容 0x1000 加 8 得 0x1008，后面访存就照这个地址去取。分支指令也在这里见分晓，条件比较的结果出来后决定 PC 用顺序地址还是目标地址，这个决定做得越晚，流水线猜错的代价越大，所以现代 CPU 会在更早的阶段就配专门的加法器算分支目标并做预测。运算延迟各不相同，整数加法 1 个周期，乘法数个周期，除法和浮点更久，这也是乱序执行要按延迟调度指令的原因，一条慢指令不该堵住后面不相干的快指令。
+    derivation: original
+    sources:
+      - ref: mit-6004
+        locator: 处理器设计相关讲义
+        url: https://ocw.mit.edu/courses/6-004-computation-structures-spring-2017/
+        claim: ALU 执行算术逻辑运算并计算地址
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: ctl
+          id: c
+          label: 控制（取指/译码）
+        - lane: alu
+          id: a
+          label: 运算单元
+          highlight: true
+        - lane: mem
+          id: m
+          label: 寄存器与内存
+      messages:
+        - id: m-execute
+          from: c
+          to: a
+          label: 交给 ALU 计算
+          active: true
+    log:
+      - mode: 执行
+        event: 算出地址或结果
+  - id: memory
+    title: 访存：需要时读写内存
+    tldr: 只有读写内存的指令才真正访问内存，其余直接跳过。
+    body: 只有 load 和 store 这类指令会真正走访存阶段，其余指令这一步直接穿过什么都不做。load 把执行级算出的有效地址先送地址翻译，把虚拟地址换成物理地址，同时查数据缓存，命中就把数据取回，未命中则向下一级缓存乃至内存发请求，整条流水线或至少这条指令要停下来等。对照着记延迟量级，寄存器访问不到 1 个周期，L1 命中约数个周期，主存则要上百个周期，访存因此是整条指令生命周期里最可能卡住的一站。store 在这一级把寄存器值写入缓存行并标脏，注意它不需要写回阶段了。编译器拼命把热点变量留在寄存器、把循环里反复用的数组元素提出来复用，本质都是在躲这一级的延迟。还有一个容易漏的点，访存次序涉及内存模型，多核下 store 的可见时机并不等于执行时机，那是内存一致性模型的话题，这里先建立单核视角，访存就是按地址读写缓存背后的那份数据。
+    derivation: original
+    sources:
+      - ref: cs61c
+        locator: datapath 相关讲义
+        url: https://cs61c.org/
+        claim: 访存阶段执行 load/store
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: ctl
+          id: c
+          label: 控制（取指/译码）
+        - lane: alu
+          id: a
+          label: 运算单元
+        - lane: mem
+          id: m
+          label: 寄存器与内存
+          highlight: true
+      messages:
+        - id: m-memory
+          from: a
+          to: m
+          label: 按地址读内存
+          active: true
+    log:
+      - mode: 访存
+        event: 从内存取回数据
+  - id: writeback
+    title: 写回：保存结果，进入下一轮
+    tldr: 把结果写进目标寄存器，一条指令结束，下一条开始。
+    body: 写回阶段把结果送回寄存器堆里由译码时记下的目标寄存器编号指定的那一格，写完这一刻，这条指令的成果才对后续指令可见，指令正式退休。寄存器堆通常设计成同一周期前半拍写、后半拍读，这样下一条指令在它译码读寄存器时正好能读到刚写回的新值，流水线一课里时空图的停顿计算就建立在这条约定上。不是每条指令都有写回，store 和分支就没有目标寄存器，这一级对它们是空转。五级走完，CPU 回到取指取下一条，周而复始，主频 3 GHz 意味着这样的节拍每秒走 30 亿次。单周期或五级顺序执行的模型到这里闭环了，但真实 CPU 不会傻等一条走完才取下一条，而是把多条指令的不同阶段叠起来，这正是流水线要解决的问题，而五级模型里的每一级划分、每一处数据依赖，都会原封不动地变成流水线里的冒险来源，先把这一课的顺序模型吃透，后面全是它的推论。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 4 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 处理器按阶段执行指令并写回结果
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: ctl
+          id: c
+          label: 控制（取指/译码）
+        - lane: alu
+          id: a
+          label: 运算单元
+        - lane: mem
+          id: m
+          label: 寄存器与内存
+          highlight: true
+      messages:
+        - id: m-writeback
+          from: a
+          to: m
+          label: 结果写入寄存器
+          active: true
+    log:
+      - mode: 写回
+        event: 指令完成，开始下一条
+  - id: control-flow
+    title: 控制流：PC 是怎么被改写的
+    tldr: 顺序执行只是默认，分支、调用和返回都是在特定阶段改写 PC。
+    body: 默认情况下 PC 每取一条就自增到下一条，程序直线前进。控制流指令的全部作用就是改写 PC。无条件跳转直接把目标地址装进 PC，下一轮取指就换了地方。条件分支要等执行级算出比较结果才决定装顺序地址还是目标地址，这个等待正是控制冒险的根。函数调用是特殊的跳转，它在改写 PC 之前还要把返回地址即当前 PC 的顺序后继存起来，x86-64 用 call 指令压栈，RISC-V 用 jal 写进链接寄存器，返回时再把存好的地址装回 PC。走一遍循环的 PC 轨迹更直观，一个 for 循环体 5 条指令，计数比较在末尾，条件成立时 PC 跳回循环头，不成立时顺序穿出，循环执行 100 轮，PC 就在这一小段地址上往返 100 次，指令缓存因此能全部命中，这也是循环跑得快的底层原因之一。异常和中断也是改写 PC，只是触发者是硬件事件，保存现场后跳到内核的处理入口，返回时恢复，机制上和函数调用同源。
+    derivation: original
+    sources:
+      - ref: cs61c
+        locator: CPU datapath 相关讲义
+        url: https://cs61c.org/
+        claim: 分支、调用通过改写 PC 实现控制转移
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: ctl
+          id: c
+          label: 控制（取指/译码）
+          highlight: true
+        - lane: alu
+          id: a
+          label: 运算单元
+        - lane: mem
+          id: m
+          label: 寄存器与内存
+      messages:
+        - id: m-ctrl
+          from: c
+          to: c
+          label: 分支成立 → PC 改为目标地址
+          active: true
+    log:
+      - mode: 控制流
+        event: PC 被跳转改写
+  - id: micro-ops
+    title: 真实 CPU 多一步：拆成微操作
+    tldr: 五阶段是教学模型，真实 x86-64 先把复杂指令拆成微操作再乱序执行。
+    body: 必须澄清一个边界，取指到写回的五阶段是对 RISC 风格处理器的干净抽象，不要把它当成 x86-64 的内部实拍。真实 x86-64 指令长短不一、一条指令能同时访存和运算，硬件前端先要切分指令边界、译码，再把每条复杂指令拆成若干个类 RISC 的微操作，比如一条内存加法会被拆成加载、加法、存储三步，微操作才进入后面的乱序调度、执行和退休环节。ARM 高性能核和 RISC-V 的复杂扩展也有类似的内部拆分。为什么要多这一层，因为乱序执行、寄存器重命名这些机制只适合在规整的小操作上做，拆分层把历史包袱挡在前端，保住后端设计的整洁。对软件的实际影响是，指令条数这个性能因子在 x86 上要按微操作数理解，一条看起来便宜的复杂指令可能展开成好几步，反汇编层面的指令数会低估真实工作量，用 perf 看微操作相关的计数才更接近真相。学习顺序上，先用五阶段建立心智模型，再知道它在哪里是简化，就不会被真实硬件的复杂性打乱阵脚。
+    derivation: original
+    sources:
+      - ref: mit-6004
+        locator: 处理器设计相关讲义
+        url: https://ocw.mit.edu/courses/6-004-computation-structures-spring-2017/
+        claim: 复杂指令在前端被译码为微操作后执行
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: ctl
+          id: c
+          label: 控制（取指/译码）
+          highlight: true
+        - lane: alu
+          id: a
+          label: 运算单元
+        - lane: mem
+          id: m
+          label: 寄存器与内存
+      messages:
+        - id: m-uop
+          from: c
+          to: a
+          label: 复杂指令 → 多个微操作
+          active: true
+    log:
+      - mode: 译码
+        event: 指令拆为微操作
+  - id: walkthrough
+    title: 完整走例：一条 load 的一生
+    tldr: 把五级串起来走一遍带数字的 load，看每级输入输出分别是什么。
+    body: 设指令内存 0x400000 处有指令 lw x5, 8(x6)，寄存器 x6 当前等于 0x1000。第一拍取指，PC 等于 0x400000，取出这条 4 字节指令，PC 暂更新为 0x400004。第二拍译码，拆出操作码是 load、目标寄存器 x5、基址 x6、立即数 8，同时读出 x6 的值 0x1000。第三拍执行，ALU 算有效地址 0x1000 加 8 等于 0x1008。第四拍访存，拿 0x1008 查数据缓存，假设命中，取出里面存的数值比如 42，未命中则这一级要拉长到上百个周期等数据回来，顺序模型里整机都得陪等。第五拍写回，把 42 写进 x5，指令结束，下一拍取 0x400004 处的下一条。注意每一级的输入都严格是上一级的输出，地址只能在执行级算、数据只能在访存级拿、写回只能在最后，这个先后关系是硬件连线决定的。流水线把五级叠起来后，相邻指令的这些依赖就变成要逐项检查的冒险，五级顺序模型不是过时的简化，而是读懂流水线时空图的坐标系。
+    derivation: original
+    sources:
+      - ref: cs61c
+        locator: CPU datapath 相关讲义
+        url: https://cs61c.org/
+        claim: load 指令依次经历五级完成取数与写回
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: ctl
+          id: c
+          label: 控制（取指/译码）
+        - lane: alu
+          id: a
+          label: 运算单元
+        - lane: mem
+          id: m
+          label: 寄存器与内存
+          highlight: true
+      messages:
+        - id: m-walk
+          from: a
+          to: m
+          label: 0x1008 → 取出 42 → 写回 x5
+          active: true
+    log:
+      - mode: 走例
+        event: load 五级完成
+  - id: isa
+    title: 指令集：软件和硬件之间的约定
+    tldr: 指令集（ISA）规定 CPU 认哪些指令，同一份机器码只能在同一指令集的 CPU 上跑。
+    body: 指令集体系结构 ISA 是软件和硬件之间的一纸合约，它规定有哪些指令、指令怎么编码、有哪些寄存器、访存和异常怎么处理。编译器只按合约生成机器码，CPU 内部怎么实现是它的自由，只要对外表现符合合约，同一份程序就能跨代运行。x86-64 和 ARM 是两份不同的合约，编码、寄存器数量、内存模型都不同，所以同一份机器码互不通用，跨架构要靠重新编译或模拟翻译。风格上 RISC 追求定长、规整、load 和 store 与运算分离，硬件译码简单，RISC-V 是当代代表；CISC 如 x86-64 指令变长、单条能做访存加运算，代码密度高但前端复杂，它内部也要先拆成类 RISC 的微操作再执行，等于在硬件里藏了一个翻译层。这层合约的价值在生态，操作系统和应用按 ISA 编译一次，就能在所有兼容实现上运行，厂商则可以在不破坏软件的前提下逐年改进微架构，指令数和 CPI 的优化空间正来自这种解耦。
+    derivation: original
+    sources:
+      - ref: cs61c
+        locator: CPU datapath 相关讲义
+        url: https://cs61c.org/
+        claim: 指令集（ISA）规定 CPU 认哪些指令，同一份机器码只能在同一指令集的 CPU 上跑。
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: ctl
+          id: c
+          label: 控制（取指/译码）
+          highlight: true
+        - lane: alu
+          id: a
+          label: 运算单元
+        - lane: mem
+          id: m
+          label: 寄存器与内存
+      messages:
+        - id: m-isa
+          from: c
+          to: c
+          label: x86-64 机器码 ≠ ARM 机器码
+          active: true
+    log:
+      - mode: 约定
+        event: ISA 决定能执行哪些指令
+  - id: clock-perf
+    title: 时钟与性能：什么决定快慢
+    tldr: 程序耗时 = 指令条数 × 每条平均周期数 × 每周期时长。
+    body: CPU 时间等于指令数乘以 CPI 再乘以时钟周期，也就是指令数乘 CPI 除以主频，三个因子各有主人。指令数由算法、语言和编译器决定，换个 O(n log n) 算法、开 -O2、用一条向量指令并行处理 16 个 float，都在削减它。CPI 是平均每条指令花的周期数，理想流水线接近 1，但缓存未命中、分支猜错、数据依赖都会把它推高，访存密集的程序 CPI 到 3 以上也不稀奇。时钟周期由工艺和微架构决定，主频不是越高越好，盲目拉高主频历史上撞过功耗墙。走例，10 亿条指令、CPI 为 1.5、主频 3 GHz，时间是 10 亿乘 1.5 除以 30 亿等于 0.5 秒；如果优化把 CPI 降到 1.0，时间立刻缩到约 0.33 秒，和换更高主频等效。所以只比主频选 CPU 是外行做法，perf stat 里直接给出指令数、周期数和算出的 IPC 即 CPI 的倒数，计算密集负载 IPC 经验上常在 2 到 4，访存密集常掉到 0.5 以下，先看这个数再判断瓶颈在哪一侧，是性能分析的第一手感。
+    derivation: original
+    sources:
+      - ref: cs61c
+        locator: CPU datapath 相关讲义
+        url: https://cs61c.org/
+        claim: 程序耗时 = 指令条数 × 每条平均周期数 × 每周期时长。
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: ctl
+          id: c
+          label: 控制（取指/译码）
+        - lane: alu
+          id: a
+          label: 运算单元
+          highlight: true
+        - lane: mem
+          id: m
+          label: 寄存器与内存
+      messages:
+        - id: m-clock-perf
+          from: c
+          to: a
+          label: 耗时 = 指令数 × CPI × 周期
+          active: true
+    log:
+      - mode: 性能
+        event: 三个因素相乘
+    code:
+      lang: text
+      code: |-
+        CPU 时间 = 指令数 × CPI ÷ 主频
+        例：10 亿条指令、CPI=1.5、主频 3 GHz
+           = 1e9 × 1.5 ÷ 3e9 = 0.5 秒
+      note: 性能公式
 level: 基础
-minutes: 15
+minutes: 26
 prereq:
-- co/compile-link
+  - co/compile-link
 objectives:
-- 说出取指→译码→执行→访存→写回五级各自做什么
-- 用 CPI 与主频估算程序运行时间
-- 解释为什么同一条指令在不同 CPU 上快慢不同
+  - 说出取指→译码→执行→访存→写回五级各自做什么
+  - 用 CPI 与主频估算程序运行时间
+  - 解释为什么同一条指令在不同 CPU 上快慢不同
 aiLink: 估算推理延迟时绕不开这课的公式：时间 = 指令数 × CPI ÷ 主频。算子融合为什么能加速、向量指令为什么值钱，都能用指令数与 CPI 的变化来解释，而不是背结论。
 quiz:
-- q: CPU 时间公式是？
-  options:
-  - 指令数 × 主频
-  - 指令数 × CPI ÷ 主频
-  - CPI × 内存大小
-  - 主频 ÷ 指令数
-  answer: 1
-  explain: 三者缺一不可：少执行指令、每条更快、时钟更快都能缩短时间。
-- q: 写回（WB）阶段做什么？
-  options:
-  - 取下一条指令
-  - 把执行结果写回寄存器堆
-  - 访问内存读数据
-  - 译码
-  answer: 1
-  explain: 结果先回寄存器，后续指令才能把它当操作数，形成流水线的数据通路。
-- q: 一条 load 指令慢，通常卡在？
-  options:
-  - 译码
-  - 访存阶段等缓存/内存返回数据
-  - 写回
-  - 取指
-  answer: 1
-  explain: 访存延迟取决于缓存层级：L1 约几周期，内存要上百周期。
+  - q: CPU 时间公式是？
+    options:
+      - 指令数 × 主频
+      - 指令数 × CPI ÷ 主频
+      - CPI × 内存大小
+      - 主频 ÷ 指令数
+    answer: 1
+    explain: 三者缺一不可：少执行指令、每条更快、时钟更快都能缩短时间。
+  - q: 写回（WB）阶段做什么？
+    options:
+      - 取下一条指令
+      - 把执行结果写回寄存器堆
+      - 访问内存读数据
+      - 译码
+    answer: 1
+    explain: 结果先回寄存器，后续指令才能把它当操作数，形成流水线的数据通路。
+  - q: 一条 load 指令慢，通常卡在？
+    options:
+      - 译码
+      - 访存阶段等缓存/内存返回数据
+      - 写回
+      - 取指
+    answer: 1
+    explain: 访存延迟取决于缓存层级：L1 约几周期，内存要上百周期。
+design:
+  - mechanism: 指令执行被抽象成取指、译码、执行、访存、写回五级顺序模型，每级只做一件事并把结果传给下一级，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    problem: 真实处理器内部有乱序、重命名、微操作等大量机制，初学者若直接面对真实硬件，连一条指令如何完成都无从追踪，更谈不上算性能，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    choice: 先用五级顺序模型建立坐标系，它足够简单可以逐拍手推，又足够真实，五级划分和真实流水线一一对应，后续学的冒险全是这个模型的推论
+    tradeoff: 代价是模型会给人顺序执行的错觉，需要专门澄清 x86 的微操作拆分和乱序退休，否则会把教学抽象误当成硬件实拍而产生错误直觉，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    root: 根源是分而治之的工程方法，任何复杂数据通路都要先按功能切成可独立验证的阶段，阶段边界既是教学边界，也是真实硬件的流水级边界，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+  - mechanism: ISA 作为软硬件合约固定下来，编译器只对合约负责，微架构在合约之下自由演进，性能用指令数乘 CPI 除以主频刻画，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    problem: 如果软件直接绑定某代硬件的内部实现，硬件每改进一次软件就要重写，生态无法积累，性能也无从跨机器比较和归因，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    choice: 用稳定的指令集解耦两侧，再用三因子公式把性能拆给三个责任方，算法和编译器管指令数，微架构管 CPI，工艺和电路管主频，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    tradeoff: 合约稳定的代价是历史包袱甩不掉，x86 要为几十年前的编码兼容付出前端复杂度，公式里的 CPI 也只是平均值，掩盖了不同指令延迟的巨大差异
+    root: 根源是接口稳定才能让两侧独立优化这一系统规律，公式的三个因子正好对应软件、微架构、工艺三条独立演进的曲线，缺一不可，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+  - mechanism: 控制流统一归结为改写 PC，顺序自增是默认，分支、调用、返回、异常都只是不同触发条件下的 PC 赋值，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    problem: 程序需要循环、条件、函数和异常处理，表面上四种机制各不相同，如果硬件为每种都设计一套独立通路，控制逻辑会复杂到难以验证，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    choice: 收敛到一个寄存器上，默认自增保证直线执行零成本，其余控制流都在各自合适的阶段把目标地址写进 PC，取指级永远只认 PC，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    tradeoff: 统一带来的代价是条件分支必须等执行级出结果才能定 PC，这个等待在流水线里放大为控制冒险，只能靠分支预测这种概率手段来填补，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    root: 根源是把状态收敛到单点就能让机制正交组合，PC 是程序执行位置的唯一真相源，理解了谁在何时改写它，所有控制流问题都有落点，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。

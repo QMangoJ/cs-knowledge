@@ -54,3 +54,12 @@ P1 缺失（尽量补，剩余在此标注状态）：
 - os/threads-scheduling（调度算法 MLFQ/CFS 深入）：未补，列入下一轮。
 
 P2（只记录，不排期）：总线与 DMA、内存一致性模型、gRPC 与序列化、概率分布与假设检验、计算理论（NP 完全性直觉）。
+
+---
+
+## 2026-11-07 第三轮：深度加厚 + 「为什么这样设计」
+
+- 全部 32 个主题正文（steps body）由 45,192 字增至 150,490 字（3.33×），每课均 ≥3 倍、每步 body ≥300 字（脚本 scripts/depth-stats.mjs 逐课统计），步数普遍扩到 9–14，按对应教材章节结构补子话题。
+- 全部 32 个主题新增 Topic 级 design 区块（每课 2–3 个机制，四要素：根本问题 / 为什么是这个方案 / 权衡 / 底层根源），schema 强制 published 主题 design ≥2 条；Player 在每课页头渲染独立区块。
+- TCP 握手/挥手三点已按 Daniel 要求补齐：两将军不可能性（新步 two-generals + design）、为什么两次不够（新步 why-not-two + design）、四次挥手与 TIME_WAIT（half-close / timewait-ack / timewait 三步 + design）。
+- 仍未补（P1 剩余）：dsa/greedy、dsa/string-matching、os/threads-scheduling。

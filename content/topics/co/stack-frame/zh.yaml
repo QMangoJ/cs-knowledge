@@ -8,360 +8,455 @@ title: 函数调用时，栈发生了什么
 summary: 每次调用函数，就在栈上压一块“栈帧”；返回时弹掉。递归太深就会栈溢出。
 premise: 以 Linux x86-64 上 main 调用 add(a, b) 为例。
 overview:
-- key: 一句话总结
-  value: 调用时压栈帧，返回时弹栈帧，后进先出
-- key: 栈帧里有什么
-  value: 返回地址、放不进寄存器的局部变量、需要保存的寄存器
-- key: 参数怎么传
-  value: x86-64 Linux 上前 6 个整数/指针参数用寄存器传，多的放栈上
-- key: 栈溢出
-  value: 递归太深把栈用完，程序崩溃
-- key: 类比
-  value: 浏览器 DevTools 里的 Call Stack 面板；JS 的 Maximum call stack size exceeded
-- key: 寄存器保存
-  value: 调用者保存 / 被调用者保存，由调用约定规定
-- key: 栈 vs 堆
-  value: 栈自动随函数释放；堆手动或 GC 管理
-- key: 安全
-  value: 栈缓冲区溢出可覆盖返回地址；有 canary、NX 等防护
-- key: 尾调用
-  value: 有的编译器可把尾递归优化成循环，不压新栈帧
-- key: 在终端里看一看
-  value: ulimit -s　看栈大小上限；gdb 里用 bt　看当前调用栈
+  - key: 一句话总结
+    value: 调用时压栈帧，返回时弹栈帧，后进先出
+  - key: 栈帧里有什么
+    value: 返回地址、放不进寄存器的局部变量、需要保存的寄存器
+  - key: 参数怎么传
+    value: x86-64 Linux 上前 6 个整数/指针参数用寄存器传，多的放栈上
+  - key: 栈溢出
+    value: 递归太深把栈用完，程序崩溃
+  - key: 类比
+    value: 浏览器 DevTools 里的 Call Stack 面板；JS 的 Maximum call stack size exceeded
+  - key: 寄存器保存
+    value: 调用者保存 / 被调用者保存，由调用约定规定
+  - key: 栈 vs 堆
+    value: 栈自动随函数释放；堆手动或 GC 管理
+  - key: 安全
+    value: 栈缓冲区溢出可覆盖返回地址；有 canary、NX 等防护
+  - key: 尾调用
+    value: 有的编译器可把尾递归优化成循环，不压新栈帧
+  - key: 在终端里看一看
+    value: ulimit -s　看栈大小上限；gdb 里用 bt　看当前调用栈
 visual: swimlane
 lanes:
-- id: code
-  label: 代码
-- id: stack
-  label: 栈
-- id: regs
-  label: 寄存器
+  - id: code
+    label: 代码
+  - id: stack
+    label: 栈
+  - id: regs
+    label: 寄存器
 logColumns:
-- key: mode
-  label: 当前状态
-- key: event
-  label: 发生了什么
+  - key: mode
+    label: 当前状态
+  - key: event
+    label: 发生了什么
 steps:
-- id: why
-  title: 为什么需要栈
-  tldr: 函数要能被调用、返回，还要各自有局部变量，互不干扰。
-  body: 'main 调用 add，add 做完要回到 main 刚才停下的地方继续。
-
-    每次调用都需要地方存“回哪里”和自己的局部变量，而且最后调用的最先返回。
-
-    “后进先出”正好就是栈。你在 DevTools 的 Call Stack 面板里看到的，就是这个结构。'
-  derivation: original
-  sources:
-  - ref: csapp
-    locator: 第 3 章 过程调用
-    url: http://csapp.cs.cmu.edu/
-    claim: 运行时栈支持过程调用的后进先出特性
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: code
-      id: f
-      label: 函数
-    - lane: stack
-      id: s
-      label: 栈
-      highlight: true
-    - lane: regs
-      id: r
-      label: 寄存器
-    messages: []
-  log:
-  - mode: main 运行中
-    event: main 准备调用 add
-  points:
-  - 函数要能被调用、返回，还要各自有局部变量，互不干扰。
-- id: call
-  title: 调用：传参数，压返回地址
-  tldr: 参数放进寄存器，call 指令把“回哪里”压到栈上，然后跳进 add。
-  body: '按 x86-64 Linux 的约定，前几个参数用寄存器传，比放内存快。
-
-    call 指令做两件事：把下一条指令的地址（返回地址）压栈，然后跳到 add 的开头。
-
-    这个约定叫“调用约定”，不同语言编译的代码靠它互相调用。'
-  derivation: original
-  sources:
-  - ref: csapp
-    locator: 第 3 章 过程调用
-    url: http://csapp.cs.cmu.edu/
-    claim: call 指令压入返回地址并跳转，参数通过寄存器传递
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: code
-      id: f
-      label: 函数
-      highlight: true
-    - lane: stack
-      id: s
-      label: 栈
-    - lane: regs
-      id: r
-      label: 寄存器
-    messages:
-    - id: m-call
-      from: f
-      to: s
-      label: 压入返回地址
-      active: true
-  log:
-  - mode: 进入 add
-    event: 返回地址已压栈
-- id: frame
-  title: 建立栈帧：放局部变量
-  tldr: add 在栈上划出一块自己的区域，存局部变量和要保存的东西。
-  body: '这一块就是 add 的“栈帧”。局部变量放在这里，函数返回时整块释放。
-
-    所以局部变量用完就消失，不需要手动释放，也不需要垃圾回收。
-
-    如果 add 又调用别的函数，就在下面再压一块新的栈帧（x86-64 上栈向低地址增长）。
-
-    注意：开了优化后，像 add 这样的简单函数常把变量直接放在寄存器里，甚至不建栈帧。'
-  derivation: original
-  sources:
-  - ref: csapp
-    locator: 第 3 章 过程调用
-    url: http://csapp.cs.cmu.edu/
-    claim: 每次调用在栈上分配栈帧存放局部状态
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: code
-      id: f
-      label: 函数
-    - lane: stack
-      id: s
-      label: 栈
-      highlight: true
-    - lane: regs
-      id: r
-      label: 寄存器
-    messages:
-    - id: m-frame
-      from: f
-      to: s
-      label: 分配栈帧
-      active: true
-  log:
-  - mode: add 运行中
-    event: add 的栈帧建立
-  code:
-    lang: text
-    code: "高地址 ┌─────────────┐\n       │ 调用者帧     │\n       ├─────────────┤\n       │ 返回地址     │ ← 返回后从这里继续\n       │ 保存的 rbp   │\n       │ 局部变量…    │ ← 当前栈帧\n低地址 └─────────────┘  rsp 指向当前帧的低地址端（栈顶）"
-    note: 栈帧布局（x86-64 示意）
-- id: return
-  title: 返回：弹出栈帧，回到调用者
-  tldr: add 把结果放进约定的寄存器，释放栈帧，ret 跳回返回地址。
-  body: '返回值按约定放在一个固定的寄存器里，调用者从那里取。
-
-    ret 指令从栈上弹出返回地址并跳回去，main 从调用的下一行继续。
-
-    栈恢复成调用之前的样子，就像什么都没发生过。'
-  derivation: original
-  sources:
-  - ref: csapp
-    locator: 第 3 章 过程调用
-    url: http://csapp.cs.cmu.edu/
-    claim: ret 弹出返回地址，返回值通过寄存器传回
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: code
-      id: f
-      label: 函数
-    - lane: stack
-      id: s
-      label: 栈
-    - lane: regs
-      id: r
-      label: 寄存器
-      highlight: true
-    messages:
-    - id: m-return
-      from: s
-      to: f
-      label: 弹出返回地址，回到 main
-      active: true
-  log:
-  - mode: 回到 main
-    event: main 拿到返回值
-- id: callee-saved
-  title: 寄存器谁来保存
-  tldr: 寄存器只有一套，调用约定规定哪些由调用者保存、哪些由被调用者保存。
-  body: 'add 也要用寄存器，可能把 main 正在用的值覆盖掉。
-
-    约定把寄存器分成两类：调用者保存的，main 自己负责在调用前存好；被调用者保存的，add 要用就得先存到栈帧里、返回前恢复。
-
-    这样双方不用互相了解内部实现，只要都守约定就能安全调用。'
-  derivation: original
-  sources:
-  - ref: csapp
-    locator: 第 3 章 过程调用
-    url: http://csapp.cs.cmu.edu/
-    claim: 寄存器只有一套，调用约定规定哪些由调用者保存、哪些由被调用者保存。
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: code
-      id: f
-      label: 函数
-    - lane: stack
-      id: s
-      label: 栈
-    - lane: regs
-      id: r
-      label: 寄存器
-      highlight: true
-    messages:
-    - id: m-callee-saved
-      from: f
-      to: s
-      label: 保存要用的寄存器
-      active: true
-  log:
-  - mode: 保存
-    event: 按约定保存寄存器
-- id: overflow
-  title: 栈的边界：递归与栈溢出
-  tldr: 栈的大小有限，递归太深会把它用完。
-  body: 'Linux 上主线程的栈默认通常是 8MB 左右，用 ulimit -s 能看到。
-
-    递归每调用一层就压一个栈帧，没有终止条件就会一直压下去，直到越界崩溃（Segmentation fault）。
-
-    JS 里看到 Maximum call stack size exceeded，是同一个道理。
-
-
-    数字感：Linux 主线程栈默认 8 MB，一个栈帧若含 1 MB 的局部数组，递归约 8 层上下就爆；这也是为什么大缓冲要放堆上、为什么推理框架把大张量放在显存/堆而不是栈上。'
-  derivation: original
-  sources:
-  - ref: csapp
-    locator: 第 3 章
-    url: http://csapp.cs.cmu.edu/
-    claim: 栈空间有限，过深的递归会导致栈溢出
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: code
-      id: f
-      label: 函数
-    - lane: stack
-      id: s
-      label: 栈
-      highlight: true
-    - lane: regs
-      id: r
-      label: 寄存器
-    messages:
-    - id: m-overflow
-      from: f
-      to: s
-      label: 栈帧不断压入，直到用完
-      active: true
-  log:
-  - mode: 栈溢出
-    event: 程序崩溃
-- id: stack-vs-heap
-  title: 栈和堆的区别，以及栈上的安全问题
-  tldr: 栈自动管理但只活到函数返回；堆要手动或由 GC 管理，可以活得更久。
-  body: '栈上的局部变量随栈帧一起消失，所以不能返回指向局部变量的指针，那块内存很快会被别的调用覆盖。
-
-    要让数据活过函数调用，就用 malloc 放在堆上（JS 对象通常在堆上，由垃圾回收管理；引擎内部另有优化，不必细究）。
-
-    栈上数组写越界会覆盖返回地址，这是经典的“栈溢出攻击”；编译器加的栈保护（canary）和不可执行栈就是为了防它。
-
-
-    工程注记：火焰图（flame graph）就是把成千上万个栈帧样本叠在一起看宽度——最宽的那一帧就是最耗时的函数。看懂栈帧，才能看懂这张性能分析的通用图。'
-  derivation: original
-  sources:
-  - ref: csapp
-    locator: 第 3 章 过程调用
-    url: http://csapp.cs.cmu.edu/
-    claim: 栈自动管理但只活到函数返回；堆要手动或由 GC 管理，可以活得更久。
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: code
-      id: f
-      label: 函数
-    - lane: stack
-      id: s
-      label: 栈
-      highlight: true
-    - lane: regs
-      id: r
-      label: 寄存器
-    messages:
-    - id: m-stack-vs-heap
-      from: f
-      to: s
-      label: 越界写 → 覆盖返回地址
-      active: true
-  log:
-  - mode: 安全
-    event: 栈保护检测到破坏
+  - id: why
+    title: 为什么需要栈
+    tldr: 函数要能被调用、返回，还要各自有局部变量，互不干扰。
+    body: 函数调用要同时满足三件事，做完能准确回到调用点继续、各自有一套互不干扰的局部变量、最后调用的最先返回。这三件事指向同一个数据结构，栈。每次调用压入一块属于这次调用的记录即栈帧，返回时弹出，后进先出和调用的嵌套结构严丝合缝，函数 A 调 B、B 调 C，帧的顺序永远是 A 在底 C 在顶，C 返回后 B 的帧原样还在。递归能成立也靠它，同一个函数调用自己一百次，就有一百个独立的帧，每层有自己的参数和局部变量，互不串扰，不需要任何特殊机制。你在浏览器 DevTools 或 IDE 里看到的 Call Stack 面板，画的正是这摞帧，异常堆栈、断点单步、性能火焰图，全都以这摞帧为坐标。栈内存由栈指针寄存器一个加减就能分配释放，成本低到几乎免费，这和堆上要走分配器查空闲块形成鲜明对照，也是把短命数据放栈上的根本理由。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 3 章 过程调用
+        url: http://csapp.cs.cmu.edu/
+        claim: 运行时栈支持过程调用的后进先出特性
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: code
+          id: f
+          label: 函数
+        - lane: stack
+          id: s
+          label: 栈
+          highlight: true
+        - lane: regs
+          id: r
+          label: 寄存器
+      messages: []
+    log:
+      - mode: main 运行中
+        event: main 准备调用 add
+    points:
+      - 函数要能被调用、返回，还要各自有局部变量，互不干扰。
+  - id: call
+    title: 调用：传参数，压返回地址
+    tldr: 参数放进寄存器，call 指令把“回哪里”压到栈上，然后跳进 add。
+    body: 以 x86-64 Linux 的 System V 约定为准走一遍调用。main 先把前两个整数参数分别放进约定的前两个参数寄存器 rdi 和 rsi，约定顺序是 rdi、rsi、rdx、rcx、r8、r9，前六个整数或指针参数全走寄存器，一个内存访问都不用。接着执行 call add，call 这条指令本身做两件不可分割的事，把下一条指令的地址即返回地址压进栈，再把 PC 改成 add 的入口地址跳过去。注意返回地址存的是调用点之后的位置，add 返回时 main 就从那里无缝续上。参数走寄存器的好处是速度，坏处是超出六个就要溢出到栈上由调用者提前压好，后面专门有一步讲。调用约定就是这套寄存器分工和栈布局的成文规则，不同操作系统和架构规则不同，Windows x86-64 只用四个参数寄存器还要求预留影子空间，所以同一份源码跨平台必须重编译，约定是二进制兼容的边界，语言互调用、动态库能不能对接，先看约定是否一致。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 3 章 过程调用
+        url: http://csapp.cs.cmu.edu/
+        claim: call 指令压入返回地址并跳转，参数通过寄存器传递
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: code
+          id: f
+          label: 函数
+          highlight: true
+        - lane: stack
+          id: s
+          label: 栈
+        - lane: regs
+          id: r
+          label: 寄存器
+      messages:
+        - id: m-call
+          from: f
+          to: s
+          label: 压入返回地址
+          active: true
+    log:
+      - mode: 进入 add
+        event: 返回地址已压栈
+  - id: frame
+    title: 建立栈帧：放局部变量
+    tldr: add 在栈上划出一块自己的区域，存局部变量和要保存的东西。
+    body: 跳进 add 后，它按需建立自己的栈帧。典型序言是把调用者的帧基址 rbp 压栈保存，再让 rbp 指向当前位置，然后把 rsp 往低地址减一块，给局部变量、临时值和要保存的寄存器腾地方，x86-64 的栈向低地址增长，新帧永远在旧帧下面。帧里从高到低大致是，返回地址、保存的旧 rbp、被调用者保存的寄存器、局部变量数组，其间还有为了 16 字节对齐留的填充。走数字，add 里有一个 4 字节局部变量，编译器可能直接把它放进寄存器连帧都省了，这叫叶函数优化，只有真需要往栈上放东西时帧才有实质内容，所以不要以为每个函数都在栈上占一大块。帧基址 rbp 的作用是给帧一个稳定锚点，函数执行中 rsp 会因压栈临时变动，但通过 rbp 加固定偏移总能找回每个局部变量。函数返回前把 rsp 恢复、弹回旧 rbp，整块帧瞬间回收，没有任何逐项释放，所谓栈分配快，就是快在这一次指针 arithmetic 上。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 3 章 过程调用
+        url: http://csapp.cs.cmu.edu/
+        claim: 每次调用在栈上分配栈帧存放局部状态
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: code
+          id: f
+          label: 函数
+        - lane: stack
+          id: s
+          label: 栈
+          highlight: true
+        - lane: regs
+          id: r
+          label: 寄存器
+      messages:
+        - id: m-frame
+          from: f
+          to: s
+          label: 分配栈帧
+          active: true
+    log:
+      - mode: add 运行中
+        event: add 的栈帧建立
+    code:
+      lang: text
+      code: |-
+        高地址 ┌─────────────┐
+               │ 调用者帧     │
+               ├─────────────┤
+               │ 返回地址     │ ← 返回后从这里继续
+               │ 保存的 rbp   │
+               │ 局部变量…    │ ← 当前栈帧
+        低地址 └─────────────┘  rsp 指向当前帧的低地址端（栈顶）
+      note: 栈帧布局（x86-64 示意）
+  - id: return
+    title: 返回：弹出栈帧，回到调用者
+    tldr: add 把结果放进约定的寄存器，释放栈帧，ret 跳回返回地址。
+    body: 返回是调用的镜像。add 把返回值放进约定寄存器 rax，调用者默认就去那里取，整数和指针返回值都走 rax，浮点返回值走 xmm0，这个分工也是约定的一部分。然后执行收尾，把 rsp 恢复到帧建立前的位置，弹出保存的旧 rbp 还给调用者，最后 ret 指令从栈顶弹出返回地址装进 PC，控制流回到 main 的调用点下一行。全过程栈恢复成调用之前的样子，add 的帧所占的内存并没有被清零，只是栈指针退回去让它变成可覆盖的空地，下一次调用会直接往上写新数据，这解释了一个经典现象，返回后立刻读那块旧内存有时还能看到 add 的局部变量残值，但读它在语义上毫无保证。栈帧的这种即用即弃也决定了局部变量的生命周期边界，函数一旦返回，指向它局部变量的指针就成悬空指针，指向的内存在下一次调用时就可能被别人的帧覆盖，这是 C 语言里一类高频 bug 的源头。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 3 章 过程调用
+        url: http://csapp.cs.cmu.edu/
+        claim: ret 弹出返回地址，返回值通过寄存器传回
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: code
+          id: f
+          label: 函数
+        - lane: stack
+          id: s
+          label: 栈
+        - lane: regs
+          id: r
+          label: 寄存器
+          highlight: true
+      messages:
+        - id: m-return
+          from: s
+          to: f
+          label: 弹出返回地址，回到 main
+          active: true
+    log:
+      - mode: 回到 main
+        event: main 拿到返回值
+  - id: callee-saved
+    title: 寄存器谁来保存
+    tldr: 寄存器只有一套，调用约定规定哪些由调用者保存、哪些由被调用者保存。
+    body: 寄存器只有一套约十六个通用寄存器，main 正用着的寄存器，add 也想用，覆盖了就出事。约定把寄存器分成两班，调用者保存的一班包括参数寄存器和 rax 等临时寄存器，规则是 add 可以随便踩，main 若有值放里面且调用后还要用，必须自己在调用前存好。被调用者保存的一班包括 rbx、rbp 和 r12 到 r15，规则相反，add 想用必须先把原值压进自己的帧保存，返回前原样恢复，对 main 来说它们跨调用纹丝不动，适合放跨函数调用的长命变量。编译器分配寄存器时就按这套班次算账，短命的临时值优先放调用者保存班，免得每次调用都保存恢复，跨调用的大变量才占被调用者保存班并付序言收尾的保存流量。走例，main 把循环计数器放在被调用者保存的 rbx 里，就能放心在循环里调任何函数而不怕它被踩。这套约定的本质是把保存责任在调用双方之间一次谈妥，任何两个遵守同一约定编译的模块，哪怕来自不同语言、不同编译器，都能安全互调用，不需要互相看源码。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 3 章 过程调用
+        url: http://csapp.cs.cmu.edu/
+        claim: 寄存器只有一套，调用约定规定哪些由调用者保存、哪些由被调用者保存。
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: code
+          id: f
+          label: 函数
+        - lane: stack
+          id: s
+          label: 栈
+        - lane: regs
+          id: r
+          label: 寄存器
+          highlight: true
+      messages:
+        - id: m-callee-saved
+          from: f
+          to: s
+          label: 保存要用的寄存器
+          active: true
+    log:
+      - mode: 保存
+        event: 按约定保存寄存器
+  - id: overflow
+    title: 栈的边界：递归与栈溢出
+    tldr: 栈的大小有限，递归太深会把它用完。
+    body: 栈不是无限的，Linux 主线程栈默认通常 8 MB，用 ulimit -s 能查到，新线程的栈要另行设定、通常更小。每层递归多压一个帧，帧大小乘以深度就是总消耗，没有终止条件的递归会一直压到越过栈的边界页，触发段错误直接崩溃。把账算细更有感觉，一个只含几个局部变量的小帧可能只有几十字节，8 MB 能撑十几万层，但帧里若有一个 1 MB 的局部数组，8 层上下就爆，所以大缓冲必须放堆上这句话不是风格建议而是算术必然。JS 引擎里的 Maximum call stack size exceeded 是同一个机制，只是 JS 栈帧更大、默认深度上限通常在一万量级。还要区分两个同名概念，栈溢出是把栈空间用完的崩溃，栈缓冲区溢出是往帧内数组写越界的安全漏洞，后者能覆盖返回地址，名字像但完全是两回事，面试和排错时先分清说的是哪一个。合理的递归深度控制、把深递归改成显式栈加循环、用尾调用优化，都是在和这 8 MB 的硬顶打交道。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 3 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 栈空间有限，过深的递归会导致栈溢出
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: code
+          id: f
+          label: 函数
+        - lane: stack
+          id: s
+          label: 栈
+          highlight: true
+        - lane: regs
+          id: r
+          label: 寄存器
+      messages:
+        - id: m-overflow
+          from: f
+          to: s
+          label: 栈帧不断压入，直到用完
+          active: true
+    log:
+      - mode: 栈溢出
+        event: 程序崩溃
+  - id: args-overflow
+    title: 第七个参数去哪了：栈传参与红区
+    tldr: 参数寄存器只有六个，多的参数走栈；叶函数还有一块不用调整指针就能用的红区。
+    body: 前六个整数参数走寄存器，第七个开始调用者要提前把它们按顺序压在栈上，被调用者用帧基址加偏移去取，返回地址和保存的 rbp 隔在中间，偏移要把这两项算进去，这是看汇编时最容易差 16 字节的地方。浮点参数走另一班 xmm 寄存器单独计数，两班互不挤占。再讲一个 x86-64 System V 特有的设计，栈顶以下 128 字节有一块红区，约定信号处理和中断不会踩它，叶函数即不再调用别人的函数可以直接把少量局部数据放进红区，连减栈指针建帧都省了，序言收尾一起省略，小函数因此能快到只剩几条指令。红区的边界也要记牢，一旦函数要再往下调用，调用动作本身会往栈上压返回地址，红区就可能被下层帧覆盖，所以红区只属于叶函数。Windows 约定没有红区，还要求调用者在调用前预留 32 字节影子空间给被调用者暂存参数寄存器，这类差异正是同一源码在两个平台上汇编长得不一样的原因，看栈先认约定，否则偏移全错。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 3 章 过程调用
+        url: http://csapp.cs.cmu.edu/
+        claim: 超出寄存器的参数经栈传递，叶函数可使用红区
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: code
+          id: f
+          label: 函数
+        - lane: stack
+          id: s
+          label: 栈
+          highlight: true
+        - lane: regs
+          id: r
+          label: 寄存器
+      messages:
+        - id: m-args
+          from: f
+          to: s
+          label: 第 7 个参数起压栈传递
+          active: true
+    log:
+      - mode: 传参
+        event: 多余参数走栈，红区归叶函数
+  - id: tail-call
+    title: 尾调用：最后一步是调用别人时可以不压帧
+    tldr: 如果调用是函数的最后一个动作，当前帧再无用处，可以直接复用它跳过去。
+    body: 观察一个事实，如果函数 f 的最后一条动作就是 return g(x)，那么 g 返回之后 f 什么都不再做，f 的帧在 g 执行期间纯占地方。可以优化为，f 先把参数按 g 的约定摆好，然后不压返回地址、不用 call，直接跳到 g 入口，g 执行完用 f 原来的返回地址直接回到 f 的调用者，栈深度全程不涨。这叫尾调用优化，尾递归经它就变成等价的循环，深递归不再爆栈。走例，阶乘的累加器写法把乘法挪进参数里、让递归调用成为最后一步，就能被优化成常数栈，而普通写法里调用之后还要乘一个 n，帧必须留着等结果，谁也优化不掉，所以尾递归的写法纪律是把计算提前做完、调用收尾。注意边界，不是所有语言和编译器都保证做这个优化，C 编译器在高优化等级下常做但标准不强制，函数式语言则普遍把它写进语言规范。JS 规范里写了尾调用优化但主流引擎实现情况不一，写 JS 深递归不能指望它兜底。判断一个调用是不是尾调用就看一句话，调用的返回值是不是原封不动就是本函数的返回值，是就有优化资格，不是就没有。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 3 章 过程调用
+        url: http://csapp.cs.cmu.edu/
+        claim: 尾调用可复用当前栈帧实现常数栈深
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: code
+          id: f
+          label: 函数
+          highlight: true
+        - lane: stack
+          id: s
+          label: 栈
+        - lane: regs
+          id: r
+          label: 寄存器
+      messages:
+        - id: m-tail
+          from: f
+          to: f
+          label: 复用当前帧直接跳转，不压新帧
+          active: true
+    log:
+      - mode: 尾调用
+        event: 栈深度保持不变
+  - id: alignment-variadic
+    title: 栈对齐与可变参数的代价
+    tldr: 调用前栈要 16 字节对齐，可变参数函数还要为此多付一套保存动作。
+    body: System V 约定要求执行 call 之前栈指针按 16 字节对齐，使得 call 压入 8 字节返回地址后，被调用者入口处栈是差 8 的状态，序言再压一个 rbp 就重新对齐。为什么苛刻到字节，因为很多 SSE 指令要求操作数 16 字节对齐，没对齐的版本要么慢要么直接 fault，统一约定让编译器可以放心在帧里用对齐的向量存取。对齐的代价是帧里常有几字节纯填充，看汇编时减栈指针减出的数字比局部变量总和大，对不上的部分多半就是对齐填充，不是编译器算错。可变参数再加一层成本，printf 这类函数不知道参数个数和类型，只能靠格式串运行时解析，被调用者还要在序言里把全部参数寄存器倒进一块寄存器保存区，让可变参数能被当成数组统一读取，普通函数省下的这套动作它一分不少要付。理解这两点有两个实用落点，一是手写汇编或做 FFI 调用时对齐错了会在莫名其妙的向量指令处崩溃，二是热点路径上避免可变参数日志接口，因为每次调用都有一笔固定的保存和解析开销，改用结构化传参能省下来。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 3 章 过程调用
+        url: http://csapp.cs.cmu.edu/
+        claim: 调用约定要求栈 16 字节对齐，可变参数经寄存器保存区传递
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: code
+          id: f
+          label: 函数
+        - lane: stack
+          id: s
+          label: 栈
+          highlight: true
+        - lane: regs
+          id: r
+          label: 寄存器
+      messages:
+        - id: m-align
+          from: f
+          to: s
+          label: call 前 rsp 保持 16 字节对齐
+          active: true
+    log:
+      - mode: 对齐
+        event: 填充字节补齐 16 对齐
+  - id: stack-vs-heap
+    title: 栈和堆的区别，以及栈上的安全问题
+    tldr: 栈自动管理但只活到函数返回；堆要手动或由 GC 管理，可以活得更久。
+    body: 栈和堆是两种生命周期哲学。栈上的数据随帧生灭，分配是移动指针、释放是退回指针，都是一条指令的成本，但命只到函数返回，且总量受那几 MB 的顶约束。堆上的数据由 malloc 和 free 或垃圾回收管理，能活过函数、大小能运行时决定、总量大得多，代价是分配要走分配器找空闲块并记账，还要操心释放，忘了释放泄漏、释放早了悬空、释放两次直接崩。所以选型的判断顺序是，数据活不过本函数且大小编译期可知，放栈；要交出去活得更久、或者很大、或者大小运行时才定，放堆或由调用方提供缓冲。安全上，栈帧里数组和返回地址是邻居，往局部数组写越界就能改掉返回地址，函数一返回就跳到攻击者选的地址，这是经典的栈缓冲区溢出利用链。现代防线有三层，编译器在帧里插入金丝雀值，返回前校验被改就 abort；栈内存标为不可执行，注入的代码跑不起来；地址随机化让攻击者猜不到要跳哪。三层都绕不开同一课的模型，先懂帧布局，才懂攻击和防御各自在改哪几个字节。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 3 章 过程调用
+        url: http://csapp.cs.cmu.edu/
+        claim: 栈自动管理但只活到函数返回；堆要手动或由 GC 管理，可以活得更久。
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: code
+          id: f
+          label: 函数
+        - lane: stack
+          id: s
+          label: 栈
+          highlight: true
+        - lane: regs
+          id: r
+          label: 寄存器
+      messages:
+        - id: m-stack-vs-heap
+          from: f
+          to: s
+          label: 越界写 → 覆盖返回地址
+          active: true
+    log:
+      - mode: 安全
+        event: 栈保护检测到破坏
 level: 基础
-minutes: 15
+minutes: 26
 prereq:
-- co/compile-link
+  - co/compile-link
 objectives:
-- 画出一次函数调用的栈帧（返回地址、保存的寄存器、局部变量）
-- 解释栈溢出的成因与缓冲区溢出攻击面
-- 对比栈与堆的分配成本与生命周期
+  - 画出一次函数调用的栈帧（返回地址、保存的寄存器、局部变量）
+  - 解释栈溢出的成因与缓冲区溢出攻击面
+  - 对比栈与堆的分配成本与生命周期
 aiLink: 理解栈帧才能读懂崩溃栈、火焰图与性能剖析：推理服务的采样 profiler 展示的就是一层层栈帧；递归太深爆栈、异步回调里对象生命周期出错，也都源于这一课的模型。
 quiz:
-- q: 每次函数调用栈上新增的是？
-  options:
-  - 一整个程序
-  - 一个栈帧：返回地址、保存的基址指针、局部变量等
-  - 一个新线程
-  - 一份堆拷贝
-  answer: 1
-  explain: 调用即压帧、返回即弹帧，所以递归深度受栈大小限制。
-- q: 缓冲区溢出为什么危险？
-  options:
-  - 只是数据错
-  - 写越界能覆盖返回地址，劫持控制流
-  - 让栈变大
-  - 导致死锁
-  answer: 1
-  explain: 返回地址在栈上且紧挨局部缓冲区，这是经典利用路径。
-- q: 堆分配比栈分配慢，主要因为？
-  options:
-  - 堆在磁盘上
-  - 要走分配器查找空闲块并维护元数据，栈只需移动栈指针
-  - 堆不能放对象
-  - 堆没有地址
-  answer: 1
-  explain: 栈分配是一条指针加减指令；堆分配是运行库的记账工作。
+  - q: 每次函数调用栈上新增的是？
+    options:
+      - 一整个程序
+      - 一个栈帧：返回地址、保存的基址指针、局部变量等
+      - 一个新线程
+      - 一份堆拷贝
+    answer: 1
+    explain: 调用即压帧、返回即弹帧，所以递归深度受栈大小限制。
+  - q: 缓冲区溢出为什么危险？
+    options:
+      - 只是数据错
+      - 写越界能覆盖返回地址，劫持控制流
+      - 让栈变大
+      - 导致死锁
+    answer: 1
+    explain: 返回地址在栈上且紧挨局部缓冲区，这是经典利用路径。
+  - q: 堆分配比栈分配慢，主要因为？
+    options:
+      - 堆在磁盘上
+      - 要走分配器查找空闲块并维护元数据，栈只需移动栈指针
+      - 堆不能放对象
+      - 堆没有地址
+    answer: 1
+    explain: 栈分配是一条指针加减指令；堆分配是运行库的记账工作。
+design:
+  - mechanism: 函数调用用运行时栈管理帧，调用压帧返回弹帧，帧里装返回地址、保存的寄存器和局部变量，分配释放只动栈指针，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    problem: 函数可以任意嵌套和递归，每层都需要独立的局部状态和明确的返回去向，若用静态固定地址存局部变量，递归和重入会立刻互相覆盖，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    choice: 用后进先出的栈把调用的嵌套结构原样映射成内存布局，深度随调用走，帧的分配释放退化成一次指针加减，成本压到一条指令，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    tradeoff: 代价是总深度被几 MB 的固定上限卡死，数据活不过函数返回，大数组和长命对象都得另去堆上，选型判断成了每个程序员的日常功课，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    root: 根源是调用关系本身就是一棵后进先出的树，栈是这棵树最便宜的物理实现，生命周期和作用域被同一种结构统一管辖，这是它无可替代的原因
+  - mechanism: 调用约定把参数寄存器顺序、返回值寄存器、寄存器保存班次和栈对齐写成跨模块的成文规则，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    problem: 寄存器只有一套，两个互不相识的编译单元要互相调用，若各自随便选寄存器传参和保存，组合起来必然互相踩坏对方的状态，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    choice: 把分工在约定里一次谈妥并全员遵守，调用者保存班和被调用者保存班各负其责，任何遵守同一约定的对象文件都能安全互操作，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    tradeoff: 约定一旦定版就几乎不可更改，寄存器班次和对齐规则会被几十年的二进制生态锁死，新架构想改只能另立一套约定并付出生态分裂代价，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    root: 根源是二进制兼容的本质是接口稳定，调用约定就是函数边界上的接口，它让不同语言、不同编译器、不同年代的产物能在同一进程里协作，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+  - mechanism: 栈帧把局部数组和返回地址放在相邻位置，金丝雀、不可执行栈和地址随机化在这块布局周围层层设防，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    problem: 返回地址决定函数返回后去哪执行，而它恰好紧挨着最容易写越界的局部缓冲区，一次越界写就能把控制流改道到攻击者选定的地址，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    choice: 不改帧布局的前提下加三层防线，帧内金丝雀负责发现越界、栈不可执行让注入代码无法运行、地址随机化让攻击者猜不到目标地址，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    tradeoff: 三层防线都是概率和检测而不是根除，金丝雀可被信息泄漏绕过，随机化可被爆破，真正根除要靠语言层面的边界检查而那要付运行时成本，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
+    root: 根源是 C 把内存安全交给程序员这一最初取舍，帧布局的效率来自不做检查，所有后来的防护都是在为这笔性能债补利息而不是还本金，这一点在习题和工程判断里都要能独立说清来龙去脉，而不是只记结论。
