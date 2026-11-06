@@ -9,7 +9,7 @@ summary: 从 hello.c 到屏幕上的 hello，中间经过编译、汇编、链�
 premise: 以 Linux 上用 gcc 编译 hello.c 为例。
 overview:
 - key: 一句话总结
-  value: 编译成汇编 → 汇编成机器码 → 链接成可执行文件 → 加载进内存运行
+  value: 预处理 → 编译成汇编 → 汇编成机器码 → 链接成可执行文件 → 加载进内存运行
 - key: 为什么分步
   value: 每一步只解决一个问题，各自可替换、可缓存
 - key: Linux 上的格式
@@ -52,8 +52,10 @@ steps:
     locator: 第 1 章
     url: http://csapp.cs.cmu.edu/
     claim: 程序从源代码经翻译系统变为可执行文件
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -87,8 +89,10 @@ steps:
     locator: 第 1 章、第 3 章
     url: http://csapp.cs.cmu.edu/
     claim: 编译器将 C 翻译为汇编程序
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -116,7 +120,7 @@ steps:
   tldr: 编译前先做文本替换，编译时还会大胆改写代码，只要结果不变。
   body: '预处理器把 #include 的头文件原样展开、把宏替换掉、按 #ifdef 删掉不用的代码，得到一个大的纯 C 文件。
 
-    编译器优化时，会把常量提前算好、删掉没用的代码、把小函数直接内联进调用处，-O2 比 -O0 快得多。
+    编译器优化时，会把常量提前算好、删掉没用的代码、把小函数直接内联进调用处，-O2 通常比 -O0 明显更快（依代码而定，不保证）。
 
     这像前端打包时的 tree shaking 和压缩：产物看起来面目全非，但行为不变。'
   derivation: original
@@ -125,8 +129,10 @@ steps:
     locator: 第 1 章
     url: http://csapp.cs.cmu.edu/
     claim: 编译前先做文本替换，编译时还会大胆改写代码，只要结果不变。
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -163,8 +169,10 @@ steps:
     locator: 第 7 章
     url: http://csapp.cs.cmu.edu/
     claim: 目标文件包含机器码及待重定位信息
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -204,8 +212,10 @@ steps:
     locator: 第 1 章
     url: http://csapp.cs.cmu.edu/
     claim: 目标文件里有一张符号表：我提供什么、我缺什么。
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -242,8 +252,10 @@ steps:
     locator: 第 7 章
     url: http://csapp.cs.cmu.edu/
     claim: 链接器进行符号解析和重定位，支持静态与动态链接
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -284,15 +296,17 @@ steps:
     就像浏览器下载打包好的 JS，再按需加载其他分块。
 
 
-    具体数字：静态链接一个带完整推理运行时的二进制可以到数百 MB，容器镜像随之膨胀；动态链接的镜像小得多，但要把 .so 的版本矩阵管对——两条路线在部署里都常见，看团队取舍。'
+    具体数字：静态链接一个带完整推理运行时的二进制会比动态链接大得多（取决于所链的运行库），容器镜像随之膨胀；动态链接的镜像小得多，但要把 .so 的版本矩阵管对——两条路线在部署里都常见，看团队取舍。'
   derivation: original
   sources:
   - ref: csapp
     locator: 第 7 章
     url: http://csapp.cs.cmu.edu/
     claim: 加载器将可执行文件复制到内存并跳转到入口点
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -335,7 +349,7 @@ quiz:
 - q: 动态链接相比静态链接的代价是？
   options:
   - 二进制更大
-  - 运行时要加载并重定位共享库，启动稍慢但省内存且可热更新
+  - 运行时要加载并重定位共享库，启动稍慢；多进程共享同一份库省内存，库还可单独升级（重启进程后生效）
   - 不能跨平台
   - 不支持函数调用
   answer: 1

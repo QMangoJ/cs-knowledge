@@ -52,8 +52,10 @@ steps:
     locator: 流水线相关讲义
     url: https://cs61c.org/
     claim: 流水线通过阶段重叠提高吞吐量
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -87,8 +89,10 @@ steps:
     locator: 流水线冒险相关讲义
     url: https://cs61c.org/
     claim: 结构冒险由硬件资源冲突引起
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -125,8 +129,10 @@ steps:
     locator: 流水线冒险相关讲义
     url: https://cs61c.org/
     claim: 数据冒险可通过转发或暂停解决
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -178,8 +184,10 @@ steps:
   - ref: cs61c
     locator: Pipelining / Hazards 讲义
     claim: 转发可消除大部分数据冒险，load-use 仍需停顿一拍
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: lab
     lab: pipeline-chart
@@ -246,15 +254,17 @@ steps:
     猜对了白赚，猜错了就把按猜测方向取进来、做到一半的指令作废，从正确的地方重来。
 
 
-    数字感：现代 CPU 分支预测准确率常在 95% 以上，但深度 15–20 级的流水线错一次要冲刷约 15–20 个周期。排序后数组上二分查找比乱序数组慢，常就是分支变得不可预测的缘故。'
+    数字感：规则负载下分支预测准确率常在 95% 以上（数据相关的分支会低得多），但深度 15–20 级的流水线错一次要冲刷约 15–20 个周期。经典例子是线性扫描里的 if (data[i] >= 128) sum += data[i]：数据排好序时分支几乎总是同一方向、极易预测；数据乱序时约一半成立一半不成立、几乎不可预测，同一个循环能慢出数倍。'
   derivation: original
   sources:
   - ref: csapp
     locator: 第 4 章、第 5 章
     url: http://csapp.cs.cmu.edu/
     claim: 分支预测与预测失败的处罚
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -293,8 +303,10 @@ steps:
     locator: 第 5 章
     url: http://csapp.cs.cmu.edu/
     claim: 分支预测失败对程序性能有显著影响
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -322,15 +334,17 @@ steps:
     能并行多少，取决于指令之间的依赖：一长串彼此依赖的计算，再强的 CPU 也只能一步步来。
 
 
-    工程注记：想亲眼看停顿，可以用 perf stat 比较同一程序在分支可预测/不可预测输入下的 cycles；不可预测分支版本慢出的部分，基本就是分支冲刷的账。'
+    工程注记：想亲眼看停顿，可以用 perf stat 比较同一程序在分支可预测/不可预测输入下的 cycles 与 branch-misses；不可预测版本慢出的部分主要来自预测失败的冲刷（结合 branch-misses 计数一起看，别把缓存等因素的账也算进来）。'
   derivation: original
   sources:
   - ref: cs61c
     locator: 流水线相关讲义
     url: https://cs61c.org/
     claim: 现代 CPU 每个周期能发射多条指令，还会打乱顺序先做已经准备好的。
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:

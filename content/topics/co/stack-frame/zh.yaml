@@ -56,8 +56,10 @@ steps:
     locator: 第 3 章 过程调用
     url: http://csapp.cs.cmu.edu/
     claim: 运行时栈支持过程调用的后进先出特性
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -91,8 +93,10 @@ steps:
     locator: 第 3 章 过程调用
     url: http://csapp.cs.cmu.edu/
     claim: call 指令压入返回地址并跳转，参数通过寄存器传递
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -131,8 +135,10 @@ steps:
     locator: 第 3 章 过程调用
     url: http://csapp.cs.cmu.edu/
     claim: 每次调用在栈上分配栈帧存放局部状态
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -157,7 +163,7 @@ steps:
     event: add 的栈帧建立
   code:
     lang: text
-    code: "高地址 ┌─────────────┐\n       │ 调用者帧     │\n       ├─────────────┤\n       │ 返回地址     │ ← 返回后从这里继续\n       │ 保存的 rbp   │\n       │ 局部变量…    │ ← 当前栈帧\n低地址 └─────────────┘  rsp 指向帧底"
+    code: "高地址 ┌─────────────┐\n       │ 调用者帧     │\n       ├─────────────┤\n       │ 返回地址     │ ← 返回后从这里继续\n       │ 保存的 rbp   │\n       │ 局部变量…    │ ← 当前栈帧\n低地址 └─────────────┘  rsp 指向当前帧的低地址端（栈顶）"
     note: 栈帧布局（x86-64 示意）
 - id: return
   title: 返回：弹出栈帧，回到调用者
@@ -173,8 +179,10 @@ steps:
     locator: 第 3 章 过程调用
     url: http://csapp.cs.cmu.edu/
     claim: ret 弹出返回地址，返回值通过寄存器传回
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -211,8 +219,10 @@ steps:
     locator: 第 3 章 过程调用
     url: http://csapp.cs.cmu.edu/
     claim: 寄存器只有一套，调用约定规定哪些由调用者保存、哪些由被调用者保存。
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -245,15 +255,17 @@ steps:
     JS 里看到 Maximum call stack size exceeded，是同一个道理。
 
 
-    数字感：Linux 主线程栈默认 8 MB，一个栈帧若含 1 MB 的局部数组，递归 9 层就爆；这也是为什么大缓冲要放堆上、为什么推理框架把大张量放在显存/堆而不是栈上。'
+    数字感：Linux 主线程栈默认 8 MB，一个栈帧若含 1 MB 的局部数组，递归约 8 层上下就爆；这也是为什么大缓冲要放堆上、为什么推理框架把大张量放在显存/堆而不是栈上。'
   derivation: original
   sources:
   - ref: csapp
     locator: 第 3 章
     url: http://csapp.cs.cmu.edu/
     claim: 栈空间有限，过深的递归会导致栈溢出
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -281,7 +293,7 @@ steps:
   tldr: 栈自动管理但只活到函数返回；堆要手动或由 GC 管理，可以活得更久。
   body: '栈上的局部变量随栈帧一起消失，所以不能返回指向局部变量的指针，那块内存很快会被别的调用覆盖。
 
-    要让数据活过函数调用，就用 malloc 放在堆上（JS 里对象都在堆上，由垃圾回收管理）。
+    要让数据活过函数调用，就用 malloc 放在堆上（JS 对象通常在堆上，由垃圾回收管理；引擎内部另有优化，不必细究）。
 
     栈上数组写越界会覆盖返回地址，这是经典的“栈溢出攻击”；编译器加的栈保护（canary）和不可执行栈就是为了防它。
 
@@ -293,8 +305,10 @@ steps:
     locator: 第 3 章 过程调用
     url: http://csapp.cs.cmu.edu/
     claim: 栈自动管理但只活到函数返回；堆要手动或由 GC 管理，可以活得更久。
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:

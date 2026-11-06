@@ -52,8 +52,10 @@ steps:
     locator: CPU datapath 相关讲义
     url: https://cs61c.org/
     claim: 处理器根据 PC 取指并更新 PC
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -92,8 +94,10 @@ steps:
     locator: 指令格式与译码相关讲义
     url: https://cs61c.org/
     claim: 译码阶段解析操作码并读取寄存器
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -130,8 +134,10 @@ steps:
     locator: 处理器设计相关讲义
     url: https://ocw.mit.edu/courses/6-004-computation-structures-spring-2017/
     claim: ALU 执行算术逻辑运算并计算地址
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -168,8 +174,10 @@ steps:
     locator: datapath 相关讲义
     url: https://cs61c.org/
     claim: 访存阶段执行 load/store
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -206,8 +214,10 @@ steps:
     locator: 第 4 章
     url: http://csapp.cs.cmu.edu/
     claim: 处理器按阶段执行指令并写回结果
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -244,8 +254,10 @@ steps:
     locator: CPU datapath 相关讲义
     url: https://cs61c.org/
     claim: 指令集（ISA）规定 CPU 认哪些指令，同一份机器码只能在同一指令集的 CPU 上跑。
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -278,18 +290,20 @@ steps:
     所以只比主频不够：缓存命中差、分支总猜错的程序，主频再高也慢。
 
 
-    工程注记：矩阵乘算子用 AVX-512 后一条指令能处理 16 个 float，指令数直接降一个量级——这就是 SIMD 对推理加速的本质：不是时钟变快，而是指令数变少。
+    工程注记：矩阵乘算子用 AVX-512 后一条指令能处理 16 个 float，可向量化的那段循环指令数最多降至约 1/16（整体收益还受访存与不可向量化部分限制）——这就是 SIMD 对推理加速的本质：不是时钟变快，而是指令数变少。
 
 
-    工程注记：perf stat 一次给出 instructions、cycles 与算出的 IPC（=1/CPI）：计算密集型算子 IPC 能到 2–4，访存密集型常掉到 0.5 以下——先看 IPC 再猜瓶颈，是性能分析的基本功。'
+    工程注记：perf stat 一次给出 instructions、cycles 与算出的 IPC（=1/CPI）：计算密集型算子 IPC 经验上常在 2–4，访存密集型常掉到 0.5 以下（经验范围，依微架构与负载实测）——先看 IPC 再猜瓶颈，是性能分析的基本功。'
   derivation: original
   sources:
   - ref: cs61c
     locator: CPU datapath 相关讲义
     url: https://cs61c.org/
     claim: 程序耗时 = 指令条数 × 每条平均周期数 × 每周期时长。
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:

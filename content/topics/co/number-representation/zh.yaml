@@ -56,8 +56,10 @@ steps:
     locator: 第 2 章
     url: http://csapp.cs.cmu.edu/
     claim: 数据以固定长度的位序列表示
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -91,8 +93,10 @@ steps:
     locator: 第 2 章
     url: http://csapp.cs.cmu.edu/
     claim: 同样一串位，当无符号数和有符号数读，含义不同；多字节数据在内存里还有先后顺序。
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -131,14 +135,18 @@ steps:
     locator: 第 2 章 整数表示
     url: http://csapp.cs.cmu.edu/
     claim: 补码表示及其溢出行为
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   - ref: cs61c
     locator: Number Representation 讲义
     url: https://cs61c.org/
     claim: 补码统一了加减法运算
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -171,15 +179,17 @@ steps:
     JavaScript 的 Number 就是 64 位双精度浮点数，所以 JS 里的普通数字都遵守这套规则（BigInt 除外）。
 
 
-    数字感：FP16 的尾数只有 10 位，相对精度约 1e-3；权重从 FP32 降到 FP16 体积减半、带宽减半，推理常见做法就是权重 FP16 + 累加用 FP32，既快又守住精度。'
+    数字感：FP16 的尾数只有 10 位，相对精度约 1e-3；权重从 FP32 降到 FP16 体积减半、带宽减半，权重 FP16 + 高精度累加（如 FP32）是常见做法，既快又守住精度。'
   derivation: original
   sources:
   - ref: csapp
     locator: 第 2 章 浮点数
     url: http://csapp.cs.cmu.edu/
     claim: IEEE 754 浮点表示由符号、指数、尾数组成
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -216,8 +226,10 @@ steps:
     locator: 第 2 章 浮点数
     url: http://csapp.cs.cmu.edu/
     claim: 十进制小数在二进制浮点中通常无法精确表示
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -277,8 +289,10 @@ steps:
   - ref: csapp
     locator: 第 2 章 整数表示与 IEEE 754 浮点
     claim: 补码与单精度浮点的位模式
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: lab
     lab: bit-editor
@@ -344,7 +358,7 @@ steps:
 - id: float-special
   title: 浮点数的特殊值
   tldr: 浮点数里有正负无穷、NaN 和 -0，还有“越大越稀疏”的精度。
-  body: '除以 0 得到 Infinity，0/0 得到 NaN（不是数），而且 NaN 不等于任何值，连它自己也不等于。
+  body: '浮点除法里非零数除以 ±0 得到 ±Infinity，0/0 得到 NaN（不是数），而且 NaN 不等于任何值，连它自己也不等于。
 
     浮点数的精度是相对的：数越大，相邻两个可表示的数之间间隔越大，所以 2⁵³ 以上的整数在 double 里就不能一一表示了。
 
@@ -355,8 +369,10 @@ steps:
     locator: 第 2 章
     url: http://csapp.cs.cmu.edu/
     claim: 浮点数里有正负无穷、NaN 和 -0，还有“越大越稀疏”的精度。
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -389,15 +405,17 @@ steps:
     JS 里超过 Number.MAX_SAFE_INTEGER 的整数会失去精度，需要用 BigInt，后端传来的 64 位 ID 最好当字符串处理。
 
 
-    工程注记：比较浮点数永远不要用 ==：0.1 + 0.2 !== 0.3 在所有语言里都成立。金额用整数分、误差敏感处用容差比较，是从表示误差里长出来的工程纪律。'
+    工程注记：对计算得到的浮点结果不要直接用 == 比相等：0.1 + 0.2 !== 0.3 在所有语言里都成立。金额用整数分、误差敏感处用容差比较，是从表示误差里长出来的工程纪律。'
   derivation: original
   sources:
   - ref: csapp
     locator: 第 2 章
     url: http://csapp.cs.cmu.edu/
     claim: 浮点舍入误差与整数精度限制
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:

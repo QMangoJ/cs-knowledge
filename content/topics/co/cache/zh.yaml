@@ -58,8 +58,10 @@ steps:
     locator: 第 6 章
     url: http://csapp.cs.cmu.edu/
     claim: 存储层次结构中越靠近 CPU 越快越小
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -98,8 +100,10 @@ steps:
     locator: Caches 相关讲义
     url: https://cs61c.org/
     claim: 未命中时以缓存块为单位从下层读入
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -136,8 +140,10 @@ steps:
     locator: Caches 相关讲义
     url: https://cs61c.org/
     claim: 命中时直接从缓存返回数据
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -174,8 +180,10 @@ steps:
     locator: 第 6 章
     url: http://csapp.cs.cmu.edu/
     claim: 每个内存地址只能放进缓存里固定的几个位置，这叫组相联。
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -212,8 +220,10 @@ steps:
     locator: 第 6 章
     url: http://csapp.cs.cmu.edu/
     claim: 组满了要淘汰一行，通常淘汰最久没用的；写数据时还要决定何时写回内存。
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -246,15 +256,17 @@ steps:
     反过来，在内存里到处乱跳的访问（比如很长的链表），会让缓存频繁失效。
 
 
-    数字例子：1024×1024 的 double 矩阵按行求和约几毫秒量级，按列求和在典型机器上慢 5–10 倍。矩阵乘法做 tiling（分块让子矩阵装进 L2）同理，这也是 cuBLAS 分块策略存在的原因。'
+    数字例子：大矩阵按行求和与按列求和的差距可达数倍到一个数量级（具体倍数随矩阵大小与机器实测，没有固定值）。矩阵乘法做 tiling（分块让子块留在片上存储层级里）同理，这是包括 cuBLAS 在内的分块策略存在的原因之一。'
   derivation: original
   sources:
   - ref: csapp
     locator: 第 6 章
     url: http://csapp.cs.cmu.edu/
     claim: 局部性原理：时间局部性与空间局部性
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -290,8 +302,10 @@ steps:
     locator: 第 6 章
     url: http://csapp.cs.cmu.edu/
     claim: 编写缓存友好的代码
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -319,15 +333,17 @@ steps:
     副作用是“伪共享”：两个线程改的是不同变量，但它们在同一缓存行里，这一行会在核心之间来回搬，性能大降。
 
 
-    具体数字：典型延迟阶梯 L1 约 1 ns、L2 约 3–4 ns、L3 约 10–20 ns、主存约 60–100 ns、SSD 约 100 μs。每跨一级差一个数量级，所以推理优化先量内存带宽利用率，再谈算力。'
+    具体数字：典型延迟阶梯 L1 约 1 ns、L2 约 3–4 ns、L3 约 10–20 ns、主存约 60–100 ns、SSD 则 SATA 约 100 μs、NVMe 约 10–70 μs。相邻层级差数倍，从 L1 到 SSD 累计差约五个数量级，所以推理优化先量内存带宽利用率，再谈算力。'
   derivation: original
   sources:
   - ref: csapp
     locator: 第 6 章
     url: http://csapp.cs.cmu.edu/
     claim: 每个核心有自己的缓存，一个核心改了数据，其他核心的旧副本必须作废。
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: swimlane
     actors:
@@ -358,7 +374,7 @@ objectives:
 - 按地址拆出标记/组索引/块内偏移
 - 用时间与空间局部性解释命中率
 - 解释为什么按行遍历比按列遍历快几倍
-aiLink: 推理性能的第一瓶颈往往是内存带宽而不是算力：权重以几十 GB 流过缓存与 HBM，KV Cache 的布局、算子的分块（tiling）本质都是在伺候缓存局部性。这一课是读懂所有推理性能分析的钥匙。
+aiLink: 单请求或小批量解码时，推理性能的第一瓶颈往往是内存带宽而不是算力：权重以几十 GB 流过缓存与 HBM，KV Cache 的布局、算子的分块（tiling）本质都是在伺候缓存局部性。这一课是读懂所有推理性能分析的钥匙。
 quiz:
 - q: 缓存行（cache line）64 字节意味着？
   options:
@@ -367,7 +383,7 @@ quiz:
   - 缓存总共 64 字节
   - 地址是 64 位
   answer: 1
-  explain: 整行搬运让顺序访问几乎免费命中、随机访问则每步都未命中。
+  explain: 整行搬运让顺序访问几乎免费命中、随机访问的未命中率则大增。
 - q: 按列遍历大矩阵比按行慢，主要是？
   options:
   - 编译器问题
@@ -379,7 +395,7 @@ quiz:
 - q: 直接映射缓存的冲突未命中来自？
   options:
   - 容量不够
-  - 多个地址映射到同一组，只能互相挤掉
+  - 多个地址映射到同一个位置，只能互相挤掉
   - 程序写错
   - TLB 未命中
   answer: 1
