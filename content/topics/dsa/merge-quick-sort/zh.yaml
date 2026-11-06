@@ -1,4 +1,3 @@
-# 知识优先版草稿（Linux x86-64 为例）。出处仅供参考，按 Daniel 决定不做逐条核对。
 id: dsa/merge-quick-sort
 subject: dsa
 slug: merge-quick-sort
@@ -9,425 +8,513 @@ title: 归并排序与快速排序：分而治之
 summary: 两种最常用的 O(n log n) 排序，都是把大问题拆小，但拆法不同、特点也不同。
 premise: 以对 [5, 2, 8, 1, 9, 3] 排序为例。
 overview:
-  - key: 一句话总结
-    value: 归并：先拆后合，稳定、总是 O(n log n)；快排：先分区后递归，平均最快但最坏 O(n²)
-  - key: 稳定性
-    value: 相等元素排序后保持原来的先后顺序；归并稳定，快排通常不稳定
-  - key: 额外空间
-    value: 归并需要 O(n) 辅助空间；快排只需要递归栈
-  - key: 工程里
-    value: V8 自 7.0（2018 年）起 Array.prototype.sort 用 TimSort，一种稳定的归并变体
-  - key: 为什么不用冒泡
-    value: 冒泡、插入排序是 O(n²)，数据大了慢得多
-  - key: 复杂度
-    value: 归并：最好/平均/最坏都 O(n log n)；快排：平均 O(n log n)，最坏 O(n²)
-  - key: 原地
-    value: 快排原地（只用递归栈）；数组归并需要 O(n) 额外空间
-  - key: 下限
-    value: 比较排序最坏至少约 n log n 次比较；计数、基数排序不靠比较
-  - key: 小数组
-    value: 标准库在小区间常切换到插入排序
+- key: 一句话总结
+  value: 归并：先拆后合，稳定、总是 O(n log n)；快排：先分区后递归，平均最快但最坏 O(n²)
+- key: 稳定性
+  value: 相等元素排序后保持原来的先后顺序；归并稳定，快排通常不稳定
+- key: 额外空间
+  value: 归并需要 O(n) 辅助空间；快排只需要递归栈
+- key: 工程里
+  value: V8 自 7.0（2018 年）起 Array.prototype.sort 用 TimSort，一种稳定的归并变体
+- key: 为什么不用冒泡
+  value: 冒泡、插入排序是 O(n²)，数据大了慢得多
+- key: 复杂度
+  value: 归并：最好/平均/最坏都 O(n log n)；快排：平均 O(n log n)，最坏 O(n²)
+- key: 原地
+  value: 快排原地（只用递归栈）；数组归并需要 O(n) 额外空间
+- key: 下限
+  value: 比较排序最坏至少约 n log n 次比较；计数、基数排序不靠比较
+- key: 小数组
+  value: 标准库在小区间常切换到插入排序
 visual: datastate
 logColumns:
-  - key: mode
-    label: 当前状态
-  - key: event
-    label: 发生了什么
+- key: mode
+  label: 当前状态
+- key: event
+  label: 发生了什么
 steps:
-  - id: why
-    title: 为什么需要更快的排序
-    tldr: 两两比较交换的简单排序是 O(n²)，数据一多就慢得不能用。
-    body: |-
-      冒泡排序对 1 万个元素要做约 5000 万次比较，数据翻倍耗时翻四倍。
-      “分而治之”把大数组拆成小数组分别排好，再组合起来，能做到 O(n log n)。
-      1 万个元素只需要十几万次比较左右。
-    derivation: original
-    sources:
-      - ref: mit-6006
-        locator: 排序相关讲义
-        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
-        claim: 归并排序为 O(n log n)，优于 O(n²) 的简单排序
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: datastate
-      structure: array
-      caption: 分而治之：拆小、排好、再组合
-      rows:
-        - display: bars
-          label: 待排序
-          cells:
-            - v: 5
-            - v: 2
-            - v: 8
-            - v: 1
-            - v: 9
-            - v: 3
-      aux:
-        - display: bars
-          label: 比较次数
-          items:
-            - 冒泡 ≈ n²/2
-            - 分治 ≈ n log n
-    log:
-      - mode: 未排序
-        event: 6 个元素待排序
-  - id: merge-split
-    title: 归并排序：一直对半拆
-    tldr: 把数组不断对半拆开，直到每份只剩一个元素。
-    body: |-
-      [5, 2, 8, 1, 9, 3] 拆成 [5, 2, 8] 和 [1, 9, 3]，再继续拆，直到每份一个元素。
-      只有一个元素的数组天然有序。
-      拆的层数是 log n，这就是 O(n log n) 里 log n 的来源。
-    derivation: original
-    sources:
-      - ref: mit-6006
-        locator: 归并排序相关讲义
-        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
-        claim: 归并排序递归地将数组二分
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: datastate
-      structure: array
-      caption: 拆 log n 层，直到每份只剩一个元素
-      rows:
-        - display: bars
-          label: 第 0 层
-          cells:
-            - v: 5
-            - v: 2
-            - v: 8
-            - v: 1
-            - v: 9
-            - v: 3
-        - display: bars
-          label: 第 1 层
-          cells:
-            - v: 5
-            - v: 2
-            - v: 8
-            - v: 1
-            - v: 9
-            - v: 3
-          breaks:
-            - 3
-        - display: bars
-          label: 第 2 层
-          cells:
-            - v: 5
-            - v: 2
-            - v: 8
-            - v: 1
-            - v: 9
-            - v: 3
-          breaks:
-            - 1
-            - 3
-            - 4
-        - display: bars
-          label: 第 3 层
-          cells:
-            - v: 5
-              mark: active
-            - v: 2
-              mark: active
-            - v: 8
-              mark: active
-            - v: 1
-              mark: active
-            - v: 9
-              mark: active
-            - v: 3
-              mark: active
-          breaks:
-            - 1
-            - 2
-            - 3
-            - 4
-            - 5
-    log:
-      - mode: 拆分
-        event: 拆到每份一个元素
-  - id: merge-join
-    title: 归并排序：两两合并
-    tldr: 把两份有序的小数组合并成一份有序的大数组，一层层合回去。
-    body: |-
-      合并时两边各拿最前面的，谁小取谁，一趟扫完，每层总共 O(n)。
-      遇到相等的元素先取左边的，所以相等元素的先后顺序不变，这叫“稳定”。
-      代价是合并时需要一块和原数组一样大的辅助空间。
-    derivation: original
-    sources:
-      - ref: mit-6006
-        locator: 归并排序相关讲义
-        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
-        claim: 合并两个有序数组为线性时间，归并排序是稳定排序
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: datastate
-      structure: array
-      caption: 两边各取最前面的，谁小取谁；相等先取左边（稳定）
-      rows:
-        - display: bars
-          label: 单个元素
-          cells:
-            - v: 5
-            - v: 2
-            - v: 8
-            - v: 1
-            - v: 9
-            - v: 3
-          breaks:
-            - 1
-            - 2
-            - 3
-            - 4
-            - 5
-        - display: bars
-          label: 合并一层
-          cells:
-            - v: 2
-              mark: active
-            - v: 5
-              mark: active
-            - v: 8
-              mark: active
-            - v: 1
-              mark: active
-            - v: 3
-              mark: active
-            - v: 9
-              mark: active
-          breaks:
-            - 3
-        - display: bars
-          label: 合并完成
-          cells:
-            - v: 1
-              mark: done
-            - v: 2
-              mark: done
-            - v: 3
-              mark: done
-            - v: 5
-              mark: done
-            - v: 8
-              mark: done
-            - v: 9
-              mark: done
-    log:
-      - mode: 有序
-        event: 合并完成
-  - id: quick
-    title: 快速排序：选基准，分两边
-    tldr: 选一个基准，小的放左边、大的放右边，再分别对两边递归。
-    body: |-
-      选 5 为基准，分成 [2, 1, 3]、5、[8, 9]；基准已在最终位置，两边继续同样处理。
-      它原地交换，不需要大块辅助空间，实际运行通常很快。
-      但如果每次都选到最小或最大的元素当基准（比如对有序数组总选第一个），每次只排除一个，就退化成 O(n²)，所以实践中会随机选基准或取中位数。
-    derivation: original
-    sources:
-      - ref: mit-6006
-        locator: 快速排序相关讲义
-        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
-        claim: 快速排序平均 O(n log n)，最坏 O(n²)，随机化基准可避免最坏情况
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: datastate
-      structure: array
-      caption: 选 5 为基准：比它小的放左边，大的放右边；5 已在最终位置
-      rows:
-        - display: bars
-          label: 原数组
-          cells:
-            - v: 5
-              mark: pivot
-            - v: 2
-            - v: 8
-            - v: 1
-            - v: 9
-            - v: 3
-          pointers:
-            - at: 0
-              label: 基准
-        - display: bars
-          label: 分区后
-          cells:
-            - v: 2
-            - v: 1
-            - v: 3
-            - v: 5
-              mark: pivot
-            - v: 8
-            - v: 9
-          breaks:
-            - 3
-            - 4
-    log:
-      - mode: 分区
-        event: 左边都小于 5，右边都大于 5
-  - id: quick-detail
-    title: 快排的细节：分区、基准和递归深度
-    tldr: 快排好坏取决于基准选得好不好；递归深度也要控制住。
-    body: |-
-      分区就是一趟扫描，把比基准小的换到左边、大的换到右边，原地完成。
-      随机选基准后，最坏情况仍可能出现，但概率极低，期望复杂度是 O(n log n)；大量重复元素时，用“三路分区”把等于基准的放中间，避免退化。
-      每次先递归较短的一边、较长的一边用循环处理，可以把递归栈深度控制在 O(log n)。
-    derivation: original
-    sources:
-      - ref: mit-6006
-        locator: 排序相关讲义
-        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
-        claim: 快排好坏取决于基准选得好不好；递归深度也要控制住。
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: datastate
-      structure: array
-      caption: 三路分区：以 3 为基准，一趟扫描分成 < 3、= 3、> 3 三段
-      rows:
-        - label: 分区前
-          cells:
-            - v: 3
-              mark: pivot
-            - v: 5
-            - v: 1
-            - v: 3
-            - v: 8
-            - v: 3
-            - v: 2
-          pointers:
-            - at: 0
-              label: 基准 3
-        - label: 分区后
-          cells:
-            - v: 2
-            - v: 1
-            - v: 3
-              mark: pivot
-            - v: 3
-              mark: pivot
-            - v: 3
-              mark: pivot
-            - v: 8
-            - v: 5
-          breaks:
-            - 2
-            - 5
-      aux:
-        - label: 接下来
-          items:
-            - 中间三个 3 已就位，不再处理
-            - 只递归 [2, 1] 和 [8, 5]
-            - 先递归短的一边，栈深 O(log n)
-    log:
-      - mode: 分区
-        event: 原地分成三段
-  - id: lower-bound
-    title: 排序的下限：比较排序最快只能 O(n log n)
-    tldr: 只靠两两比较来排序，最坏情况下至少要 n log n 量级的比较次数。
-    body: |-
-      n 个元素有 n! 种可能的排列，每次比较最多把可能性分成两半，要区分全部排列，至少需要约 log₂(n!) ≈ n log n 次比较。
-      所以归并、快排、堆排序在“比较排序”里已经是最优量级了。
-      如果不靠比较，而是利用值的范围，比如计数排序、基数排序，可以做到 O(n)，但只适用于整数这类有限范围的键。
-    derivation: original
-    sources:
-      - ref: mit-6006
-        locator: 排序相关讲义
-        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
-        claim: 只靠两两比较来排序，最坏情况下至少要 n log n 量级的比较次数。
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: datastate
-      structure: array
-      caption: 3 个元素有 3! = 6 种排列；每次比较最多排除一半，至少要 ⌈log₂6⌉ = 3 次
-      rows:
-        - label: 所有可能
-          cells:
-            - v: abc
-              mark: active
-            - v: acb
-              mark: active
-            - v: bac
-              mark: active
-            - v: bca
-              mark: active
-            - v: cab
-              mark: active
-            - v: cba
-              mark: active
-        - label: 比较 a<b 后
-          cells:
-            - v: abc
-              mark: active
-            - v: acb
-              mark: active
-            - v: bac
-              mark: muted
-            - v: bca
-              mark: muted
-            - v: cab
-              mark: active
-            - v: cba
-              mark: muted
-      aux:
-        - label: 一般地
-          items:
-            - log₂(n!) ≈ n log n
-        - label: 不靠比较
-          items:
-            - 计数排序：数一数每个值出现几次
-            - "[3,1,2,1,0] → [0,1,1,2,3]"
-    log:
-      - mode: 理论
-        event: 比较排序的下限
-  - id: engineering
-    title: 工程里怎么选
-    tldr: 需要稳定选归并类，追求原地和速度选快排类；标准库已经帮你选好了。
-    body: |-
-      V8 从 7.0 版（2018 年）起，Array.prototype.sort 用 TimSort：一种稳定的归并变体，对部分有序的数据特别快。
-      稳定性的意义：先按姓名排、再按分数排，同分的人仍保持姓名顺序。
-      C++ 的 std::sort 常用的内省排序以快排为主，并在递归过深时改用堆排序，保证最坏 O(n log n)。
-    derivation: original
-    sources:
-      - ref: mit-6006
-        locator: 排序相关讲义
-        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
-        claim: 排序算法在稳定性、空间与最坏情况上有不同取舍
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: datastate
-      structure: array
-      caption: 排序结果
-      rows:
-        - display: bars
-          label: 有序
-          cells:
-            - v: 1
-              mark: done
-            - v: 2
-              mark: done
-            - v: 3
-              mark: done
-            - v: 5
-              mark: done
-            - v: 8
-              mark: done
-            - v: 9
-              mark: done
-      aux:
-        - display: bars
-          label: V8 ≥ 7.0
-          items:
-            - TimSort（稳定）
-        - display: bars
-          label: C++ std::sort
-          items:
-            - 内省排序
-    log:
-      - mode: 总结
-        event: 按需求选择排序算法
+- id: why
+  title: 为什么需要更快的排序
+  tldr: 两两比较交换的简单排序是 O(n²)，数据一多就慢得不能用。
+  body: '冒泡排序对 1 万个元素要做约 5000 万次比较，数据翻倍耗时翻四倍。
+
+    “分而治之”把大数组拆成小数组分别排好，再组合起来，能做到 O(n log n)。
+
+    1 万个元素只需要十几万次比较左右。'
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: 排序相关讲义
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: 归并排序为 O(n log n)，优于 O(n²) 的简单排序
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 分而治之：拆小、排好、再组合
+    rows:
+    - display: bars
+      label: 待排序
+      cells:
+      - v: 5
+      - v: 2
+      - v: 8
+      - v: 1
+      - v: 9
+      - v: 3
+    aux:
+    - display: bars
+      label: 比较次数
+      items:
+      - 冒泡 ≈ n²/2
+      - 分治 ≈ n log n
+  log:
+  - mode: 未排序
+    event: 6 个元素待排序
+  points:
+  - 两两比较交换的简单排序是 O(n²)，数据一多就慢得不能用。
+- id: merge-split
+  title: 归并排序：一直对半拆
+  tldr: 把数组不断对半拆开，直到每份只剩一个元素。
+  body: '[5, 2, 8, 1, 9, 3] 拆成 [5, 2, 8] 和 [1, 9, 3]，再继续拆，直到每份一个元素。
+
+    只有一个元素的数组天然有序。
+
+    拆的层数是 log n，这就是 O(n log n) 里 log n 的来源。'
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: 归并排序相关讲义
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: 归并排序递归地将数组二分
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 拆 log n 层，直到每份只剩一个元素
+    rows:
+    - display: bars
+      label: 第 0 层
+      cells:
+      - v: 5
+      - v: 2
+      - v: 8
+      - v: 1
+      - v: 9
+      - v: 3
+    - display: bars
+      label: 第 1 层
+      cells:
+      - v: 5
+      - v: 2
+      - v: 8
+      - v: 1
+      - v: 9
+      - v: 3
+      breaks:
+      - 3
+    - display: bars
+      label: 第 2 层
+      cells:
+      - v: 5
+      - v: 2
+      - v: 8
+      - v: 1
+      - v: 9
+      - v: 3
+      breaks:
+      - 1
+      - 3
+      - 4
+    - display: bars
+      label: 第 3 层
+      cells:
+      - v: 5
+        mark: active
+      - v: 2
+        mark: active
+      - v: 8
+        mark: active
+      - v: 1
+        mark: active
+      - v: 9
+        mark: active
+      - v: 3
+        mark: active
+      breaks:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+  log:
+  - mode: 拆分
+    event: 拆到每份一个元素
+- id: merge-join
+  title: 归并排序：两两合并
+  tldr: 把两份有序的小数组合并成一份有序的大数组，一层层合回去。
+  body: '合并时两边各拿最前面的，谁小取谁，一趟扫完，每层总共 O(n)。
+
+    遇到相等的元素先取左边的，所以相等元素的先后顺序不变，这叫“稳定”。
+
+    代价是合并时需要一块和原数组一样大的辅助空间。'
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: 归并排序相关讲义
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: 合并两个有序数组为线性时间，归并排序是稳定排序
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 两边各取最前面的，谁小取谁；相等先取左边（稳定）
+    rows:
+    - display: bars
+      label: 单个元素
+      cells:
+      - v: 5
+      - v: 2
+      - v: 8
+      - v: 1
+      - v: 9
+      - v: 3
+      breaks:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+    - display: bars
+      label: 合并一层
+      cells:
+      - v: 2
+        mark: active
+      - v: 5
+        mark: active
+      - v: 8
+        mark: active
+      - v: 1
+        mark: active
+      - v: 3
+        mark: active
+      - v: 9
+        mark: active
+      breaks:
+      - 3
+    - display: bars
+      label: 合并完成
+      cells:
+      - v: 1
+        mark: done
+      - v: 2
+        mark: done
+      - v: 3
+        mark: done
+      - v: 5
+        mark: done
+      - v: 8
+        mark: done
+      - v: 9
+        mark: done
+  log:
+  - mode: 有序
+    event: 合并完成
+- id: quick
+  title: 快速排序：选基准，分两边
+  tldr: 选一个基准，小的放左边、大的放右边，再分别对两边递归。
+  body: '选 5 为基准，分成 [2, 1, 3]、5、[8, 9]；基准已在最终位置，两边继续同样处理。
+
+    它原地交换，不需要大块辅助空间，实际运行通常很快。
+
+    但如果每次都选到最小或最大的元素当基准（比如对有序数组总选第一个），每次只排除一个，就退化成 O(n²)，所以实践中会随机选基准或取中位数。'
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: 快速排序相关讲义
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: 快速排序平均 O(n log n)，最坏 O(n²)，随机化基准可避免最坏情况
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 选 5 为基准：比它小的放左边，大的放右边；5 已在最终位置
+    rows:
+    - display: bars
+      label: 原数组
+      cells:
+      - v: 5
+        mark: pivot
+      - v: 2
+      - v: 8
+      - v: 1
+      - v: 9
+      - v: 3
+      pointers:
+      - at: 0
+        label: 基准
+    - display: bars
+      label: 分区后
+      cells:
+      - v: 2
+      - v: 1
+      - v: 3
+      - v: 5
+        mark: pivot
+      - v: 8
+      - v: 9
+      breaks:
+      - 3
+      - 4
+  log:
+  - mode: 分区
+    event: 左边都小于 5，右边都大于 5
+  code:
+    lang: typescript
+    code: "// 快排核心：分区把 pivot 放到最终位置，左右递归\nfunction quickSort(a: number[], lo = 0, hi = a.length - 1): void {\n  if (lo >= hi) return;\n  const pv = a[hi]!; let i = lo;\n  for (let j = lo; j < hi; j++) if (a[j]! < pv) { [a[i], a[j]] = [a[j]!, a[i]!]; i++; }\n  [a[i], a[hi]] = [a[hi]!, a[i]!];\n  quickSort(a, lo, i - 1); quickSort(a, i + 1, hi);\n}\n// 归并排序要点：分到单元素后逐层合并两个有序段，需要 O(n) 临时数组"
+    note: TypeScript 实现
+- id: quick-detail
+  title: 快排的细节：分区、基准和递归深度
+  tldr: 快排好坏取决于基准选得好不好；递归深度也要控制住。
+  body: '分区就是一趟扫描，把比基准小的换到左边、大的换到右边，原地完成。
+
+    随机选基准后，最坏情况仍可能出现，但概率极低，期望复杂度是 O(n log n)；大量重复元素时，用“三路分区”把等于基准的放中间，避免退化。
+
+    每次先递归较短的一边、较长的一边用循环处理，可以把递归栈深度控制在 O(log n)。'
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: 排序相关讲义
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: 快排好坏取决于基准选得好不好；递归深度也要控制住。
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 三路分区：以 3 为基准，一趟扫描分成 < 3、= 3、> 3 三段
+    rows:
+    - label: 分区前
+      cells:
+      - v: 3
+        mark: pivot
+      - v: 5
+      - v: 1
+      - v: 3
+      - v: 8
+      - v: 3
+      - v: 2
+      pointers:
+      - at: 0
+        label: 基准 3
+    - label: 分区后
+      cells:
+      - v: 2
+      - v: 1
+      - v: 3
+        mark: pivot
+      - v: 3
+        mark: pivot
+      - v: 3
+        mark: pivot
+      - v: 8
+      - v: 5
+      breaks:
+      - 2
+      - 5
+    aux:
+    - label: 接下来
+      items:
+      - 中间三个 3 已就位，不再处理
+      - 只递归 [2, 1] 和 [8, 5]
+      - 先递归短的一边，栈深 O(log n)
+  log:
+  - mode: 分区
+    event: 原地分成三段
+- id: lower-bound
+  title: 排序的下限：比较排序最快只能 O(n log n)
+  tldr: 只靠两两比较来排序，最坏情况下至少要 n log n 量级的比较次数。
+  body: 'n 个元素有 n! 种可能的排列，每次比较最多把可能性分成两半，要区分全部排列，至少需要约 log₂(n!) ≈ n log n 次比较。
+
+    所以归并、快排、堆排序在“比较排序”里已经是最优量级了。
+
+    如果不靠比较，而是利用值的范围，比如计数排序、基数排序，可以做到 O(n)，但只适用于整数这类有限范围的键。
+
+
+    数字例子：n = 100 万时，n log n ≈ 2000 万次比较，n² = 1 万亿次——相差 5 万倍。一次被构造的已排序输入就能让朴素快排从毫秒级掉到分钟级，生产代码都用随机/中位数 pivot 或内省排序兜底。'
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: 排序相关讲义
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: 只靠两两比较来排序，最坏情况下至少要 n log n 量级的比较次数。
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 3 个元素有 3! = 6 种排列；每次比较最多排除一半，至少要 ⌈log₂6⌉ = 3 次
+    rows:
+    - label: 所有可能
+      cells:
+      - v: abc
+        mark: active
+      - v: acb
+        mark: active
+      - v: bac
+        mark: active
+      - v: bca
+        mark: active
+      - v: cab
+        mark: active
+      - v: cba
+        mark: active
+    - label: 比较 a<b 后
+      cells:
+      - v: abc
+        mark: active
+      - v: acb
+        mark: active
+      - v: bac
+        mark: muted
+      - v: bca
+        mark: muted
+      - v: cab
+        mark: active
+      - v: cba
+        mark: muted
+    aux:
+    - label: 一般地
+      items:
+      - log₂(n!) ≈ n log n
+    - label: 不靠比较
+      items:
+      - 计数排序：数一数每个值出现几次
+      - '[3,1,2,1,0] → [0,1,1,2,3]'
+  log:
+  - mode: 理论
+    event: 比较排序的下限
+- id: engineering
+  title: 工程里怎么选
+  tldr: 需要稳定选归并类，追求原地和速度选快排类；标准库已经帮你选好了。
+  body: 'V8 从 7.0 版（2018 年）起，Array.prototype.sort 用 TimSort：一种稳定的归并变体，对部分有序的数据特别快。
+
+    稳定性的意义：先按姓名排、再按分数排，同分的人仍保持姓名顺序。
+
+    C++ 的 std::sort 常用的内省排序以快排为主，并在递归过深时改用堆排序，保证最坏 O(n log n)。'
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: 排序相关讲义
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: 排序算法在稳定性、空间与最坏情况上有不同取舍
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 排序结果
+    rows:
+    - display: bars
+      label: 有序
+      cells:
+      - v: 1
+        mark: done
+      - v: 2
+        mark: done
+      - v: 3
+        mark: done
+      - v: 5
+        mark: done
+      - v: 8
+        mark: done
+      - v: 9
+        mark: done
+    aux:
+    - display: bars
+      label: V8 ≥ 7.0
+      items:
+      - TimSort（稳定）
+    - display: bars
+      label: C++ std::sort
+      items:
+      - 内省排序
+  log:
+  - mode: 总结
+    event: 按需求选择排序算法
+- id: lab-compare
+  title: 动手实验：归并 vs 快排对比
+  tldr: 同一组输入同时跑两种排序，比较次数的差距一目了然。
+  body: 切换「已排序」预设再单步到底：快排（末元素 pivot）会做出 28 次比较——每次只排好一个元素，这就是 O(n²) 退化；归并仍是 12 次。乱序输入下两者接近，这正是随机 pivot 的价值：让输入分布无法针对你。
+  derivation: original
+  sources: []
+  canvas:
+    kind: lab
+    lab: sort-compare
+    caption: 同一输入、同步步进，对比两种排序的比较次数
+    params:
+      preset: mixed
+    cases:
+    - input:
+        preset: sorted
+      expect:
+        mergeComparisons: 12
+        quickComparisons: 28
+    - input:
+        preset: mixed
+      expect:
+        mergeComparisons: 17
+        quickComparisons: 14
+  log:
+  - mode: 实验
+    event: 在实验室中对比归并与快排
+level: 基础
+minutes: 18
+prereq: []
+objectives:
+- 说清归并的合并步骤与快排的分区步骤
+- 解释快排最坏 O(n²) 的成因与随机 pivot 的作用
+- 对比稳定性与额外空间
+aiLink: 排序无处不在：向量检索的 top-k、日志按时间归并、训练数据 shuffle 前的预处理。理解分治与最坏情况，才能在系统设计里选对排序策略、避开被构造输入打爆的快排。
+quiz:
+- q: 快排在已排序数组 + 固定末元素 pivot 时的复杂度？
+  options:
+  - O(n log n)
+  - O(n²)
+  - O(n)
+  - O(log n)
+  answer: 1
+  explain: 每次分区只去掉一个元素，递归深度 n，比较约 n²/2——sort-compare 实验里就是 28 次。
+- q: 归并排序的额外空间是？
+  options:
+  - O(1)
+  - O(n)
+  - O(log n)
+  - O(n²)
+  answer: 1
+  explain: 合并需要与输入等长的临时数组（这是它换稳定与最坏保证的代价）。
+- q: 稳定性指什么？
+  options:
+  - 速度稳定
+  - 相等元素的相对次序在排序后保持不变
+  - 内存稳定
+  - 不崩溃
+  answer: 1
+  explain: 多关键字排序靠稳定性叠加：先按次关键字排、再按主关键字稳定排序。
+legend:
+- key: active
+  label: 当前比较/处理中的元素
+- key: found
+  label: 已找到 / 最终位置
+- key: done
+  label: 已完成处理
+- key: pivot
+  label: 基准元素（pivot）
+- key: muted
+  label: 已排除 / 不再考虑
+- key: visited
+  label: 已访问

@@ -1,4 +1,3 @@
-# 知识优先版草稿（Linux x86-64 为例）。出处仅供参考，按 Daniel 决定不做逐条核对。
 id: co/instruction-cycle
 subject: co
 slug: instruction-cycle
@@ -9,292 +8,342 @@ title: 一条指令是怎么执行的
 summary: CPU 不停重复同一个循环：取一条指令、看懂它、做它、必要时读写内存、把结果存好。
 premise: 以一条“从内存读一个数放进寄存器”的加载（load）指令为例，用经典五阶段（RISC 教学）模型讲解。
 overview:
-  - key: 一句话总结
-    value: 取指 → 译码 → 执行 → 访存 → 写回，周而复始
-  - key: 程序计数器
-    value: 记着“下一条指令在哪”，每执行完一条就往前走
-  - key: 寄存器
-    value: CPU 内部极快的小存储，运算用的数据和结果大多放在这里
-  - key: 说明
-    value: 五阶段是教学模型；真实的 x86-64 会先把复杂指令拆成更简单的微操作，再乱序、并行地执行
-  - key: 指令集
-    value: x86-64（CISC）、ARM、RISC-V（RISC）；机器码互不通用
-  - key: 性能公式
-    value: CPU 时间 = 指令数 × CPI × 时钟周期
-  - key: 控制流
-    value: 跳转和函数调用就是改写 PC
-  - key: 在终端里看一看
-    value: objdump -d ./a.out | less　看程序的机器指令
+- key: 一句话总结
+  value: 取指 → 译码 → 执行 → 访存 → 写回，周而复始
+- key: 程序计数器
+  value: 记着“下一条指令在哪”，每执行完一条就往前走
+- key: 寄存器
+  value: CPU 内部极快的小存储，运算用的数据和结果大多放在这里
+- key: 说明
+  value: 五阶段是教学模型；真实的 x86-64 会先把复杂指令拆成更简单的微操作，再乱序、并行地执行
+- key: 指令集
+  value: x86-64（CISC）、ARM、RISC-V（RISC）；机器码互不通用
+- key: 性能公式
+  value: CPU 时间 = 指令数 × CPI × 时钟周期
+- key: 控制流
+  value: 跳转和函数调用就是改写 PC
+- key: 在终端里看一看
+  value: objdump -d ./a.out | less　看程序的机器指令
 visual: swimlane
 lanes:
-  - id: ctl
-    label: 控制
-  - id: alu
-    label: 运算
-  - id: mem
-    label: 存储
+- id: ctl
+  label: 控制
+- id: alu
+  label: 运算
+- id: mem
+  label: 存储
 logColumns:
-  - key: mode
-    label: 当前状态
-  - key: event
-    label: 发生了什么
+- key: mode
+  label: 当前状态
+- key: event
+  label: 发生了什么
 steps:
-  - id: fetch
-    title: 取指：拿到下一条指令
-    tldr: CPU 按程序计数器指的位置，从内存取出一条指令。
-    body: |-
-      程序计数器（PC）记着下一条指令在哪。
-      CPU 按这个地址把指令读进来，再让 PC 指向下一条。
-      程序之所以能一条接一条往下走，靠的就是这个简单的机制。
-    derivation: original
-    sources:
-      - ref: cs61c
-        locator: CPU datapath 相关讲义
-        url: https://cs61c.org/
-        claim: 处理器根据 PC 取指并更新 PC
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: swimlane
-      actors:
-        - lane: ctl
-          id: c
-          label: 控制（取指/译码）
-          highlight: true
-        - lane: alu
-          id: a
-          label: 运算单元
-        - lane: mem
-          id: m
-          label: 寄存器与内存
-      messages:
-        - id: m-fetch
-          from: m
-          to: c
-          label: 按 PC 取出指令
-          active: true
-    log:
-      - mode: 取指
-        event: 读入一条指令
-  - id: decode
-    title: 译码：看懂要做什么
-    tldr: CPU 拆开指令，弄清楚是什么操作、用哪些数据。
-    body: |-
-      指令就是一串二进制，不同的位段分别表示“做什么”和“对谁做”。
-      译码电路把它拆开，同时读出要用的寄存器里的值。
-      这一步像解析一条 JSON 命令：先看 type，再取参数。
-    derivation: original
-    sources:
-      - ref: cs61c
-        locator: 指令格式与译码相关讲义
-        url: https://cs61c.org/
-        claim: 译码阶段解析操作码并读取寄存器
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: swimlane
-      actors:
-        - lane: ctl
-          id: c
-          label: 控制（取指/译码）
-          highlight: true
-        - lane: alu
-          id: a
-          label: 运算单元
-        - lane: mem
-          id: m
-          label: 寄存器与内存
-      messages:
-        - id: m-decode
-          from: c
-          to: m
-          label: 读出要用的寄存器
-          active: true
-    log:
-      - mode: 译码
-        event: 确定是“读内存”，读出地址所在的寄存器
-  - id: execute
-    title: 执行：做计算
-    tldr: 运算单元（ALU）完成加减、比较或算出内存地址。
-    body: |-
-      ALU 是 CPU 里真正“算数”的电路。
-      对加法指令，它算出两数之和；对我们这条读内存的指令，它算出要访问的地址。
-      跳转指令也在这里判断条件，决定下一条该去哪里。
-    derivation: original
-    sources:
-      - ref: mit-6004
-        locator: 处理器设计相关讲义
-        url: https://ocw.mit.edu/courses/6-004-computation-structures-spring-2017/
-        claim: ALU 执行算术逻辑运算并计算地址
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: swimlane
-      actors:
-        - lane: ctl
-          id: c
-          label: 控制（取指/译码）
-        - lane: alu
-          id: a
-          label: 运算单元
-          highlight: true
-        - lane: mem
-          id: m
-          label: 寄存器与内存
-      messages:
-        - id: m-execute
-          from: c
-          to: a
-          label: 交给 ALU 计算
-          active: true
-    log:
-      - mode: 执行
-        event: 算出地址或结果
-  - id: memory
-    title: 访存：需要时读写内存
-    tldr: 只有读写内存的指令才真正访问内存，其余直接跳过。
-    body: |-
-      如果指令要读内存，就按上一步算出的地址把数据取回来。
-      内存比寄存器慢得多，所以 CPU 前面挡着多级缓存（后面的主题会讲）。
-      这也是编译器尽量把常用变量放在寄存器里的原因。
-    derivation: original
-    sources:
-      - ref: cs61c
-        locator: datapath 相关讲义
-        url: https://cs61c.org/
-        claim: 访存阶段执行 load/store
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: swimlane
-      actors:
-        - lane: ctl
-          id: c
-          label: 控制（取指/译码）
-        - lane: alu
-          id: a
-          label: 运算单元
-        - lane: mem
-          id: m
-          label: 寄存器与内存
-          highlight: true
-      messages:
-        - id: m-memory
-          from: a
-          to: m
-          label: 按地址读内存
-          active: true
-    log:
-      - mode: 访存
-        event: 从内存取回数据
-  - id: writeback
-    title: 写回：保存结果，进入下一轮
-    tldr: 把结果写进目标寄存器，一条指令结束，下一条开始。
-    body: |-
-      结果写回寄存器后，这条指令就完成了。
-      然后 CPU 回到第一步，按 PC 取下一条，周而复始，每秒可以重复数十亿次。
-      真实的 CPU 会把多条指令的不同阶段叠在一起做，这就是下一个主题：流水线。
-    derivation: original
-    sources:
-      - ref: csapp
-        locator: 第 4 章
-        url: http://csapp.cs.cmu.edu/
-        claim: 处理器按阶段执行指令并写回结果
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: swimlane
-      actors:
-        - lane: ctl
-          id: c
-          label: 控制（取指/译码）
-        - lane: alu
-          id: a
-          label: 运算单元
-        - lane: mem
-          id: m
-          label: 寄存器与内存
-          highlight: true
-      messages:
-        - id: m-writeback
-          from: a
-          to: m
-          label: 结果写入寄存器
-          active: true
-    log:
-      - mode: 写回
-        event: 指令完成，开始下一条
-  - id: isa
-    title: 指令集：软件和硬件之间的约定
-    tldr: 指令集（ISA）规定 CPU 认哪些指令，同一份机器码只能在同一指令集的 CPU 上跑。
-    body: |-
-      x86-64 和 ARM（如手机、Apple M 系列芯片）是两种不同的指令集，编译出来的机器码互不通用。
-      RISC 风格的指令格式整齐、每条只做简单的事；x86-64 属于 CISC，一条指令能做较复杂的事，长度也不固定。
-      指令集就像接口文档：只要约定不变，CPU 内部怎么实现都可以随便改。
-    derivation: original
-    sources:
-      - ref: cs61c
-        locator: CPU datapath 相关讲义
-        url: https://cs61c.org/
-        claim: 指令集（ISA）规定 CPU 认哪些指令，同一份机器码只能在同一指令集的 CPU 上跑。
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: swimlane
-      actors:
-        - lane: ctl
-          id: c
-          label: 控制（取指/译码）
-          highlight: true
-        - lane: alu
-          id: a
-          label: 运算单元
-        - lane: mem
-          id: m
-          label: 寄存器与内存
-      messages:
-        - id: m-isa
-          from: c
-          to: c
-          label: x86-64 机器码 ≠ ARM 机器码
-          active: true
-    log:
-      - mode: 约定
-        event: ISA 决定能执行哪些指令
-  - id: clock-perf
-    title: 时钟与性能：什么决定快慢
-    tldr: 程序耗时 = 指令条数 × 每条平均周期数 × 每周期时长。
-    body: |-
-      CPU 由时钟驱动，主频 3GHz 表示每秒 30 亿个周期。
-      程序快慢取决于三件事：要执行多少条指令（算法和编译器决定）、平均每条要几个周期（CPI，受流水线和缓存影响）、一个周期多长（主频）。
-      所以只比主频不够：缓存命中差、分支总猜错的程序，主频再高也慢。
-    derivation: original
-    sources:
-      - ref: cs61c
-        locator: CPU datapath 相关讲义
-        url: https://cs61c.org/
-        claim: 程序耗时 = 指令条数 × 每条平均周期数 × 每周期时长。
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: swimlane
-      actors:
-        - lane: ctl
-          id: c
-          label: 控制（取指/译码）
-        - lane: alu
-          id: a
-          label: 运算单元
-          highlight: true
-        - lane: mem
-          id: m
-          label: 寄存器与内存
-      messages:
-        - id: m-clock-perf
-          from: c
-          to: a
-          label: 耗时 = 指令数 × CPI × 周期
-          active: true
-    log:
-      - mode: 性能
-        event: 三个因素相乘
+- id: fetch
+  title: 取指：拿到下一条指令
+  tldr: CPU 按程序计数器指的位置，从内存取出一条指令。
+  body: '程序计数器（PC）记着下一条指令在哪。
+
+    CPU 按这个地址把指令读进来，再让 PC 指向下一条。
+
+    程序之所以能一条接一条往下走，靠的就是这个简单的机制。'
+  derivation: original
+  sources:
+  - ref: cs61c
+    locator: CPU datapath 相关讲义
+    url: https://cs61c.org/
+    claim: 处理器根据 PC 取指并更新 PC
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: ctl
+      id: c
+      label: 控制（取指/译码）
+      highlight: true
+    - lane: alu
+      id: a
+      label: 运算单元
+    - lane: mem
+      id: m
+      label: 寄存器与内存
+    messages:
+    - id: m-fetch
+      from: m
+      to: c
+      label: 按 PC 取出指令
+      active: true
+  log:
+  - mode: 取指
+    event: 读入一条指令
+  points:
+  - CPU 按程序计数器指的位置，从内存取出一条指令。
+- id: decode
+  title: 译码：看懂要做什么
+  tldr: CPU 拆开指令，弄清楚是什么操作、用哪些数据。
+  body: '指令就是一串二进制，不同的位段分别表示“做什么”和“对谁做”。
+
+    译码电路把它拆开，同时读出要用的寄存器里的值。
+
+    这一步像解析一条 JSON 命令：先看 type，再取参数。'
+  derivation: original
+  sources:
+  - ref: cs61c
+    locator: 指令格式与译码相关讲义
+    url: https://cs61c.org/
+    claim: 译码阶段解析操作码并读取寄存器
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: ctl
+      id: c
+      label: 控制（取指/译码）
+      highlight: true
+    - lane: alu
+      id: a
+      label: 运算单元
+    - lane: mem
+      id: m
+      label: 寄存器与内存
+    messages:
+    - id: m-decode
+      from: c
+      to: m
+      label: 读出要用的寄存器
+      active: true
+  log:
+  - mode: 译码
+    event: 确定是“读内存”，读出地址所在的寄存器
+- id: execute
+  title: 执行：做计算
+  tldr: 运算单元（ALU）完成加减、比较或算出内存地址。
+  body: 'ALU 是 CPU 里真正“算数”的电路。
+
+    对加法指令，它算出两数之和；对我们这条读内存的指令，它算出要访问的地址。
+
+    跳转指令也在这里判断条件，决定下一条该去哪里。'
+  derivation: original
+  sources:
+  - ref: mit-6004
+    locator: 处理器设计相关讲义
+    url: https://ocw.mit.edu/courses/6-004-computation-structures-spring-2017/
+    claim: ALU 执行算术逻辑运算并计算地址
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: ctl
+      id: c
+      label: 控制（取指/译码）
+    - lane: alu
+      id: a
+      label: 运算单元
+      highlight: true
+    - lane: mem
+      id: m
+      label: 寄存器与内存
+    messages:
+    - id: m-execute
+      from: c
+      to: a
+      label: 交给 ALU 计算
+      active: true
+  log:
+  - mode: 执行
+    event: 算出地址或结果
+- id: memory
+  title: 访存：需要时读写内存
+  tldr: 只有读写内存的指令才真正访问内存，其余直接跳过。
+  body: '如果指令要读内存，就按上一步算出的地址把数据取回来。
+
+    内存比寄存器慢得多，所以 CPU 前面挡着多级缓存（后面的主题会讲）。
+
+    这也是编译器尽量把常用变量放在寄存器里的原因。'
+  derivation: original
+  sources:
+  - ref: cs61c
+    locator: datapath 相关讲义
+    url: https://cs61c.org/
+    claim: 访存阶段执行 load/store
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: ctl
+      id: c
+      label: 控制（取指/译码）
+    - lane: alu
+      id: a
+      label: 运算单元
+    - lane: mem
+      id: m
+      label: 寄存器与内存
+      highlight: true
+    messages:
+    - id: m-memory
+      from: a
+      to: m
+      label: 按地址读内存
+      active: true
+  log:
+  - mode: 访存
+    event: 从内存取回数据
+- id: writeback
+  title: 写回：保存结果，进入下一轮
+  tldr: 把结果写进目标寄存器，一条指令结束，下一条开始。
+  body: '结果写回寄存器后，这条指令就完成了。
+
+    然后 CPU 回到第一步，按 PC 取下一条，周而复始，每秒可以重复数十亿次。
+
+    真实的 CPU 会把多条指令的不同阶段叠在一起做，这就是下一个主题：流水线。'
+  derivation: original
+  sources:
+  - ref: csapp
+    locator: 第 4 章
+    url: http://csapp.cs.cmu.edu/
+    claim: 处理器按阶段执行指令并写回结果
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: ctl
+      id: c
+      label: 控制（取指/译码）
+    - lane: alu
+      id: a
+      label: 运算单元
+    - lane: mem
+      id: m
+      label: 寄存器与内存
+      highlight: true
+    messages:
+    - id: m-writeback
+      from: a
+      to: m
+      label: 结果写入寄存器
+      active: true
+  log:
+  - mode: 写回
+    event: 指令完成，开始下一条
+- id: isa
+  title: 指令集：软件和硬件之间的约定
+  tldr: 指令集（ISA）规定 CPU 认哪些指令，同一份机器码只能在同一指令集的 CPU 上跑。
+  body: 'x86-64 和 ARM（如手机、Apple M 系列芯片）是两种不同的指令集，编译出来的机器码互不通用。
+
+    RISC 风格的指令格式整齐、每条只做简单的事；x86-64 属于 CISC，一条指令能做较复杂的事，长度也不固定。
+
+    指令集就像接口文档：只要约定不变，CPU 内部怎么实现都可以随便改。'
+  derivation: original
+  sources:
+  - ref: cs61c
+    locator: CPU datapath 相关讲义
+    url: https://cs61c.org/
+    claim: 指令集（ISA）规定 CPU 认哪些指令，同一份机器码只能在同一指令集的 CPU 上跑。
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: ctl
+      id: c
+      label: 控制（取指/译码）
+      highlight: true
+    - lane: alu
+      id: a
+      label: 运算单元
+    - lane: mem
+      id: m
+      label: 寄存器与内存
+    messages:
+    - id: m-isa
+      from: c
+      to: c
+      label: x86-64 机器码 ≠ ARM 机器码
+      active: true
+  log:
+  - mode: 约定
+    event: ISA 决定能执行哪些指令
+- id: clock-perf
+  title: 时钟与性能：什么决定快慢
+  tldr: 程序耗时 = 指令条数 × 每条平均周期数 × 每周期时长。
+  body: 'CPU 由时钟驱动，主频 3GHz 表示每秒 30 亿个周期。
+
+    程序快慢取决于三件事：要执行多少条指令（算法和编译器决定）、平均每条要几个周期（CPI，受流水线和缓存影响）、一个周期多长（主频）。
+
+    所以只比主频不够：缓存命中差、分支总猜错的程序，主频再高也慢。
+
+
+    工程注记：矩阵乘算子用 AVX-512 后一条指令能处理 16 个 float，指令数直接降一个量级——这就是 SIMD 对推理加速的本质：不是时钟变快，而是指令数变少。'
+  derivation: original
+  sources:
+  - ref: cs61c
+    locator: CPU datapath 相关讲义
+    url: https://cs61c.org/
+    claim: 程序耗时 = 指令条数 × 每条平均周期数 × 每周期时长。
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: ctl
+      id: c
+      label: 控制（取指/译码）
+    - lane: alu
+      id: a
+      label: 运算单元
+      highlight: true
+    - lane: mem
+      id: m
+      label: 寄存器与内存
+    messages:
+    - id: m-clock-perf
+      from: c
+      to: a
+      label: 耗时 = 指令数 × CPI × 周期
+      active: true
+  log:
+  - mode: 性能
+    event: 三个因素相乘
+  code:
+    lang: text
+    code: "CPU 时间 = 指令数 × CPI ÷ 主频\n例：10 亿条指令、CPI=1.5、主频 3 GHz\n   = 1e9 × 1.5 ÷ 3e9 = 0.5 秒"
+    note: 性能公式
+level: 基础
+minutes: 15
+prereq:
+- co/compile-link
+objectives:
+- 说出取指→译码→执行→访存→写回五级各自做什么
+- 用 CPI 与主频估算程序运行时间
+- 解释为什么同一条指令在不同 CPU 上快慢不同
+aiLink: 估算推理延迟时绕不开这课的公式：时间 = 指令数 × CPI ÷ 主频。算子融合为什么能加速、向量指令为什么值钱，都能用指令数与 CPI 的变化来解释，而不是背结论。
+quiz:
+- q: CPU 时间公式是？
+  options:
+  - 指令数 × 主频
+  - 指令数 × CPI ÷ 主频
+  - CPI × 内存大小
+  - 主频 ÷ 指令数
+  answer: 1
+  explain: 三者缺一不可：少执行指令、每条更快、时钟更快都能缩短时间。
+- q: 写回（WB）阶段做什么？
+  options:
+  - 取下一条指令
+  - 把执行结果写回寄存器堆
+  - 访问内存读数据
+  - 译码
+  answer: 1
+  explain: 结果先回寄存器，后续指令才能把它当操作数，形成流水线的数据通路。
+- q: 一条 load 指令慢，通常卡在？
+  options:
+  - 译码
+  - 访存阶段等缓存/内存返回数据
+  - 写回
+  - 取指
+  answer: 1
+  explain: 访存延迟取决于缓存层级：L1 约几周期，内存要上百周期。

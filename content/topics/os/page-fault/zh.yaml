@@ -1,4 +1,3 @@
-# 知识优先版草稿（Linux x86-64 为例）。出处仅供参考，按 Daniel 决定不做逐条核对。
 id: os/page-fault
 subject: os
 slug: page-fault
@@ -9,247 +8,306 @@ title: 缺页异常：用到时才分配
 summary: Linux 不会提前把内存给足，等程序真正用到时再补上，内存紧张时还可能“超卖”。
 premise: 以程序 malloc 一大块内存、之后第一次写入为例。
 overview:
-  - key: 一句话总结
-    value: 访问还没准备好的页 → 陷入内核 → 内核补上 → 重新执行那条指令
-  - key: 核心思想
-    value: 按需分配：不用就不花
-  - key: 超额承诺
-    value: Linux 默认允许申请超过实际可用的内存
-  - key: OOM killer
-    value: 内存真的不够时，内核挑一个进程杀掉
-  - key: 类比
-    value: 前端的图片懒加载、路由按需加载代码
-  - key: 三种结果
-    value: 次要缺页（补一页）、主要缺页（读磁盘）、非法访问（段错误）
-  - key: 其他用途
-    value: 写时复制、文件映射 mmap、换出页读回
-  - key: 在终端里看一看
-    value: /usr/bin/time -v ls　看 Minor/Major page faults；dmesg | grep -i oom　看 OOM killer 记录（可能需要 sudo）
+- key: 一句话总结
+  value: 访问还没准备好的页 → 陷入内核 → 内核补上 → 重新执行那条指令
+- key: 核心思想
+  value: 按需分配：不用就不花
+- key: 超额承诺
+  value: Linux 默认允许申请超过实际可用的内存
+- key: OOM killer
+  value: 内存真的不够时，内核挑一个进程杀掉
+- key: 类比
+  value: 前端的图片懒加载、路由按需加载代码
+- key: 三种结果
+  value: 次要缺页（补一页）、主要缺页（读磁盘）、非法访问（段错误）
+- key: 其他用途
+  value: 写时复制、文件映射 mmap、换出页读回
+- key: 在终端里看一看
+  value: /usr/bin/time -v ls　看 Minor/Major page faults；dmesg | grep -i oom　看 OOM killer 记录（可能需要 sudo）
 visual: swimlane
 lanes:
-  - id: procs
-    label: 程序
-  - id: kernel
-    label: 内核
-  - id: mem
-    label: 物理内存
+- id: procs
+  label: 程序
+- id: kernel
+  label: 内核
+- id: mem
+  label: 物理内存
 logColumns:
-  - key: mode
-    label: 当前状态
-  - key: event
-    label: 发生了什么
+- key: mode
+  label: 当前状态
+- key: event
+  label: 发生了什么
 steps:
-  - id: why-lazy
-    title: 为什么不一次分配好
-    tldr: 程序申请的内存，很多根本用不到，提前分配是浪费。
-    body: |-
-      程序常常 malloc 一大块“备用”，实际只用一小部分。
-      Linux 于是只在账本上记下“这段地址归你了”，暂时不给真实内存。
-      这和前端图片懒加载一样：滚动到了再加载，看不到的就不花流量。
-    derivation: original
-    sources:
-      - ref: linux-man-pages
-        locator: malloc(3) NOTES、mmap(2)
-        url: https://man7.org/linux/man-pages/man3/malloc.3.html
-        claim: 大块分配通过 mmap 建立映射，物理页在访问时才分配
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: swimlane
-      actors:
-        - lane: procs
-          id: p
-          label: 程序
-          highlight: true
-        - lane: kernel
-          id: k
-          label: 内核
-        - lane: mem
-          id: r
-          label: 物理内存
-      messages:
-        - id: m-why-lazy
-          from: p
-          to: k
-          label: malloc 一大块内存
-          active: true
-    log:
-      - mode: 用户态
-        event: 内核只记账，不分配真实内存
-  - id: fault
-    title: 第一次访问：触发缺页异常
-    tldr: 程序第一次写这块内存，发现这一页还没映射，硬件陷入内核。
-    body: |-
-      地址翻译时发现这一页还没有对应的物理内存。
-      硬件不会直接报错，而是陷入内核，告诉它哪个地址出了问题。
-      这次异常不代表程序有错，它是内核和硬件约好的信号。
-    derivation: original
-    sources:
-      - ref: ostep
-        locator: "Beyond Physical Memory: Mechanisms 一章"
-        claim: 访问未在内存中的页触发缺页异常
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: swimlane
-      actors:
-        - lane: procs
-          id: p
-          label: 程序
-        - lane: kernel
-          id: k
-          label: 内核
-          highlight: true
-        - lane: mem
-          id: r
-          label: 物理内存
-      messages:
-        - id: m-fault
-          from: p
-          to: k
-          label: 缺页！陷入内核
-          active: true
-    log:
-      - mode: 进入内核态
-        event: 访问未映射的页，陷入内核
-  - id: decide
-    title: 内核判断：合法还是越界
-    tldr: 内核查账本，看这个地址是不是程序有权使用的。
-    body: |-
-      地址在程序申请过的范围内，说明只是还没分配，内核来补上。
-      地址根本不属于程序，那才是真错误，内核发信号终止它，也就是常见的“段错误”（Segmentation fault）。
-      同一种异常，内核根据账本给出完全不同的处理。
-    derivation: original
-    sources:
-      - ref: ostep
-        locator: "Beyond Physical Memory: Mechanisms 一章"
-        claim: 操作系统区分合法缺页与非法访问
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: swimlane
-      actors:
-        - lane: procs
-          id: p
-          label: 程序
-        - lane: kernel
-          id: k
-          label: 内核
-          highlight: true
-        - lane: mem
-          id: r
-          label: 物理内存
-      messages: []
-    log:
-      - mode: 内核态
-        event: 确认地址合法，只是尚未分配
-  - id: fill
-    title: 补上这一页，并重新执行
-    tldr: 内核分一页内存填进页表，程序重新执行刚才那条指令。
-    body: |-
-      内核拿一页空闲内存清零后映射过去；如果内容要从磁盘读（比如程序文件或被换出的页），就会慢很多。
-      只改页表、不读磁盘的叫“次要缺页”，要读磁盘的叫“主要缺页”。
-      内核返回后，程序重做那次访问，这次成功，完全不知道中间发生了什么。
-    derivation: original
-    sources:
-      - ref: ostep
-        locator: Beyond Physical Memory 相关章节
-        claim: 缺页处理分配或读回页面后重新执行指令
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: swimlane
-      actors:
-        - lane: procs
-          id: p
-          label: 程序
-        - lane: kernel
-          id: k
-          label: 内核
-        - lane: mem
-          id: r
-          label: 物理内存
-          highlight: true
-      messages:
-        - id: m-fill
-          from: k
-          to: r
-          label: 分配一页并映射
-          active: true
-    log:
-      - mode: 内核态 → 用户态
-        event: 新页映射进页表，重试成功
-  - id: cow-mmap
-    title: 缺页的其他用途：写时复制和文件映射
-    tldr: 缺页不只用来按需分配，内核还靠它实现写时复制和按需读文件。
-    body: |-
-      fork 之后父子共享只读页，子进程一写就触发缺页，内核复制出一份私有页，再让它重做写入。
-      mmap 映射一个文件，也不是立刻读进来，而是访问到哪一页才从磁盘读哪一页；程序本身的代码也是这样按需加载的。
-      所以“缺页”是内核偷懒和省内存的通用开关，不是错误。
-    derivation: original
-    sources:
-      - ref: linux-man-pages
-        locator: malloc(3) NOTES、mmap(2)
-        url: https://man7.org/linux/man-pages/man3/malloc.3.html
-        claim: 缺页不只用来按需分配，内核还靠它实现写时复制和按需读文件。
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: swimlane
-      actors:
-        - lane: procs
-          id: p
-          label: 程序
-        - lane: kernel
-          id: k
-          label: 内核
-          highlight: true
-        - lane: mem
-          id: r
-          label: 物理内存
-      messages:
-        - id: m-cow-mmap
-          from: k
-          to: r
-          label: 复制出私有页 / 从文件读入
-          active: true
-    log:
-      - mode: 缺页
-        event: 写时复制或文件页读入
-  - id: overcommit
-    title: 超卖的代价：OOM killer
-    tldr: 因为是按需分配，Linux 敢“超卖”内存；真不够时只能杀进程。
-    body: |-
-      既然大部分申请的内存用不到，Linux 默认允许大家申请的总量超过实际内存，这叫超额承诺（overcommit）。
-      万一大家真的都来用，缺页时找不到空闲内存，内核就启动 OOM killer，挑一个占用大的进程杀掉。
-      所以服务“莫名其妙被杀”，常常要去 dmesg 里找 OOM 记录。
-    derivation: original
-    sources:
-      - ref: linux-kernel-docs
-        locator: mm/overcommit-accounting
-        url: https://docs.kernel.org/mm/overcommit-accounting.html
-        claim: Linux 的内存超额承诺策略
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: swimlane
-      actors:
-        - lane: procs
-          id: p
-          label: 程序
-        - lane: kernel
-          id: k
-          label: 内核
-          highlight: true
-        - lane: mem
-          id: r
-          label: 物理内存
-      messages:
-        - id: m-overcommit
-          from: k
-          to: p
-          label: 内存不够：结束一个进程
-          active: true
-    log:
-      - mode: 内核态
-        event: OOM killer 选中并终止进程
+- id: why-lazy
+  title: 为什么不一次分配好
+  tldr: 程序申请的内存，很多根本用不到，提前分配是浪费。
+  body: '程序常常 malloc 一大块“备用”，实际只用一小部分。
+
+    Linux 于是只在账本上记下“这段地址归你了”，暂时不给真实内存。
+
+    这和前端图片懒加载一样：滚动到了再加载，看不到的就不花流量。'
+  derivation: original
+  sources:
+  - ref: linux-man-pages
+    locator: malloc(3) NOTES、mmap(2)
+    url: https://man7.org/linux/man-pages/man3/malloc.3.html
+    claim: 大块分配通过 mmap 建立映射，物理页在访问时才分配
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: procs
+      id: p
+      label: 程序
+      highlight: true
+    - lane: kernel
+      id: k
+      label: 内核
+    - lane: mem
+      id: r
+      label: 物理内存
+    messages:
+    - id: m-why-lazy
+      from: p
+      to: k
+      label: malloc 一大块内存
+      active: true
+  log:
+  - mode: 用户态
+    event: 内核只记账，不分配真实内存
+  points:
+  - 程序申请的内存，很多根本用不到，提前分配是浪费。
+- id: fault
+  title: 第一次访问：触发缺页异常
+  tldr: 程序第一次写这块内存，发现这一页还没映射，硬件陷入内核。
+  body: '地址翻译时发现这一页还没有对应的物理内存。
+
+    硬件不会直接报错，而是陷入内核，告诉它哪个地址出了问题。
+
+    这次异常不代表程序有错，它是内核和硬件约好的信号。'
+  derivation: original
+  sources:
+  - ref: ostep
+    locator: 'Beyond Physical Memory: Mechanisms 一章'
+    claim: 访问未在内存中的页触发缺页异常
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: procs
+      id: p
+      label: 程序
+    - lane: kernel
+      id: k
+      label: 内核
+      highlight: true
+    - lane: mem
+      id: r
+      label: 物理内存
+    messages:
+    - id: m-fault
+      from: p
+      to: k
+      label: 缺页！陷入内核
+      active: true
+  log:
+  - mode: 进入内核态
+    event: 访问未映射的页，陷入内核
+  code:
+    lang: text
+    code: '缺页处理（内核视角）：
+
+      1. 查 VMA：地址不合法 → SIGSEGV
+
+      2. 文件页 → 从页缓存/磁盘读入该页
+
+      3. 匿名页 → 分配零页
+
+      4. COW 页 → 复制一份再写
+
+      填好页表后重新执行出错的那条指令'
+    note: 流程伪代码
+- id: decide
+  title: 内核判断：合法还是越界
+  tldr: 内核查账本，看这个地址是不是程序有权使用的。
+  body: '地址在程序申请过的范围内，说明只是还没分配，内核来补上。
+
+    地址根本不属于程序，那才是真错误，内核发信号终止它，也就是常见的“段错误”（Segmentation fault）。
+
+    同一种异常，内核根据账本给出完全不同的处理。'
+  derivation: original
+  sources:
+  - ref: ostep
+    locator: 'Beyond Physical Memory: Mechanisms 一章'
+    claim: 操作系统区分合法缺页与非法访问
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: procs
+      id: p
+      label: 程序
+    - lane: kernel
+      id: k
+      label: 内核
+      highlight: true
+    - lane: mem
+      id: r
+      label: 物理内存
+    messages: []
+  log:
+  - mode: 内核态
+    event: 确认地址合法，只是尚未分配
+- id: fill
+  title: 补上这一页，并重新执行
+  tldr: 内核分一页内存填进页表，程序重新执行刚才那条指令。
+  body: '内核拿一页空闲内存清零后映射过去；如果内容要从磁盘读（比如程序文件或被换出的页），就会慢很多。
+
+    只改页表、不读磁盘的叫“次要缺页”，要读磁盘的叫“主要缺页”。
+
+    内核返回后，程序重做那次访问，这次成功，完全不知道中间发生了什么。'
+  derivation: original
+  sources:
+  - ref: ostep
+    locator: Beyond Physical Memory 相关章节
+    claim: 缺页处理分配或读回页面后重新执行指令
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: procs
+      id: p
+      label: 程序
+    - lane: kernel
+      id: k
+      label: 内核
+    - lane: mem
+      id: r
+      label: 物理内存
+      highlight: true
+    messages:
+    - id: m-fill
+      from: k
+      to: r
+      label: 分配一页并映射
+      active: true
+  log:
+  - mode: 内核态 → 用户态
+    event: 新页映射进页表，重试成功
+- id: cow-mmap
+  title: 缺页的其他用途：写时复制和文件映射
+  tldr: 缺页不只用来按需分配，内核还靠它实现写时复制和按需读文件。
+  body: 'fork 之后父子共享只读页，子进程一写就触发缺页，内核复制出一份私有页，再让它重做写入。
+
+    mmap 映射一个文件，也不是立刻读进来，而是访问到哪一页才从磁盘读哪一页；程序本身的代码也是这样按需加载的。
+
+    所以“缺页”是内核偷懒和省内存的通用开关，不是错误。
+
+
+    工程注记：用 mmap 加载 70B 模型权重（约 140 GB，FP16）时，多个推理进程可以共享同一批文件页（页缓存只有一份）；若用 read 全量读入，每个进程各占一份私有内存。vLLM 与 llama.cpp 的 mmap 模式省的正是这笔账。'
+  derivation: original
+  sources:
+  - ref: linux-man-pages
+    locator: malloc(3) NOTES、mmap(2)
+    url: https://man7.org/linux/man-pages/man3/malloc.3.html
+    claim: 缺页不只用来按需分配，内核还靠它实现写时复制和按需读文件。
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: procs
+      id: p
+      label: 程序
+    - lane: kernel
+      id: k
+      label: 内核
+      highlight: true
+    - lane: mem
+      id: r
+      label: 物理内存
+    messages:
+    - id: m-cow-mmap
+      from: k
+      to: r
+      label: 复制出私有页 / 从文件读入
+      active: true
+  log:
+  - mode: 缺页
+    event: 写时复制或文件页读入
+- id: overcommit
+  title: 超卖的代价：OOM killer
+  tldr: 因为是按需分配，Linux 敢“超卖”内存；真不够时只能杀进程。
+  body: '既然大部分申请的内存用不到，Linux 默认允许大家申请的总量超过实际内存，这叫超额承诺（overcommit）。
+
+    万一大家真的都来用，缺页时找不到空闲内存，内核就启动 OOM killer，挑一个占用大的进程杀掉。
+
+    所以服务“莫名其妙被杀”，常常要去 dmesg 里找 OOM 记录。'
+  derivation: original
+  sources:
+  - ref: linux-kernel-docs
+    locator: mm/overcommit-accounting
+    url: https://docs.kernel.org/mm/overcommit-accounting.html
+    claim: Linux 的内存超额承诺策略
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: procs
+      id: p
+      label: 程序
+    - lane: kernel
+      id: k
+      label: 内核
+      highlight: true
+    - lane: mem
+      id: r
+      label: 物理内存
+    messages:
+    - id: m-overcommit
+      from: k
+      to: p
+      label: 内存不够：结束一个进程
+      active: true
+  log:
+  - mode: 内核态
+    event: OOM killer 选中并终止进程
+level: 进阶
+minutes: 16
+prereq:
+- os/virtual-memory
+objectives:
+- 按顺序说出缺页处理流程
+- 区分文件页、匿名页与写时复制缺页
+- 解释 overcommit 为什么敢承诺超过物理内存
+aiLink: 大模型权重常用 mmap 加载：进程启动瞬间并不把几十 GB 权重全读进内存，而是靠缺页按需调入——服务冷启动快、内存峰值可控。看懂缺页与 mmap，就看懂了 safetensors 懒加载、按需分页与内存超卖的底层机制。
+quiz:
+- q: 缺页异常一定是程序出错吗？
+  options:
+  - 是的，立刻段错误
+  - 不是，按需调页、COW、栈增长都靠缺页正常完成
+  - 只有写代码时才会
+  - 是内核 bug
+  answer: 1
+  explain: 缺页是机制而非错误；只有地址确实非法时才发 SIGSEGV。
+- q: mmap 一个 40 GB 权重文件后立刻能运行，靠的是？
+  options:
+  - 文件已全读进内存
+  - 只建映射，真正读盘由第一次访问时的缺页触发
+  - 权重被压缩了
+  - GPU 直接读文件
+  answer: 1
+  explain: 映射 ≠ 加载，缺页时按页从文件调入页缓存。
+- q: overcommit 的风险是什么？
+  options:
+  - 没有风险
+  - 真用超了物理内存+交换区时 OOM Killer 会杀掉进程
+  - 程序变慢
+  - 文件损坏
+  answer: 1
+  explain: 承诺时不预留，真超限就由 OOM Killer 按策略回收进程。

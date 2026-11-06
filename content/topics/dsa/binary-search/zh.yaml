@@ -1,4 +1,3 @@
-# 知识优先版草稿（Linux x86-64 为例）。出处仅供参考，按 Daniel 决定不做逐条核对。
 id: dsa/binary-search
 subject: dsa
 slug: binary-search
@@ -9,483 +8,608 @@ title: 二分查找：每次排除一半
 summary: 在有序数组里找东西，每次看中间，排除一半，很快就能找到。
 premise: 以在 [2, 5, 8, 12, 16, 23, 38, 56] 中找 23 为例。
 overview:
-  - key: 一句话总结
-    value: 前提是有序；每次比较中间元素，范围减半
-  - key: 复杂度
-    value: O(log n)：100 万个元素最多约 20 次比较
-  - key: 前提
-    value: 数据必须有序，且能按下标直接访问
-  - key: 工程里
-    value: lodash 的 sortedIndex、数据库 B+ 树索引、git bisect 找出引入 bug 的提交
-  - key: 易错点
-    value: 边界条件（左闭右开还是闭区间）、取中间时整数溢出
-  - key: 变体
-    value: lower_bound / upper_bound、在单调的答案上二分
-  - key: 不变式
-    value: 目标若存在，一定在当前区间内
+- key: 一句话总结
+  value: 前提是有序；每次比较中间元素，范围减半
+- key: 复杂度
+  value: O(log n)：100 万个元素最多约 20 次比较
+- key: 前提
+  value: 数据必须有序，且能按下标直接访问
+- key: 工程里
+  value: lodash 的 sortedIndex、数据库 B+ 树索引、git bisect 找出引入 bug 的提交
+- key: 易错点
+  value: 边界条件（左闭右开还是闭区间）、取中间时整数溢出
+- key: 变体
+  value: lower_bound / upper_bound、在单调的答案上二分
+- key: 不变式
+  value: 目标若存在，一定在当前区间内
 visual: datastate
 logColumns:
-  - key: mode
-    label: 当前状态
-  - key: event
-    label: 发生了什么
+- key: mode
+  label: 当前状态
+- key: event
+  label: 发生了什么
 steps:
-  - id: why
-    title: 为什么不一个个找
-    tldr: 逐个比对是 O(n)；如果数据已经排好序，就能利用顺序大幅减少比较。
-    body: |-
-      在 8 个数里找 23，从头看最多要看 8 次。
-      但数组有序时，看一个数就能知道目标在它左边还是右边。
-      就像翻字典，不会从第一页翻起，而是直接翻到中间附近。
-    derivation: original
-    sources:
-      - ref: mit-6006
-        locator: 二分查找相关讲义
-        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
-        claim: 有序数组可用二分查找在 O(log n) 时间内查找
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: datastate
-      structure: array
-      caption: 从头逐个看，最多要看 8 次
-      rows:
-        - cells:
-            - v: 2
-              mark: active
-              sub: "0"
-            - v: 5
-              sub: "1"
-            - v: 8
-              sub: "2"
-            - v: 12
-              sub: "3"
-            - v: 16
-              sub: "4"
-            - v: 23
-              sub: "5"
-            - v: 38
-              sub: "6"
-            - v: 56
-              sub: "7"
-          pointers:
-            - at: 0
-              label: 从头看？
-    log:
-      - mode: 范围：全部 8 个
-        event: 目标 23，从整个数组开始
-  - id: middle
-    title: 看中间，排除一半
-    tldr: 比较中间元素和目标，目标更大就只看右半边。
-    body: |-
-      中间的元素是 12，23 比它大，所以 23 不可能在左半边。
-      一次比较就排除了一半的元素。
-      这就是二分的核心：每一步都让剩下的范围减半。
-    derivation: original
-    sources:
-      - ref: mit-6006
-        locator: 二分查找相关讲义
-        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
-        claim: 每次比较排除一半候选
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: datastate
-      structure: array
-      caption: 12 < 23，左半边（含 12）全部排除
-      rows:
-        - cells:
-            - v: 2
-              mark: muted
-              sub: "0"
-            - v: 5
-              mark: muted
-              sub: "1"
-            - v: 8
-              mark: muted
-              sub: "2"
-            - v: 12
-              mark: active
-              sub: "3"
-            - v: 16
-              sub: "4"
-            - v: 23
-              sub: "5"
-            - v: 38
-              sub: "6"
-            - v: 56
-              sub: "7"
-          range:
-            from: 0
-            to: 7
-          pointers:
-            - at: 0
-              label: lo
-            - at: 3
-              label: mid
-            - at: 7
-              label: hi
-    log:
-      - mode: 范围：右半边 4 个
-        event: 排除左半边
-  - id: repeat
-    title: 重复，直到找到或范围为空
-    tldr: 在剩下的范围里继续取中间、比较、减半。
-    body: |-
-      右半边 [16, 23, 38, 56] 的中间是 23，正好找到。
-      如果目标不存在，范围会缩到空，这时返回“没找到”，或者返回“它应该插在哪里”。
-      lodash 的 sortedIndex 返回的就是这个插入位置。
-    derivation: original
-    sources:
-      - ref: mit-6006
-        locator: 二分查找相关讲义
-        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
-        claim: 范围为空时查找失败，可得到插入位置
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: datastate
-      structure: array
-      caption: 右半边的中间正好是 23
-      rows:
-        - cells:
-            - v: 2
-              mark: muted
-              sub: "0"
-            - v: 5
-              mark: muted
-              sub: "1"
-            - v: 8
-              mark: muted
-              sub: "2"
-            - v: 12
-              mark: muted
-              sub: "3"
-            - v: 16
-              sub: "4"
-            - v: 23
-              mark: found
-              sub: "5"
-            - v: 38
-              sub: "6"
-            - v: 56
-              sub: "7"
-          range:
-            from: 4
-            to: 7
-          pointers:
-            - at: 4
-              label: lo
-            - at: 5
-              label: mid
-            - at: 7
-              label: hi
-    log:
-      - mode: 找到
-        event: 第 2 次比较命中
-  - id: boundary
-    title: 写对边界：循环不变式
-    tldr: 二分最容易错的是边界，先想清楚“目标一定在哪个范围里”。
-    body: |-
-      选一种区间写法并坚持到底：比如左闭右开 [lo, hi)，循环条件就是 lo < hi，缩小时 hi = mid 或 lo = mid + 1。
-      每一轮都要保证“如果目标存在，一定还在区间里”，这叫循环不变式；每轮区间都严格变小，循环才一定会结束。
-      取中间用 lo + (hi - lo) / 2，避免 lo + hi 在固定位数整数里溢出，这个 bug 曾在 Java 标准库里存在多年。
-    derivation: original
-    sources:
-      - ref: mit-6006
-        locator: 二分查找相关讲义
-        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
-        claim: 二分最容易错的是边界，先想清楚“目标一定在哪个范围里”。
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: datastate
-      structure: array
-      caption: 左闭右开 [lo, hi) 找第一个 ≥ 23 的位置：每轮目标都还在区间里，区间严格变小
-      rows:
-        - label: 第 1 轮 [0, 8)
-          cells:
-            - v: 2
-              sub: "0"
-            - v: 5
-              sub: "1"
-            - v: 8
-              sub: "2"
-            - v: 12
-              sub: "3"
-            - v: 16
-              mark: active
-              sub: "4"
-            - v: 23
-              sub: "5"
-            - v: 38
-              sub: "6"
-            - v: 56
-              sub: "7"
-          range:
-            from: 0
-            to: 7
-          pointers:
-            - at: 0
-              label: lo
-            - at: 4
-              label: mid：16 < 23 → lo = 5
-        - label: 第 2 轮 [5, 8)
-          cells:
-            - v: 2
-              mark: muted
-              sub: "0"
-            - v: 5
-              mark: muted
-              sub: "1"
-            - v: 8
-              mark: muted
-              sub: "2"
-            - v: 12
-              mark: muted
-              sub: "3"
-            - v: 16
-              mark: muted
-              sub: "4"
-            - v: 23
-              sub: "5"
-            - v: 38
-              mark: active
-              sub: "6"
-            - v: 56
-              sub: "7"
-          range:
-            from: 5
-            to: 7
-          pointers:
-            - at: 5
-              label: lo
-            - at: 6
-              label: mid：38 ≥ 23 → hi = 6
-        - label: 第 3 轮 [5, 6)
-          cells:
-            - v: 2
-              mark: muted
-              sub: "0"
-            - v: 5
-              mark: muted
-              sub: "1"
-            - v: 8
-              mark: muted
-              sub: "2"
-            - v: 12
-              mark: muted
-              sub: "3"
-            - v: 16
-              mark: muted
-              sub: "4"
-            - v: 23
-              mark: active
-              sub: "5"
-            - v: 38
-              mark: muted
-              sub: "6"
-            - v: 56
-              mark: muted
-              sub: "7"
-          range:
-            from: 5
-            to: 5
-          pointers:
-            - at: 5
-              label: lo = mid：23 ≥ 23 → hi = 5
-        - label: lo = hi = 5，结束
-          cells:
-            - v: 2
-              sub: "0"
-            - v: 5
-              sub: "1"
-            - v: 8
-              sub: "2"
-            - v: 12
-              sub: "3"
-            - v: 16
-              sub: "4"
-            - v: 23
-              mark: found
-              sub: "5"
-            - v: 38
-              sub: "6"
-            - v: 56
-              sub: "7"
-          pointers:
-            - at: 5
-              label: 答案 5
-      aux:
-        - label: 取中间
-          items:
-            - mid = lo + (hi - lo) / 2
-            - 不写 (lo + hi) / 2，防溢出
-    log:
-      - mode: 查找
-        event: 区间保持不变式
-  - id: variants
-    title: 二分的变体：找边界、在答案上二分
-    tldr: 有重复元素时可以找“第一个 ≥ x”的位置；只要有单调性，就能二分。
-    body: |-
-      数组里有多个 23 时，“找第一个不小于 23 的位置”（lower_bound）和“第一个大于 23 的位置”（upper_bound）相减，就得到 23 出现的次数。
-      更广的用法是在答案上二分：只要“答案为 k 时是否可行”随 k 单调变化，就能二分找最小可行的 k，比如找最小的带宽让任务按时完成。
-      git bisect 也是这个思路：提交按时间有序，“有没有这个 bug”在某个提交前后发生改变。
-    derivation: original
-    sources:
-      - ref: mit-6006
-        locator: 二分查找相关讲义
-        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
-        claim: 有重复元素时可以找“第一个 ≥ x”的位置；只要有单调性，就能二分。
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: datastate
-      structure: array
-      caption: 有重复的 23：upper_bound − lower_bound = 5 − 2 = 3 个
-      rows:
-        - label: 有序数组
-          cells:
-            - v: 5
-              sub: "0"
-            - v: 12
-              sub: "1"
-            - v: 23
-              mark: found
-              sub: "2"
-            - v: 23
-              mark: found
-              sub: "3"
-            - v: 23
-              mark: found
-              sub: "4"
-            - v: 38
-              sub: "5"
-            - v: 56
-              sub: "6"
-            - v: 70
-              sub: "7"
-          pointers:
-            - at: 2
-              label: lower_bound：第一个 ≥ 23
-            - at: 5
-              label: upper_bound：第一个 > 23
-        - label: 在答案上二分
-          cells:
-            - v: 不可行
-              mark: muted
-              sub: k=1
-            - v: 不可行
-              mark: muted
-              sub: k=2
-            - v: 不可行
-              mark: muted
-              sub: k=3
-            - v: 可行
-              mark: found
-              sub: k=4
-            - v: 可行
-              sub: k=5
-            - v: 可行
-              sub: k=6
-          pointers:
-            - at: 3
-              label: 最小可行的 k
-      aux:
-        - label: 前提
-          items:
-            - “是否可行”随 k 单调：一旦可行，更大的 k 也可行
-    log:
-      - mode: 变体
-        event: 找左边界
-  - id: complexity
-    title: 为什么是 O(log n)
-    tldr: 每次减半，n 个元素最多减半 log₂n 次就只剩一个。
-    body: |-
-      8 个元素最多比 4 次，100 万个元素最多约 20 次，10 亿个也只要约 30 次。
-      数据量翻倍，只多比较一次，这就是对数增长。
-      这也是数据库索引能在海量数据里瞬间定位的原因之一。
-    derivation: original
-    sources:
-      - ref: mit-6006
-        locator: 渐近分析相关讲义
-        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
-        claim: 二分查找比较次数为对数级
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: datastate
-      structure: array
-      caption: 每比较一次，范围减半
-      rows:
-        - label: 剩余范围
-          cells:
-            - v: 8
-              mark: active
-              sub: 第 1 次
-            - v: 4
-              sub: 第 2 次
-            - v: 2
-              sub: 第 3 次
-            - v: 1
-              mark: found
-              sub: 第 4 次
-      aux:
-        - label: 规模 → 最多比较
-          items:
-            - 8 → 4 次
-            - 100 万 → 约 20 次
-            - 10 亿 → 约 30 次
-    log:
-      - mode: 分析
-        event: 数据翻倍只多一次比较
-  - id: engineering
-    title: 前提和陷阱
-    tldr: 必须有序且能随机访问；边界条件最容易写错。
-    body: |-
-      如果数据经常变化，每次都重新排序就不划算，这时哈希表或平衡树更合适。
-      链表不能直接跳到中间，所以不能高效二分。
-      二分的思想也不只用于数组：git bisect 在提交历史里二分，找出是哪次提交引入了 bug。
-    derivation: original
-    sources:
-      - ref: mit-6006
-        locator: 二分查找相关讲义
-        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
-        claim: 二分查找要求有序与随机访问
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: datastate
-      structure: array
-      caption: 前提：有序，且能按下标直接跳到中间
-      rows:
-        - label: 有序数组
-          cells:
-            - v: 2
-              sub: "0"
-            - v: 5
-              sub: "1"
-            - v: 8
-              sub: "2"
-            - v: 12
-              sub: "3"
-            - v: 16
-              sub: "4"
-            - v: 23
-              mark: found
-              sub: "5"
-            - v: 38
-              sub: "6"
-            - v: 56
-              sub: "7"
-      aux:
-        - label: 不适合
-          items:
-            - 链表
-            - 频繁变化的数据
-        - label: 同样思想
-          items:
-            - git bisect
-    log:
-      - mode: 总结
-        event: 选对场景再用二分
+- id: why
+  title: 为什么不一个个找
+  tldr: 逐个比对是 O(n)；如果数据已经排好序，就能利用顺序大幅减少比较。
+  body: '在 8 个数里找 23，从头看最多要看 8 次。
+
+    但数组有序时，看一个数就能知道目标在它左边还是右边。
+
+    就像翻字典，不会从第一页翻起，而是直接翻到中间附近。'
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: 二分查找相关讲义
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: 有序数组可用二分查找在 O(log n) 时间内查找
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 从头逐个看，最多要看 8 次
+    rows:
+    - cells:
+      - v: 2
+        mark: active
+        sub: '0'
+      - v: 5
+        sub: '1'
+      - v: 8
+        sub: '2'
+      - v: 12
+        sub: '3'
+      - v: 16
+        sub: '4'
+      - v: 23
+        sub: '5'
+      - v: 38
+        sub: '6'
+      - v: 56
+        sub: '7'
+      pointers:
+      - at: 0
+        label: 从头看？
+  log:
+  - mode: 范围：全部 8 个
+    event: 目标 23，从整个数组开始
+- id: middle
+  title: 看中间，排除一半
+  tldr: 比较中间元素和目标，目标更大就只看右半边。
+  body: '中间的元素是 12，23 比它大，所以 23 不可能在左半边。
+
+    一次比较就排除了一半的元素。
+
+    这就是二分的核心：每一步都让剩下的范围减半。'
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: 二分查找相关讲义
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: 每次比较排除一半候选
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 12 < 23，左半边（含 12）全部排除
+    rows:
+    - cells:
+      - v: 2
+        mark: muted
+        sub: '0'
+      - v: 5
+        mark: muted
+        sub: '1'
+      - v: 8
+        mark: muted
+        sub: '2'
+      - v: 12
+        mark: active
+        sub: '3'
+      - v: 16
+        sub: '4'
+      - v: 23
+        sub: '5'
+      - v: 38
+        sub: '6'
+      - v: 56
+        sub: '7'
+      range:
+        from: 0
+        to: 7
+      pointers:
+      - at: 0
+        label: lo
+      - at: 3
+        label: mid
+      - at: 7
+        label: hi
+  log:
+  - mode: 范围：右半边 4 个
+    event: 排除左半边
+- id: repeat
+  title: 重复，直到找到或范围为空
+  tldr: 在剩下的范围里继续取中间、比较、减半。
+  body: '右半边 [16, 23, 38, 56] 的中间是 23，正好找到。
+
+    如果目标不存在，范围会缩到空，这时返回“没找到”，或者返回“它应该插在哪里”。
+
+    lodash 的 sortedIndex 返回的就是这个插入位置。'
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: 二分查找相关讲义
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: 范围为空时查找失败，可得到插入位置
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 右半边的中间正好是 23
+    rows:
+    - cells:
+      - v: 2
+        mark: muted
+        sub: '0'
+      - v: 5
+        mark: muted
+        sub: '1'
+      - v: 8
+        mark: muted
+        sub: '2'
+      - v: 12
+        mark: muted
+        sub: '3'
+      - v: 16
+        sub: '4'
+      - v: 23
+        mark: found
+        sub: '5'
+      - v: 38
+        sub: '6'
+      - v: 56
+        sub: '7'
+      range:
+        from: 4
+        to: 7
+      pointers:
+      - at: 4
+        label: lo
+      - at: 5
+        label: mid
+      - at: 7
+        label: hi
+  log:
+  - mode: 找到
+    event: 第 2 次比较命中
+- id: boundary
+  title: 写对边界：循环不变式
+  tldr: 二分最容易错的是边界，先想清楚“目标一定在哪个范围里”。
+  body: '选一种区间写法并坚持到底：比如左闭右开 [lo, hi)，循环条件就是 lo < hi，缩小时 hi = mid 或 lo = mid + 1。
+
+    每一轮都要保证“如果目标存在，一定还在区间里”，这叫循环不变式；每轮区间都严格变小，循环才一定会结束。
+
+    取中间用 lo + (hi - lo) / 2，避免 lo + hi 在固定位数整数里溢出，这个 bug 曾在 Java 标准库里存在多年。'
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: 二分查找相关讲义
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: 二分最容易错的是边界，先想清楚“目标一定在哪个范围里”。
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 左闭右开 [lo, hi) 找第一个 ≥ 23 的位置：每轮目标都还在区间里，区间严格变小
+    rows:
+    - label: 第 1 轮 [0, 8)
+      cells:
+      - v: 2
+        sub: '0'
+      - v: 5
+        sub: '1'
+      - v: 8
+        sub: '2'
+      - v: 12
+        sub: '3'
+      - v: 16
+        mark: active
+        sub: '4'
+      - v: 23
+        sub: '5'
+      - v: 38
+        sub: '6'
+      - v: 56
+        sub: '7'
+      range:
+        from: 0
+        to: 7
+      pointers:
+      - at: 0
+        label: lo
+      - at: 4
+        label: mid：16 < 23 → lo = 5
+    - label: 第 2 轮 [5, 8)
+      cells:
+      - v: 2
+        mark: muted
+        sub: '0'
+      - v: 5
+        mark: muted
+        sub: '1'
+      - v: 8
+        mark: muted
+        sub: '2'
+      - v: 12
+        mark: muted
+        sub: '3'
+      - v: 16
+        mark: muted
+        sub: '4'
+      - v: 23
+        sub: '5'
+      - v: 38
+        mark: active
+        sub: '6'
+      - v: 56
+        sub: '7'
+      range:
+        from: 5
+        to: 7
+      pointers:
+      - at: 5
+        label: lo
+      - at: 6
+        label: mid：38 ≥ 23 → hi = 6
+    - label: 第 3 轮 [5, 6)
+      cells:
+      - v: 2
+        mark: muted
+        sub: '0'
+      - v: 5
+        mark: muted
+        sub: '1'
+      - v: 8
+        mark: muted
+        sub: '2'
+      - v: 12
+        mark: muted
+        sub: '3'
+      - v: 16
+        mark: muted
+        sub: '4'
+      - v: 23
+        mark: active
+        sub: '5'
+      - v: 38
+        mark: muted
+        sub: '6'
+      - v: 56
+        mark: muted
+        sub: '7'
+      range:
+        from: 5
+        to: 5
+      pointers:
+      - at: 5
+        label: lo = mid：23 ≥ 23 → hi = 5
+    - label: lo = hi = 5，结束
+      cells:
+      - v: 2
+        sub: '0'
+      - v: 5
+        sub: '1'
+      - v: 8
+        sub: '2'
+      - v: 12
+        sub: '3'
+      - v: 16
+        sub: '4'
+      - v: 23
+        mark: found
+        sub: '5'
+      - v: 38
+        sub: '6'
+      - v: 56
+        sub: '7'
+      pointers:
+      - at: 5
+        label: 答案 5
+    aux:
+    - label: 取中间
+      items:
+      - mid = lo + (hi - lo) / 2
+      - 不写 (lo + hi) / 2，防溢出
+  log:
+  - mode: 查找
+    event: 区间保持不变式
+  code:
+    lang: typescript
+    code: "// 标准二分（闭区间写法）：在有序数组里找 target 的下标，不存在返回 -1\nfunction binarySearch(a: number[], target: number): number {\n  let lo = 0, hi = a.length - 1;          // 不变式：若 target 存在，一定在 [lo, hi] 内\n  while (lo <= hi) {\n    const mid = lo + ((hi - lo) >> 1);    // 防溢出地取中点\n    if (a[mid] === target) return mid;\n    if (a[mid]! < target) lo = mid + 1;   // mid 已排除\n    else hi = mid - 1;\n  }\n  return -1;                               // 区间为空 = 不存在\n}"
+    note: 闭区间 [lo, hi] 版本
+  points:
+  - 先定区间语义（闭/半开），循环条件与收缩跟着语义走，不要混写
+  - 每轮区间必须严格变小，否则死循环
+  - 不变式：目标若存在，一定还在当前区间内
+  mistake: 把闭区间的 hi = mid - 1 和半开区间的 hi = mid 混着写——这是二分 bug 的头号来源，选定一种写法就全程一致。
+- id: variants
+  title: 二分的变体：找边界、在答案上二分
+  tldr: 有重复元素时可以找“第一个 ≥ x”的位置；只要有单调性，就能二分。
+  body: '数组里有多个 23 时，“找第一个不小于 23 的位置”（lower_bound）和“第一个大于 23 的位置”（upper_bound）相减，就得到 23 出现的次数。
+
+    更广的用法是在答案上二分：只要“答案为 k 时是否可行”随 k 单调变化，就能二分找最小可行的 k，比如找最小的带宽让任务按时完成。
+
+    git bisect 也是这个思路：提交按时间有序，“有没有这个 bug”在某个提交前后发生改变。
+
+
+    完整例子——在答案上二分：要把一批请求分给服务器，每台每秒能处理 k 个请求才不超时。可行性随 k 单调（k 越大越容易按时完成），于是对 k 二分：检查 k 是否可行只需 O(n) 模拟，总复杂度 O(n log 范围)。同理可二分最小批大小、最低置信度阈值。'
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: 二分查找相关讲义
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: 有重复元素时可以找“第一个 ≥ x”的位置；只要有单调性，就能二分。
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 有重复的 23：upper_bound − lower_bound = 5 − 2 = 3 个
+    rows:
+    - label: 有序数组
+      cells:
+      - v: 5
+        sub: '0'
+      - v: 12
+        sub: '1'
+      - v: 23
+        mark: found
+        sub: '2'
+      - v: 23
+        mark: found
+        sub: '3'
+      - v: 23
+        mark: found
+        sub: '4'
+      - v: 38
+        sub: '5'
+      - v: 56
+        sub: '6'
+      - v: 70
+        sub: '7'
+      pointers:
+      - at: 2
+        label: lower_bound：第一个 ≥ 23
+      - at: 5
+        label: upper_bound：第一个 > 23
+    - label: 在答案上二分
+      cells:
+      - v: 不可行
+        mark: muted
+        sub: k=1
+      - v: 不可行
+        mark: muted
+        sub: k=2
+      - v: 不可行
+        mark: muted
+        sub: k=3
+      - v: 可行
+        mark: found
+        sub: k=4
+      - v: 可行
+        sub: k=5
+      - v: 可行
+        sub: k=6
+      pointers:
+      - at: 3
+        label: 最小可行的 k
+    aux:
+    - label: 前提
+      items:
+      - “是否可行”随 k 单调：一旦可行，更大的 k 也可行
+  log:
+  - mode: 变体
+    event: 找左边界
+  code:
+    lang: typescript
+    code: "// lower_bound（半开区间 [lo, hi)）：第一个 >= x 的位置；重复元素时落在最左那个\nfunction lowerBound(a: number[], x: number): number {\n  let lo = 0, hi = a.length;\n  while (lo < hi) {\n    const mid = lo + ((hi - lo) >> 1);\n    if (a[mid]! < x) lo = mid + 1; else hi = mid;\n  }\n  return lo; // upper_bound 把条件换成 <= ，两者相减 = x 出现次数\n}"
+    note: 处理重复元素的关键工具
+- id: lab-play
+  title: 动手实验：二分查找实验室
+  tldr: 自己选目标值单步执行，看 lo/mid/hi 怎么移动、比较次数怎么累积。
+  body: 在下面的实验室里换不同目标试一试：命中、未命中、最小值 2、最大值 56。注意已排除的格子会变灰，比较次数远小于线性查找需要扫过的格子数——n = 8 时最多 4 次，而线性最坏要 8 次；n 换成 100 万时，这个差距是 20 次对 100 万次。
+  derivation: original
+  sources: []
+  canvas:
+    kind: lab
+    lab: binary-search-lab
+    caption: 预置目标 + 自定义目标，单步/播放/重置，对比线性查找次数
+    params:
+      array:
+      - 2
+      - 5
+      - 8
+      - 12
+      - 16
+      - 23
+      - 38
+      - 56
+      targets:
+      - 23
+      - 7
+      - 2
+      - 56
+      target: 23
+    cases:
+    - input:
+        target: 23
+      expect:
+        found: true
+        index: 5
+        comparisons: 2
+        linear: 6
+    - input:
+        target: 7
+      expect:
+        found: false
+        index: -1
+        comparisons: 3
+        linear: 8
+  log:
+  - mode: 实验
+    event: 在实验室中单步执行二分查找
+- id: complexity
+  title: 为什么是 O(log n)
+  tldr: 每次减半，n 个元素最多减半 log₂n 次就只剩一个。
+  body: '8 个元素最多比 4 次，100 万个元素最多约 20 次，10 亿个也只要约 30 次。
+
+    数据量翻倍，只多比较一次，这就是对数增长。
+
+    这也是数据库索引能在海量数据里瞬间定位的原因之一。'
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: 渐近分析相关讲义
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: 二分查找比较次数为对数级
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 每比较一次，范围减半
+    rows:
+    - label: 剩余范围
+      cells:
+      - v: 8
+        mark: active
+        sub: 第 1 次
+      - v: 4
+        sub: 第 2 次
+      - v: 2
+        sub: 第 3 次
+      - v: 1
+        mark: found
+        sub: 第 4 次
+    aux:
+    - label: 规模 → 最多比较
+      items:
+      - 8 → 4 次
+      - 100 万 → 约 20 次
+      - 10 亿 → 约 30 次
+  log:
+  - mode: 分析
+    event: 数据翻倍只多一次比较
+- id: engineering
+  title: 前提和陷阱
+  tldr: 必须有序且能随机访问；边界条件最容易写错。
+  body: '如果数据经常变化，每次都重新排序就不划算，这时哈希表或平衡树更合适。
+
+    链表不能直接跳到中间，所以不能高效二分。
+
+    二分的思想也不只用于数组：git bisect 在提交历史里二分，找出是哪次提交引入了 bug。
+
+
+    溢出的真实故事：(lo + hi) / 2 的溢出 bug 在 Java 的 Arrays.binarySearch 里潜伏了约 9 年才被公开指出——当数组索引接近 2^30 时 lo + hi 会超过 int 上限变负数。JS 里数字是双精度浮点、2^53 内整数精确，所以不会真溢出，但写 lo + (hi - lo) / 2 的习惯要保留，换到任何语言都安全。'
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: 二分查找相关讲义
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: 二分查找要求有序与随机访问
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 前提：有序，且能按下标直接跳到中间
+    rows:
+    - label: 有序数组
+      cells:
+      - v: 2
+        sub: '0'
+      - v: 5
+        sub: '1'
+      - v: 8
+        sub: '2'
+      - v: 12
+        sub: '3'
+      - v: 16
+        sub: '4'
+      - v: 23
+        mark: found
+        sub: '5'
+      - v: 38
+        sub: '6'
+      - v: 56
+        sub: '7'
+    aux:
+    - label: 不适合
+      items:
+      - 链表
+      - 频繁变化的数据
+    - label: 同样思想
+      items:
+      - git bisect
+  log:
+  - mode: 总结
+    event: 选对场景再用二分
+level: 基础
+minutes: 20
+prereq:
+- dsa/hash-table
+objectives:
+- 在闭区间/半开区间两种写法下都写对二分
+- 实现 lower_bound 并处理重复元素
+- 识别可在答案上二分的单调性问题
+aiLink: 二分在 AI 工程里以「阈值搜索」的样子反复出现：在单调的代价曲线上找最优的置信度阈值、批大小、量化档位；向量检索的图索引（HNSW）也是逐层缩小候选范围。掌握不变式写法，这类搜索就不会写出边界 bug。
+quiz:
+- q: 左闭右开 [lo, hi) 写法里，循环条件与收缩正确的是？
+  options:
+  - lo <= hi，hi = mid
+  - lo < hi，a[mid] < x 时 lo = mid + 1，否则 hi = mid
+  - lo < hi，hi = mid - 1
+  - lo <= hi，lo = mid
+  answer: 1
+  explain: 半开区间为空的条件是 lo == hi；保留 mid 可能是答案的一侧用 hi = mid。
+- q: mid = lo + (hi - lo) / 2 而不是 (lo + hi) / 2，是为了？
+  options:
+  - 写起来好看
+  - 避免 lo + hi 超出固定位数整数上限而溢出
+  - 让结果更大
+  - 兼容链表
+  answer: 1
+  explain: Java 标准库这个溢出 bug 存在多年；JS 数字是双精度浮点，整数在 2^53 内也安然无恙，但思想要懂。
+- q: 数组 [5,12,23,23,23,38] 中 23 出现几次，用什么算？
+  options:
+  - lower_bound 一次
+  - upper_bound − lower_bound = 5 − 2 = 3
+  - 找到一个后数邻居最坏 O(n) 不可取
+  - 哈希计数
+  answer: 1
+  explain: 两个边界之差即出现次数，全程 O(log n)。
+- q: 「在答案上二分」的前提是？
+  options:
+  - 数组必须有序
+  - 可行性随答案单调：小于某值都不可行、大于等于都可行（或反之）
+  - 答案是整数
+  - 数据量很大
+  answer: 1
+  explain: 单调性才是本质前提，数组有序只是最常见的单调来源。
+legend:
+- key: active
+  label: 当前比较/处理中的元素
+- key: found
+  label: 已找到 / 最终位置
+- key: done
+  label: 已完成处理
+- key: pivot
+  label: 基准元素（pivot）
+- key: muted
+  label: 已排除 / 不再考虑
+- key: visited
+  label: 已访问

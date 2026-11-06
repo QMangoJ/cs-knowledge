@@ -1,4 +1,3 @@
-# 知识优先版草稿（Linux x86-64 为例）。出处仅供参考，按 Daniel 决定不做逐条核对。
 id: os/context-switch
 subject: os
 slug: context-switch
@@ -9,300 +8,354 @@ title: 时钟中断与上下文切换：多个程序为什么能“同时”运�
 summary: 一个 CPU 核心同一时刻只能跑一个程序，Linux 靠快速轮换制造“同时运行”的效果。
 premise: 以一个 CPU 核心上轮流运行两个程序为例。
 overview:
-  - key: 一句话总结
-    value: 时钟定期打断程序，内核保存现场、换另一个程序上场
-  - key: 为什么需要时钟
-    value: 程序不会自愿让出 CPU，必须有外力把控制权拿回内核
-  - key: Linux 调度器
-    value: 长期用 CFS（完全公平调度），6.6 版起换成 EEVDF
-  - key: 代价
-    value: 切换要花时间，还会让 CPU 缓存变冷
-  - key: 类比
-    value: JS 事件循环靠任务主动让出；操作系统是强制轮换
-  - key: 进程状态
-    value: 运行、就绪（等 CPU）、阻塞（等 I/O）三态之间转换
-  - key: 抢占
-    value: 时间片用完或更高优先级任务就绪时，内核强制换人
-  - key: 线程切换
-    value: 同一进程的线程切换不用换页表，比进程切换便宜
-  - key: 在终端里看一看
-    value: vmstat 1　看 cs 列（每秒上下文切换次数）；grep ctxt /proc/$$/status　看当前 shell 主动/被动切换次数
+- key: 一句话总结
+  value: 时钟定期打断程序，内核保存现场、换另一个程序上场
+- key: 为什么需要时钟
+  value: 程序不会自愿让出 CPU，必须有外力把控制权拿回内核
+- key: Linux 调度器
+  value: 长期用 CFS（完全公平调度），6.6 版起换成 EEVDF
+- key: 代价
+  value: 切换要花时间，还会让 CPU 缓存变冷
+- key: 类比
+  value: JS 事件循环靠任务主动让出；操作系统是强制轮换
+- key: 进程状态
+  value: 运行、就绪（等 CPU）、阻塞（等 I/O）三态之间转换
+- key: 抢占
+  value: 时间片用完或更高优先级任务就绪时，内核强制换人
+- key: 线程切换
+  value: 同一进程的线程切换不用换页表，比进程切换便宜
+- key: 在终端里看一看
+  value: vmstat 1　看 cs 列（每秒上下文切换次数）；grep ctxt /proc/$$/status　看当前 shell 主动/被动切换次数
 visual: swimlane
 lanes:
-  - id: procs
-    label: 程序
-  - id: kernel
-    label: 内核
-  - id: hw
-    label: 硬件
+- id: procs
+  label: 程序
+- id: kernel
+  label: 内核
+- id: hw
+  label: 硬件
 logColumns:
-  - key: mode
-    label: 当前状态
-  - key: event
-    label: 发生了什么
+- key: mode
+  label: 当前状态
+- key: event
+  label: 发生了什么
 steps:
-  - id: illusion
-    title: 问题：一个 CPU 怎么跑多个程序
-    tldr: “同时运行”其实是轮流运行得足够快。
-    body: |-
-      电脑上有几百个进程，CPU 核心却只有几个。
-      操作系统让它们轮流使用 CPU，每次只用一小段时间，快到人感觉不出来。
-      这叫“分时”：把 CPU 时间切成小片分给大家。
-    derivation: original
-    sources:
-      - ref: ostep
-        locator: CPU 虚拟化 / Limited Direct Execution 一章
-        claim: 操作系统通过分时共享制造多个 CPU 的假象
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: swimlane
-      actors:
-        - lane: procs
-          id: a
-          label: 程序 A
-          highlight: true
-        - lane: procs
-          id: b
-          label: 程序 B
-        - lane: kernel
-          id: k
-          label: 内核（调度器）
-        - lane: hw
-          id: t
-          label: CPU 与时钟
-      messages: []
-    log:
-      - mode: A 运行中
-        event: 程序 A 正在使用 CPU
-  - id: timer
-    title: 时钟中断：把控制权拿回来
-    tldr: 硬件定时器定期发出中断，强制让内核接手。
-    body: |-
-      程序在跑时，内核并没有在执行，没法“主动”把 CPU 抢回来。
-      所以内核事先设好硬件定时器，时间一到就产生中断，CPU 自动陷入内核。
-      这样即使程序写了死循环，也霸占不了整台机器。
-    derivation: original
-    sources:
-      - ref: ostep
-        locator: Limited Direct Execution 一章，时钟中断
-        claim: 时钟中断让操作系统重新获得 CPU 控制权
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: swimlane
-      actors:
-        - lane: procs
-          id: a
-          label: 程序 A
-        - lane: procs
-          id: b
-          label: 程序 B
-        - lane: kernel
-          id: k
-          label: 内核（调度器）
-        - lane: hw
-          id: t
-          label: CPU 与时钟
-          highlight: true
-      messages:
-        - id: m-timer
-          from: t
-          to: k
-          label: 时钟中断：时间到
-          active: true
-    log:
-      - mode: 进入内核态
-        event: 时钟到点，CPU 陷入内核
-  - id: save
-    title: 保存现场
-    tldr: 内核把程序 A 停下时的运行现场保存起来。
-    body: |-
-      “现场”（上下文）就是程序运行到哪一步、手头的中间结果是什么。
-      内核把它存进 A 自己的记录里，就像游戏存档。
-      存档完整，A 以后就能原样接着跑，察觉不到自己被打断过。
-    derivation: original
-    sources:
-      - ref: ostep
-        locator: Limited Direct Execution 一章，上下文切换
-        claim: 切换时内核保存当前进程的上下文
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: swimlane
-      actors:
-        - lane: procs
-          id: a
-          label: 程序 A
-        - lane: procs
-          id: b
-          label: 程序 B
-        - lane: kernel
-          id: k
-          label: 内核（调度器）
-          highlight: true
-        - lane: hw
-          id: t
-          label: CPU 与时钟
-      messages:
-        - id: m-save
-          from: a
-          to: k
-          label: 保存 A 的现场
-          active: true
-    log:
-      - mode: 内核态
-        event: 保存程序 A 的上下文
-  - id: schedule
-    title: 调度：选下一个上场的程序
-    tldr: 调度器从“准备好运行”的程序里挑一个。
-    body: |-
-      在等键盘、等网络的程序先跳过，只看准备好运行的。
-      Linux 的 CFS 会挑“目前用 CPU 最少”的那个，力求公平；6.6 版起换成 EEVDF，在公平之外更照顾需要快速响应的任务。
-      用 nice 调整优先级，就是在影响这个选择。
-    derivation: original
-    sources:
-      - ref: linux-kernel-docs
-        locator: scheduler/sched-design-CFS、sched-eevdf
-        url: https://docs.kernel.org/scheduler/sched-eevdf.html
-        claim: CFS 按虚拟运行时间公平调度；EEVDF 在 6.6 中取代 CFS
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: swimlane
-      actors:
-        - lane: procs
-          id: a
-          label: 程序 A
-        - lane: procs
-          id: b
-          label: 程序 B
-        - lane: kernel
-          id: k
-          label: 内核（调度器）
-          highlight: true
-        - lane: hw
-          id: t
-          label: CPU 与时钟
-      messages: []
-    log:
-      - mode: 内核态
-        event: 调度器选中程序 B
-  - id: policy
-    title: 调度要权衡什么
-    tldr: 调度器要在吞吐、响应速度和公平之间取舍，没有一种策略全都最好。
-    body: |-
-      后台批处理任务希望少被打断、整体做得快（吞吐）；交互程序希望一按键就有反应（响应时间）。
-      时间片短，响应快但切换多；时间片长，切换少但交互会卡。
-      教科书里的先来先服务、短作业优先、轮转、多级反馈队列，都是在这几者之间做不同的取舍；Linux 的 CFS/EEVDF 按“谁用得少谁先上”来兼顾。
-    derivation: original
-    sources:
-      - ref: ostep
-        locator: CPU 虚拟化 / Limited Direct Execution 一章
-        claim: 调度器要在吞吐、响应速度和公平之间取舍，没有一种策略全都最好。
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: swimlane
-      actors:
-        - lane: procs
-          id: a
-          label: 程序 A
-        - lane: procs
-          id: b
-          label: 程序 B
-        - lane: kernel
-          id: k
-          label: 内核（调度器）
-          highlight: true
-        - lane: hw
-          id: t
-          label: CPU 与时钟
-      messages:
-        - id: m-policy
-          from: k
-          to: k
-          label: 权衡：吞吐 / 响应 / 公平
-          active: true
-    log:
-      - mode: 调度
-        event: 按策略挑选下一个
-  - id: restore
-    title: 恢复另一个程序，以及切换的代价
-    tldr: 内核载入 B 的存档并回到用户态；但切换并不免费。
-    body: |-
-      内核恢复 B 的现场并返回用户态，B 接着跑，直到下一次被打断或自己去等待。
-      每次切换都要存档、读档，还会让 CPU 缓存“变冷”。
-      切换分两种：程序自己去等 I/O 是“主动”的，时间片用完被换下是“被动”的，/proc 里能分别看到。
-    derivation: original
-    sources:
-      - ref: linux-man-pages
-        locator: proc(5)，/proc/pid/status 中 voluntary_ctxt_switches
-        url: https://man7.org/linux/man-pages/man5/proc.5.html
-        claim: Linux 分别统计主动与被动上下文切换次数
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: swimlane
-      actors:
-        - lane: procs
-          id: a
-          label: 程序 A
-        - lane: procs
-          id: b
-          label: 程序 B
-          highlight: true
-        - lane: kernel
-          id: k
-          label: 内核（调度器）
-        - lane: hw
-          id: t
-          label: CPU 与时钟
-      messages:
-        - id: m-restore
-          from: k
-          to: b
-          label: 恢复 B 的现场
-          active: true
-    log:
-      - mode: B 运行中
-        event: 切回用户态，程序 B 继续运行
-  - id: multicore
-    title: 多核：每个核心各自轮转
-    tldr: 有多个核心时，每个核心有自己的运行队列，调度器还要在核心之间搬任务。
-    body: |-
-      多核上，几个程序是真的同时在跑，但每个核心内部仍然在分时轮换。
-      Linux 给每个核心一条运行队列，忙的核心会把任务“分”给闲的核心（负载均衡）。
-      但任务搬到别的核心后，原来缓存里的数据用不上了，所以调度器倾向让任务留在原核心（亲和性），taskset 可以手动指定。
-    derivation: original
-    sources:
-      - ref: ostep
-        locator: CPU 虚拟化 / Limited Direct Execution 一章
-        claim: 有多个核心时，每个核心有自己的运行队列，调度器还要在核心之间搬任务。
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: swimlane
-      actors:
-        - lane: procs
-          id: a
-          label: 程序 A
-        - lane: procs
-          id: b
-          label: 程序 B
-        - lane: kernel
-          id: k
-          label: 内核（调度器）
-        - lane: hw
-          id: t
-          label: CPU 与时钟
-          highlight: true
-      messages:
-        - id: m-multicore
-          from: k
-          to: t
-          label: 核心 0 的任务迁到核心 1
-          active: true
-    log:
-      - mode: 负载均衡
-        event: 在核心间迁移任务
+- id: illusion
+  title: 问题：一个 CPU 怎么跑多个程序
+  tldr: “同时运行”其实是轮流运行得足够快。
+  body: '电脑上有几百个进程，CPU 核心却只有几个。
+
+    操作系统让它们轮流使用 CPU，每次只用一小段时间，快到人感觉不出来。
+
+    这叫“分时”：把 CPU 时间切成小片分给大家。'
+  derivation: original
+  sources:
+  - ref: ostep
+    locator: CPU 虚拟化 / Limited Direct Execution 一章
+    claim: 操作系统通过分时共享制造多个 CPU 的假象
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: procs
+      id: a
+      label: 程序 A
+      highlight: true
+    - lane: procs
+      id: b
+      label: 程序 B
+    - lane: kernel
+      id: k
+      label: 内核（调度器）
+    - lane: hw
+      id: t
+      label: CPU 与时钟
+    messages: []
+  log:
+  - mode: A 运行中
+    event: 程序 A 正在使用 CPU
+  points:
+  - “同时运行”其实是轮流运行得足够快。
+- id: timer
+  title: 时钟中断：把控制权拿回来
+  tldr: 硬件定时器定期发出中断，强制让内核接手。
+  body: '程序在跑时，内核并没有在执行，没法“主动”把 CPU 抢回来。
+
+    所以内核事先设好硬件定时器，时间一到就产生中断，CPU 自动陷入内核。
+
+    这样即使程序写了死循环，也霸占不了整台机器。'
+  derivation: original
+  sources:
+  - ref: ostep
+    locator: Limited Direct Execution 一章，时钟中断
+    claim: 时钟中断让操作系统重新获得 CPU 控制权
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: procs
+      id: a
+      label: 程序 A
+    - lane: procs
+      id: b
+      label: 程序 B
+    - lane: kernel
+      id: k
+      label: 内核（调度器）
+    - lane: hw
+      id: t
+      label: CPU 与时钟
+      highlight: true
+    messages:
+    - id: m-timer
+      from: t
+      to: k
+      label: 时钟中断：时间到
+      active: true
+  log:
+  - mode: 进入内核态
+    event: 时钟到点，CPU 陷入内核
+- id: save
+  title: 保存现场
+  tldr: 内核把程序 A 停下时的运行现场保存起来。
+  body: '“现场”（上下文）就是程序运行到哪一步、手头的中间结果是什么。
+
+    内核把它存进 A 自己的记录里，就像游戏存档。
+
+    存档完整，A 以后就能原样接着跑，察觉不到自己被打断过。'
+  derivation: original
+  sources:
+  - ref: ostep
+    locator: Limited Direct Execution 一章，上下文切换
+    claim: 切换时内核保存当前进程的上下文
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: procs
+      id: a
+      label: 程序 A
+    - lane: procs
+      id: b
+      label: 程序 B
+    - lane: kernel
+      id: k
+      label: 内核（调度器）
+      highlight: true
+    - lane: hw
+      id: t
+      label: CPU 与时钟
+    messages:
+    - id: m-save
+      from: a
+      to: k
+      label: 保存 A 的现场
+      active: true
+  log:
+  - mode: 内核态
+    event: 保存程序 A 的上下文
+  code:
+    lang: text
+    code: '保存现场 ≈ 把寄存器组、PC、栈指针写进 PCB
+
+      恢复现场 ≈ 从另一个 PCB 读回寄存器并跳过去执行
+
+      直接成本 ~1–5 μs；缓存/TLB 冷启动的间接成本常常更高'
+    note: 伪代码
+- id: schedule
+  title: 调度：选下一个上场的程序
+  tldr: 调度器从“准备好运行”的程序里挑一个。
+  body: '在等键盘、等网络的程序先跳过，只看准备好运行的。
+
+    Linux 的 CFS 会挑“目前用 CPU 最少”的那个，力求公平；6.6 版起换成 EEVDF，在公平之外更照顾需要快速响应的任务。
+
+    用 nice 调整优先级，就是在影响这个选择。'
+  derivation: original
+  sources:
+  - ref: linux-kernel-docs
+    locator: scheduler/sched-design-CFS、sched-eevdf
+    url: https://docs.kernel.org/scheduler/sched-eevdf.html
+    claim: CFS 按虚拟运行时间公平调度；EEVDF 在 6.6 中取代 CFS
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: procs
+      id: a
+      label: 程序 A
+    - lane: procs
+      id: b
+      label: 程序 B
+    - lane: kernel
+      id: k
+      label: 内核（调度器）
+      highlight: true
+    - lane: hw
+      id: t
+      label: CPU 与时钟
+    messages: []
+  log:
+  - mode: 内核态
+    event: 调度器选中程序 B
+- id: policy
+  title: 调度要权衡什么
+  tldr: 调度器要在吞吐、响应速度和公平之间取舍，没有一种策略全都最好。
+  body: '后台批处理任务希望少被打断、整体做得快（吞吐）；交互程序希望一按键就有反应（响应时间）。
+
+    时间片短，响应快但切换多；时间片长，切换少但交互会卡。
+
+    教科书里的先来先服务、短作业优先、轮转、多级反馈队列，都是在这几者之间做不同的取舍；Linux 的 CFS/EEVDF 按“谁用得少谁先上”来兼顾。
+
+
+    数字例子：Linux 的 CFS 给每个可运行任务按权重分配虚拟运行时间。8 个同权重任务在 1 个核上轮转，每个任务的时间片粒度约毫秒级——切换开销（微秒级）占比不到千分之一；但若任务数上千，切换与缓存抖动就会明显吃掉吞吐，这也是推理服务要控制并发线程数的原因。'
+  derivation: original
+  sources:
+  - ref: ostep
+    locator: CPU 虚拟化 / Limited Direct Execution 一章
+    claim: 调度器要在吞吐、响应速度和公平之间取舍，没有一种策略全都最好。
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: procs
+      id: a
+      label: 程序 A
+    - lane: procs
+      id: b
+      label: 程序 B
+    - lane: kernel
+      id: k
+      label: 内核（调度器）
+      highlight: true
+    - lane: hw
+      id: t
+      label: CPU 与时钟
+    messages:
+    - id: m-policy
+      from: k
+      to: k
+      label: 权衡：吞吐 / 响应 / 公平
+      active: true
+  log:
+  - mode: 调度
+    event: 按策略挑选下一个
+- id: restore
+  title: 恢复另一个程序，以及切换的代价
+  tldr: 内核载入 B 的存档并回到用户态；但切换并不免费。
+  body: '内核恢复 B 的现场并返回用户态，B 接着跑，直到下一次被打断或自己去等待。
+
+    每次切换都要存档、读档，还会让 CPU 缓存“变冷”。
+
+    切换分两种：程序自己去等 I/O 是“主动”的，时间片用完被换下是“被动”的，/proc 里能分别看到。'
+  derivation: original
+  sources:
+  - ref: linux-man-pages
+    locator: proc(5)，/proc/pid/status 中 voluntary_ctxt_switches
+    url: https://man7.org/linux/man-pages/man5/proc.5.html
+    claim: Linux 分别统计主动与被动上下文切换次数
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: procs
+      id: a
+      label: 程序 A
+    - lane: procs
+      id: b
+      label: 程序 B
+      highlight: true
+    - lane: kernel
+      id: k
+      label: 内核（调度器）
+    - lane: hw
+      id: t
+      label: CPU 与时钟
+    messages:
+    - id: m-restore
+      from: k
+      to: b
+      label: 恢复 B 的现场
+      active: true
+  log:
+  - mode: B 运行中
+    event: 切回用户态，程序 B 继续运行
+- id: multicore
+  title: 多核：每个核心各自轮转
+  tldr: 有多个核心时，每个核心有自己的运行队列，调度器还要在核心之间搬任务。
+  body: '多核上，几个程序是真的同时在跑，但每个核心内部仍然在分时轮换。
+
+    Linux 给每个核心一条运行队列，忙的核心会把任务“分”给闲的核心（负载均衡）。
+
+    但任务搬到别的核心后，原来缓存里的数据用不上了，所以调度器倾向让任务留在原核心（亲和性），taskset 可以手动指定。'
+  derivation: original
+  sources:
+  - ref: ostep
+    locator: CPU 虚拟化 / Limited Direct Execution 一章
+    claim: 有多个核心时，每个核心有自己的运行队列，调度器还要在核心之间搬任务。
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: swimlane
+    actors:
+    - lane: procs
+      id: a
+      label: 程序 A
+    - lane: procs
+      id: b
+      label: 程序 B
+    - lane: kernel
+      id: k
+      label: 内核（调度器）
+    - lane: hw
+      id: t
+      label: CPU 与时钟
+      highlight: true
+    messages:
+    - id: m-multicore
+      from: k
+      to: t
+      label: 核心 0 的任务迁到核心 1
+      active: true
+  log:
+  - mode: 负载均衡
+    event: 在核心间迁移任务
+level: 基础
+minutes: 18
+prereq:
+- os/syscall
+objectives:
+- 描述时钟中断如何抢占正在运行的进程
+- 列出上下文切换要保存/恢复的状态
+- 区分自愿与非自愿上下文切换并估算成本
+aiLink: LLM 推理是典型的 CPU/GPU 协同流水线：Python 线程被 GIL 与上下文切换卡住时 GPU 就在等数据。理解切换成本与调度策略，才明白为什么推理框架用异步事件循环、单独的数据加载进程和 CPU 绑核来压榨吞吐。
+quiz:
+- q: 没有时钟中断，抢占式调度会怎样？
+  options:
+  - 照常工作
+  - 一个死循环进程就能永久霸占 CPU，抢占无从发生
+  - 只是变慢一点
+  - 只能运行一个进程
+  answer: 1
+  explain: 抢占的依据就是周期性中断把控制权交还内核。
+- q: 上下文切换的直接成本之外，还有哪项隐性成本？
+  options:
+  - 电费
+  - 新进程冷缓存/TLB，接下来一段时间访存变慢
+  - 磁盘磨损
+  - 网卡重启
+  answer: 1
+  explain: 寄存器与 PCB 切换本身是微秒级，缓存与 TLB 失效造成的后续变慢往往更大。
+- q: top 里进程状态 R/S/D 中，D 一般指？
+  options:
+  - 已死亡
+  - 不可中断睡眠，多在等 I/O
+  - 正在计算
+  - 被调试
+  answer: 1
+  explain: D 状态多见于磁盘/NFS I/O 等待，kill 也打不断。

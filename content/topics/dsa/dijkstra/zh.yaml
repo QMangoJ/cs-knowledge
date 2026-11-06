@@ -1,4 +1,3 @@
-# 知识优先版草稿（Linux x86-64 为例）。出处仅供参考，按 Daniel 决定不做逐条核对。
 id: dsa/dijkstra
 subject: dsa
 slug: dijkstra
@@ -9,537 +8,600 @@ title: Dijkstra 最短路径
 summary: 边有长短时，怎样找到从起点到每个地方的最短路线。
 premise: 以 5 个地点、道路长度不同的小地图为例，从 A 出发。
 overview:
-  - key: 一句话总结
-    value: 每次确定“目前离起点最近、还没确定”的点，用它去更新邻居
-  - key: 前提
-    value: 边的权重不能为负
-  - key: 复杂度
-    value: 配合二叉堆约为 O((V + E) log V)
-  - key: 依赖
-    value: 用优先队列（堆）快速找出最近的点
-  - key: 工程里
-    value: 地图导航、网络路由（如 OSPF）、游戏寻路（A* 是它的加速版）
-  - key: 路径
-    value: 记录前驱，最后回溯
-  - key: 提前结束
-    value: 只要一个终点时，终点确定即可停
-  - key: 负权边
-    value: 用 Bellman-Ford，O(V·E)，还能发现负环
-  - key: 实现细节
-    value: 常用“懒删除”：同一点可多次入堆，取出时跳过过期的
+- key: 一句话总结
+  value: 每次确定“目前离起点最近、还没确定”的点，用它去更新邻居
+- key: 前提
+  value: 边的权重不能为负
+- key: 复杂度
+  value: 配合二叉堆约为 O((V + E) log V)
+- key: 依赖
+  value: 用优先队列（堆）快速找出最近的点
+- key: 工程里
+  value: 地图导航、网络路由（如 OSPF）、游戏寻路（A* 是它的加速版）
+- key: 路径
+  value: 记录前驱，最后回溯
+- key: 提前结束
+  value: 只要一个终点时，终点确定即可停
+- key: 负权边
+  value: 用 Bellman-Ford，O(V·E)，还能发现负环
+- key: 实现细节
+  value: 常用“懒删除”：同一点可多次入堆，取出时跳过过期的
 visual: datastate
 logColumns:
-  - key: mode
-    label: 当前状态
-  - key: event
-    label: 发生了什么
+- key: mode
+  label: 当前状态
+- key: event
+  label: 发生了什么
 steps:
-  - id: why
-    title: 为什么 BFS 不够
-    tldr: BFS 只数“走几步”，但道路有长有短，步数少不等于路程短。
-    body: |-
-      从 A 到 C：直走一条 10 公里的路，或者经过 B 绕两段各 3 公里的路。
-      BFS 会选一步到达的那条，但实际更远。
-      边带权重时，需要一个会“算总长度”的算法。
-    derivation: original
-    sources:
-      - ref: mit-6006
-        locator: 最短路径相关讲义
-        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
-        claim: 带权图的最短路径不能直接用 BFS 求得
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: datastate
-      structure: graph
-      caption: A 到 C：直走 10，还是经 B 走 3 + 3 = 6？
-      graph:
-        nodes:
-          - id: A
-            x: 3
-            y: 60
-            mark: active
-          - id: B
-            x: 35
-            y: 6
-          - id: C
-            x: 58
-            y: 70
-            mark: active
-          - id: D
-            x: 97
-            y: 92
-          - id: E
-            x: 82
-            y: 6
-        edges:
-          - from: A
-            to: B
-            w: 3
-            mark: found
-          - from: B
-            to: C
-            w: 3
-            mark: found
-          - from: A
-            to: C
-            w: 10
-            mark: active
-          - from: B
-            to: E
-            w: 5
-          - from: C
-            to: D
-            w: 2
-          - from: E
-            to: D
-            w: 7
-      aux:
-        - label: BFS 选
-          items:
-            - A → C（10）
-        - label: 实际最短
-          items:
-            - A → B → C（6）
-    log:
-      - mode: 初始
-        event: A 距离为 0，其余为无穷大
-  - id: greedy
-    title: 核心想法：先确定最近的点
-    tldr: 每次从还没确定的点里，挑出当前离起点最近的那个，它的距离就是最终答案。
-    body: |-
-      一开始只有 A 的距离是 0，其他都是“未知（无穷大）”。
-      挑出最近的点后，它的距离不可能再变短：因为任何别的路线都要先经过更远的点，再加上非负的路程。
-      这个论证依赖“边不为负”，这也是 Dijkstra 的前提。
-    derivation: original
-    sources:
-      - ref: mit-6006
-        locator: Dijkstra 相关讲义
-        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
-        claim: 在非负权图中，每次取出的最近点其距离已是最终值
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: datastate
-      structure: graph
-      caption: 一开始只有 A 确定为 0，其他都是 ∞
-      graph:
-        nodes:
-          - id: A
-            x: 3
-            y: 60
-            mark: found
-            note: "0"
-          - id: B
-            x: 35
-            y: 6
-            note: ∞
-          - id: C
-            x: 58
-            y: 70
-            note: ∞
-          - id: D
-            x: 97
-            y: 92
-            note: ∞
-          - id: E
-            x: 82
-            y: 6
-            note: ∞
-        edges:
-          - from: A
-            to: B
-            w: 3
-          - from: B
-            to: C
-            w: 3
-          - from: A
-            to: C
-            w: 10
-          - from: B
-            to: E
-            w: 5
-          - from: C
-            to: D
-            w: 2
-          - from: E
-            to: D
-            w: 7
-      table:
-        title: 距离表
-        columns:
-          - 点
-          - 距离
-          - 前驱
-        rows:
-          - - A
-            - 0
-            - —
-          - - B
-            - ∞
-            - —
-          - - C
-            - ∞
-            - —
-          - - D
-            - ∞
-            - —
-          - - E
-            - ∞
-            - —
-        highlight:
-          - 0
-    log:
-      - mode: 确定 A
-        event: A 的最短距离确定为 0
-  - id: relax
-    title: 松弛：用新确定的点更新邻居
-    tldr: 看看经过这个点去它的邻居，会不会比已知的路线更短。
-    body: |-
-      A 到 B 是 3，比“无穷大”短，就把 B 的距离更新成 3；A 到 C 是 10，先记下 10。
-      接着确定 B，发现经 B 到 C 只要 3 + 3 = 6，比 10 短，于是把 C 更新成 6。
-      这一步叫“松弛”，就是不断用更好的路线替换旧的。
-    derivation: original
-    sources:
-      - ref: mit-6006
-        locator: 最短路径相关讲义
-        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
-        claim: 松弛操作更新距离估计
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: datastate
-      structure: graph
-      caption: 确定 B 后，经 B 到 C 只要 3 + 3 = 6 < 10，更新 C
-      graph:
-        nodes:
-          - id: A
-            x: 3
-            y: 60
-            mark: done
-            note: "0"
-          - id: B
-            x: 35
-            y: 6
-            mark: done
-            note: "3"
-          - id: C
-            x: 58
-            y: 70
-            mark: active
-            note: 10 → 6
-          - id: D
-            x: 97
-            y: 92
-            note: ∞
-          - id: E
-            x: 82
-            y: 6
-            mark: visited
-            note: "8"
-        edges:
-          - from: A
-            to: B
-            w: 3
-            mark: done
-          - from: B
-            to: C
-            w: 3
-            mark: active
-          - from: A
-            to: C
-            w: 10
-            mark: muted
-          - from: B
-            to: E
-            w: 5
-          - from: C
-            to: D
-            w: 2
-          - from: E
-            to: D
-            w: 7
-      table:
-        title: 距离表
-        columns:
-          - 点
-          - 距离
-          - 前驱
-        rows:
-          - - A
-            - 0
-            - —
-          - - B
-            - 3
-            - A
-          - - C
-            - 10 → 6
-            - A → B
-          - - D
-            - ∞
-            - —
-          - - E
-            - 8
-            - B
-        highlight:
-          - 2
-    log:
-      - mode: 更新中
-        event: C 的距离被改进
-  - id: heap
-    title: 用优先队列加速
-    tldr: 每次都要找“最近的未确定点”，用堆可以快速取出。
-    body: |-
-      如果每次扫一遍所有点找最近的，点多了会很慢。
-      把候选点放进最小堆，按当前距离排，取最近的只需要 O(log V)。
-      这就是上一个主题“二叉堆”的典型用途，整体约为 O((V + E) log V)。
-    derivation: original
-    sources:
-      - ref: mit-6006
-        locator: Dijkstra 相关讲义
-        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
-        claim: 使用优先队列实现 Dijkstra 算法
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: datastate
-      structure: graph
-      caption: 候选点按当前距离放进最小堆，取最近的 O(log V)
-      graph:
-        nodes:
-          - id: A
-            x: 3
-            y: 60
-            mark: done
-            note: "0"
-          - id: B
-            x: 35
-            y: 6
-            mark: done
-            note: "3"
-          - id: C
-            x: 58
-            y: 70
-            mark: active
-            note: "6"
-          - id: D
-            x: 97
-            y: 92
-          - id: E
-            x: 82
-            y: 6
-            mark: visited
-            note: "8"
-        edges:
-          - from: A
-            to: B
-            w: 3
-            mark: done
-          - from: B
-            to: C
-            w: 3
-            mark: done
-          - from: A
-            to: C
-            w: 10
-          - from: B
-            to: E
-            w: 5
-          - from: C
-            to: D
-            w: 2
-          - from: E
-            to: D
-            w: 7
-      table:
-        title: 最小堆
-        columns:
-          - 点
-          - 距离
-        rows:
-          - - C
-            - 6
-          - - E
-            - 8
-        highlight:
-          - 0
-    log:
-      - mode: 重复
-        event: 直到所有点都确定
-  - id: path
-    title: 记录路径，而不只是距离
-    tldr: 每次松弛成功时，记下“我是从谁过来的”，最后倒着走就是完整路线。
-    body: |-
-      导航不只要知道多远，还要知道怎么走。
-      更新 C 的距离时，同时记下 C 的前驱是 B；最后从终点沿着前驱一路回溯到起点，反过来就是最短路径。
-      如果只关心到某一个终点的距离，终点被确定时就可以提前结束，不必算完所有点。
-    derivation: original
-    sources:
-      - ref: mit-6006
-        locator: 最短路径相关讲义
-        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
-        claim: 每次松弛成功时，记下“我是从谁过来的”，最后倒着走就是完整路线。
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: datastate
-      structure: graph
-      caption: 每个点记下前驱；从 D 沿前驱回溯：D ← C ← B ← A
-      graph:
-        nodes:
-          - id: A
-            x: 3
-            y: 60
-            mark: found
-            note: 0（起点）
-          - id: B
-            x: 35
-            y: 6
-            mark: found
-            note: 3，前驱 A
-          - id: C
-            x: 58
-            y: 70
-            mark: found
-            note: 6，前驱 B
-          - id: D
-            x: 97
-            y: 92
-            mark: found
-            note: 8，前驱 C
-          - id: E
-            x: 82
-            y: 6
-            mark: done
-            note: 8，前驱 B
-        edges:
-          - from: A
-            to: B
-            w: 3
-            mark: found
-          - from: B
-            to: C
-            w: 3
-            mark: found
-          - from: A
-            to: C
-            w: 10
-          - from: B
-            to: E
-            w: 5
-          - from: C
-            to: D
-            w: 2
-            mark: found
-          - from: E
-            to: D
-            w: 7
-      aux:
-        - label: 前驱
-          items:
-            - B ← A
-            - C ← B
-            - D ← C
-            - E ← B
-        - label: A 到 D
-          items:
-            - A → B → C → D
-            - 3 + 3 + 2 = 8
-    log:
-      - mode: 回溯
-        event: 得到完整路径
-  - id: limits
-    title: 负权边与工程应用
-    tldr: 有负权边时，“先确定的就是最终的”不再成立，要换别的算法。
-    body: |-
-      如果某条路是负的（比如走过去反而能“赚回”距离），已确定的点可能还有更短的路，Dijkstra 会出错，这时用 Bellman-Ford。
-      地图导航、网络路由协议 OSPF 都用到 Dijkstra 的思想。
-      游戏寻路常用 A*：在 Dijkstra 的基础上加一个“离终点大概多远”的估计，优先往目标方向搜索。
-    derivation: original
-    sources:
-      - ref: mit-6006
-        locator: 最短路径相关讲义
-        url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
-        claim: 负权边需使用 Bellman-Ford 等算法
-        status: unverified
-        note: 按 Daniel 决定不核对出处
-    canvas:
-      kind: datastate
-      structure: graph
-      caption: 最终最短路（粗线）；边必须非负，负权用 Bellman-Ford
-      graph:
-        nodes:
-          - id: A
-            x: 3
-            y: 60
-            mark: done
-            note: "0"
-          - id: B
-            x: 35
-            y: 6
-            mark: done
-            note: "3"
-          - id: C
-            x: 58
-            y: 70
-            mark: done
-            note: "6"
-          - id: D
-            x: 97
-            y: 92
-            mark: done
-            note: "8"
-          - id: E
-            x: 82
-            y: 6
-            mark: done
-            note: "8"
-        edges:
-          - from: A
-            to: B
-            w: 3
-            mark: found
-          - from: B
-            to: C
-            w: 3
-            mark: found
-          - from: A
-            to: C
-            w: 10
-          - from: B
-            to: E
-            w: 5
-            mark: found
-          - from: C
-            to: D
-            w: 2
-            mark: found
-          - from: E
-            to: D
-            w: 7
-      table:
-        title: 距离表
-        columns:
-          - 点
-          - 距离
-          - 前驱
-        rows:
-          - - A
-            - 0
-            - —
-          - - B
-            - 3
-            - A
-          - - C
-            - 6
-            - B
-          - - D
-            - 8
-            - C
-          - - E
-            - 8
-            - B
-        highlight: []
-    log:
-      - mode: 完成
-        event: 得到从 A 到所有地点的最短距离
+- id: why
+  title: 为什么 BFS 不够
+  tldr: BFS 只数“走几步”，但道路有长有短，步数少不等于路程短。
+  body: '从 A 到 C：直走一条 10 公里的路，或者经过 B 绕两段各 3 公里的路。
+
+    BFS 会选一步到达的那条，但实际更远。
+
+    边带权重时，需要一个会“算总长度”的算法。'
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: 最短路径相关讲义
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: 带权图的最短路径不能直接用 BFS 求得
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: datastate
+    structure: graph
+    caption: A 到 C：直走 10，还是经 B 走 3 + 3 = 6？
+    graph:
+      nodes:
+      - id: A
+        x: 3
+        y: 60
+        mark: active
+      - id: B
+        x: 35
+        y: 6
+      - id: C
+        x: 58
+        y: 70
+        mark: active
+      - id: D
+        x: 97
+        y: 92
+      - id: E
+        x: 82
+        y: 6
+      edges:
+      - from: A
+        to: B
+        w: 3
+        mark: found
+      - from: B
+        to: C
+        w: 3
+        mark: found
+      - from: A
+        to: C
+        w: 10
+        mark: active
+      - from: B
+        to: E
+        w: 5
+      - from: C
+        to: D
+        w: 2
+      - from: E
+        to: D
+        w: 7
+    aux:
+    - label: BFS 选
+      items:
+      - A → C（10）
+    - label: 实际最短
+      items:
+      - A → B → C（6）
+  log:
+  - mode: 初始
+    event: A 距离为 0，其余为无穷大
+  points:
+  - BFS 只数“走几步”，但道路有长有短，步数少不等于路程短。
+- id: greedy
+  title: 核心想法：先确定最近的点
+  tldr: 每次从还没确定的点里，挑出当前离起点最近的那个，它的距离就是最终答案。
+  body: '一开始只有 A 的距离是 0，其他都是“未知（无穷大）”。
+
+    挑出最近的点后，它的距离不可能再变短：因为任何别的路线都要先经过更远的点，再加上非负的路程。
+
+    这个论证依赖“边不为负”，这也是 Dijkstra 的前提。'
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Dijkstra 相关讲义
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: 在非负权图中，每次取出的最近点其距离已是最终值
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: datastate
+    structure: graph
+    caption: 一开始只有 A 确定为 0，其他都是 ∞
+    graph:
+      nodes:
+      - id: A
+        x: 3
+        y: 60
+        mark: found
+        note: '0'
+      - id: B
+        x: 35
+        y: 6
+        note: ∞
+      - id: C
+        x: 58
+        y: 70
+        note: ∞
+      - id: D
+        x: 97
+        y: 92
+        note: ∞
+      - id: E
+        x: 82
+        y: 6
+        note: ∞
+      edges:
+      - from: A
+        to: B
+        w: 3
+      - from: B
+        to: C
+        w: 3
+      - from: A
+        to: C
+        w: 10
+      - from: B
+        to: E
+        w: 5
+      - from: C
+        to: D
+        w: 2
+      - from: E
+        to: D
+        w: 7
+    table:
+      title: 距离表
+      columns:
+      - 点
+      - 距离
+      - 前驱
+      rows:
+      - - A
+        - 0
+        - —
+      - - B
+        - ∞
+        - —
+      - - C
+        - ∞
+        - —
+      - - D
+        - ∞
+        - —
+      - - E
+        - ∞
+        - —
+      highlight:
+      - 0
+  log:
+  - mode: 确定 A
+    event: A 的最短距离确定为 0
+- id: relax
+  title: 松弛：用新确定的点更新邻居
+  tldr: 看看经过这个点去它的邻居，会不会比已知的路线更短。
+  body: 'A 到 B 是 3，比“无穷大”短，就把 B 的距离更新成 3；A 到 C 是 10，先记下 10。
+
+    接着确定 B，发现经 B 到 C 只要 3 + 3 = 6，比 10 短，于是把 C 更新成 6。
+
+    这一步叫“松弛”，就是不断用更好的路线替换旧的。'
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: 最短路径相关讲义
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: 松弛操作更新距离估计
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: datastate
+    structure: graph
+    caption: 确定 B 后，经 B 到 C 只要 3 + 3 = 6 < 10，更新 C
+    graph:
+      nodes:
+      - id: A
+        x: 3
+        y: 60
+        mark: done
+        note: '0'
+      - id: B
+        x: 35
+        y: 6
+        mark: done
+        note: '3'
+      - id: C
+        x: 58
+        y: 70
+        mark: active
+        note: 10 → 6
+      - id: D
+        x: 97
+        y: 92
+        note: ∞
+      - id: E
+        x: 82
+        y: 6
+        mark: visited
+        note: '8'
+      edges:
+      - from: A
+        to: B
+        w: 3
+        mark: done
+      - from: B
+        to: C
+        w: 3
+        mark: active
+      - from: A
+        to: C
+        w: 10
+        mark: muted
+      - from: B
+        to: E
+        w: 5
+      - from: C
+        to: D
+        w: 2
+      - from: E
+        to: D
+        w: 7
+    table:
+      title: 距离表
+      columns:
+      - 点
+      - 距离
+      - 前驱
+      rows:
+      - - A
+        - 0
+        - —
+      - - B
+        - 3
+        - A
+      - - C
+        - 10 → 6
+        - A → B
+      - - D
+        - ∞
+        - —
+      - - E
+        - 8
+        - B
+      highlight:
+      - 2
+  log:
+  - mode: 更新中
+    event: C 的距离被改进
+  code:
+    lang: typescript
+    code: "// Dijkstra 骨架：优先队列取当前最近点，松弛它的所有出边\nfunction dijkstra(graph: Map<string, [string, number][]>, src: string) {\n  const dist = new Map<string, number>([[src, 0]]);\n  const pq: [number, string][] = [[0, src]]; // 实际工程用二叉堆，这里示意排序取最小\n  while (pq.length) { pq.sort((a, b) => a[0] - b[0]); const [d, u] = pq.shift()!;\n    if (d !== dist.get(u)) continue;\n    for (const [v, w] of graph.get(u) ?? []) { const nd = d + w;\n      if (nd < (dist.get(v) ?? Infinity)) { dist.set(v, nd); pq.push([nd, v]); } } }\n  return dist;\n}"
+    note: TypeScript 实现（堆见二叉堆主题）
+- id: heap
+  title: 用优先队列加速
+  tldr: 每次都要找“最近的未确定点”，用堆可以快速取出。
+  body: '如果每次扫一遍所有点找最近的，点多了会很慢。
+
+    把候选点放进最小堆，按当前距离排，取最近的只需要 O(log V)。
+
+    这就是上一个主题“二叉堆”的典型用途，整体约为 O((V + E) log V)。
+
+
+    数字对比：10 万个节点的图，朴素 O(V²) 是 100 亿次量级，堆优化 O((V+E) log V) 约百万级——地图与调度系统只能选后者。懒删除（旧距离条目跳过）是工程实现的常用技巧。'
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Dijkstra 相关讲义
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: 使用优先队列实现 Dijkstra 算法
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: datastate
+    structure: graph
+    caption: 候选点按当前距离放进最小堆，取最近的 O(log V)
+    graph:
+      nodes:
+      - id: A
+        x: 3
+        y: 60
+        mark: done
+        note: '0'
+      - id: B
+        x: 35
+        y: 6
+        mark: done
+        note: '3'
+      - id: C
+        x: 58
+        y: 70
+        mark: active
+        note: '6'
+      - id: D
+        x: 97
+        y: 92
+      - id: E
+        x: 82
+        y: 6
+        mark: visited
+        note: '8'
+      edges:
+      - from: A
+        to: B
+        w: 3
+        mark: done
+      - from: B
+        to: C
+        w: 3
+        mark: done
+      - from: A
+        to: C
+        w: 10
+      - from: B
+        to: E
+        w: 5
+      - from: C
+        to: D
+        w: 2
+      - from: E
+        to: D
+        w: 7
+    table:
+      title: 最小堆
+      columns:
+      - 点
+      - 距离
+      rows:
+      - - C
+        - 6
+      - - E
+        - 8
+      highlight:
+      - 0
+  log:
+  - mode: 重复
+    event: 直到所有点都确定
+- id: path
+  title: 记录路径，而不只是距离
+  tldr: 每次松弛成功时，记下“我是从谁过来的”，最后倒着走就是完整路线。
+  body: '导航不只要知道多远，还要知道怎么走。
+
+    更新 C 的距离时，同时记下 C 的前驱是 B；最后从终点沿着前驱一路回溯到起点，反过来就是最短路径。
+
+    如果只关心到某一个终点的距离，终点被确定时就可以提前结束，不必算完所有点。'
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: 最短路径相关讲义
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: 每次松弛成功时，记下“我是从谁过来的”，最后倒着走就是完整路线。
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: datastate
+    structure: graph
+    caption: 每个点记下前驱；从 D 沿前驱回溯：D ← C ← B ← A
+    graph:
+      nodes:
+      - id: A
+        x: 3
+        y: 60
+        mark: found
+        note: 0（起点）
+      - id: B
+        x: 35
+        y: 6
+        mark: found
+        note: 3，前驱 A
+      - id: C
+        x: 58
+        y: 70
+        mark: found
+        note: 6，前驱 B
+      - id: D
+        x: 97
+        y: 92
+        mark: found
+        note: 8，前驱 C
+      - id: E
+        x: 82
+        y: 6
+        mark: done
+        note: 8，前驱 B
+      edges:
+      - from: A
+        to: B
+        w: 3
+        mark: found
+      - from: B
+        to: C
+        w: 3
+        mark: found
+      - from: A
+        to: C
+        w: 10
+      - from: B
+        to: E
+        w: 5
+      - from: C
+        to: D
+        w: 2
+        mark: found
+      - from: E
+        to: D
+        w: 7
+    aux:
+    - label: 前驱
+      items:
+      - B ← A
+      - C ← B
+      - D ← C
+      - E ← B
+    - label: A 到 D
+      items:
+      - A → B → C → D
+      - 3 + 3 + 2 = 8
+  log:
+  - mode: 回溯
+    event: 得到完整路径
+- id: limits
+  title: 负权边与工程应用
+  tldr: 有负权边时，“先确定的就是最终的”不再成立，要换别的算法。
+  body: '如果某条路是负的（比如走过去反而能“赚回”距离），已确定的点可能还有更短的路，Dijkstra 会出错，这时用 Bellman-Ford。
+
+    地图导航、网络路由协议 OSPF 都用到 Dijkstra 的思想。
+
+    游戏寻路常用 A*：在 Dijkstra 的基础上加一个“离终点大概多远”的估计，优先往目标方向搜索。'
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: 最短路径相关讲义
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: 负权边需使用 Bellman-Ford 等算法
+    status: unverified
+    note: 按 Daniel 决定不核对出处
+  canvas:
+    kind: datastate
+    structure: graph
+    caption: 最终最短路（粗线）；边必须非负，负权用 Bellman-Ford
+    graph:
+      nodes:
+      - id: A
+        x: 3
+        y: 60
+        mark: done
+        note: '0'
+      - id: B
+        x: 35
+        y: 6
+        mark: done
+        note: '3'
+      - id: C
+        x: 58
+        y: 70
+        mark: done
+        note: '6'
+      - id: D
+        x: 97
+        y: 92
+        mark: done
+        note: '8'
+      - id: E
+        x: 82
+        y: 6
+        mark: done
+        note: '8'
+      edges:
+      - from: A
+        to: B
+        w: 3
+        mark: found
+      - from: B
+        to: C
+        w: 3
+        mark: found
+      - from: A
+        to: C
+        w: 10
+      - from: B
+        to: E
+        w: 5
+        mark: found
+      - from: C
+        to: D
+        w: 2
+        mark: found
+      - from: E
+        to: D
+        w: 7
+    table:
+      title: 距离表
+      columns:
+      - 点
+      - 距离
+      - 前驱
+      rows:
+      - - A
+        - 0
+        - —
+      - - B
+        - 3
+        - A
+      - - C
+        - 6
+        - B
+      - - D
+        - 8
+        - C
+      - - E
+        - 8
+        - B
+      highlight: []
+  log:
+  - mode: 完成
+    event: 得到从 A 到所有地点的最短距离
+level: 进阶
+minutes: 18
+prereq:
+- dsa/bfs-dfs
+- dsa/binary-heap
+objectives:
+- 复述松弛操作与贪心的正确性直觉
+- 解释为什么负边会让 Dijkstra 失效
+- 用堆把复杂度降到 O((V+E) log V)
+aiLink: 最短路径思想在 AI 系统里变形出现：路由与 CDN 调度找最低延迟节点、束搜索保留最优候选、多跳检索的代价估计。理解贪心 + 松弛 + 优先队列这组组合拳，就掌握了一类优化问题的通用骨架。
+quiz:
+- q: 松弛（relax）操作做的是什么？
+  options:
+  - 删边
+  - 若经 u 到 v 更短，就更新 v 的距离与前驱
+  - 把边权改小
+  - 访问标记
+  answer: 1
+  explain: 全部算法就是反复松弛；区别只在以什么顺序挑边。
+- q: Dijkstra 为什么不允许负边？
+  options:
+  - 代码写不了
+  - 贪心假设已确定的最短距离不会被后来更短的路推翻，负边会打破它
+  - 负边不存在于现实
+  - 堆不支持负数
+  answer: 1
+  explain: 负边可能让已结算节点出现更短路径，贪心前提崩塌，需改用 Bellman-Ford。
+- q: 用二叉堆优化后，每次取最近未定节点与更新邻居的代价是？
+  options:
+  - O(1)
+  - O(log V)
+  - O(V)
+  - O(E)
+  answer: 1
+  explain: 堆的取顶与更新都是 O(log V)，总复杂度 O((V+E) log V)。
+legend:
+- key: active
+  label: 当前比较/处理中的元素
+- key: found
+  label: 已找到 / 最终位置
+- key: done
+  label: 已完成处理
+- key: pivot
+  label: 基准元素（pivot）
+- key: muted
+  label: 已排除 / 不再考虑
+- key: visited
+  label: 已访问
