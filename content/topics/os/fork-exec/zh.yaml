@@ -244,7 +244,10 @@ steps:
 
     进程之间可以发信号：Ctrl+C 发 SIGINT，kill 默认发 SIGTERM，子进程结束时父进程会收到 SIGCHLD。
 
-    进程可以自己处理大多数信号，但 SIGKILL 无法捕获，一定会被杀掉。'
+    进程可以自己处理大多数信号，但 SIGKILL 无法捕获，一定会被杀掉。
+
+
+    具体数字：fork 一个 RSS 10 GB 的推理进程，页表复制本身是毫秒级；真正被复制的是之后被写脏的页。所以 worker 数 × 每 worker 写脏量，才是多进程部署的真实内存账。'
   derivation: original
   sources:
   - ref: ostep

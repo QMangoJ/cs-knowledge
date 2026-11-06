@@ -468,7 +468,10 @@ steps:
 
     地图导航、网络路由协议 OSPF 都用到 Dijkstra 的思想。
 
-    游戏寻路常用 A*：在 Dijkstra 的基础上加一个“离终点大概多远”的估计，优先往目标方向搜索。'
+    游戏寻路常用 A*：在 Dijkstra 的基础上加一个“离终点大概多远”的估计，优先往目标方向搜索。
+
+
+    工程注记：Dijkstra 的「距离表 + 优先队列」骨架换个代价函数就是 A* 搜索与束搜索：把「已付代价 + 启发估计」塞进堆里，取的永远是当前最 promising 的候选。'
   derivation: original
   sources:
   - ref: mit-6006

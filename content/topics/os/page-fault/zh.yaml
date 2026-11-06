@@ -246,7 +246,10 @@ steps:
 
     万一大家真的都来用，缺页时找不到空闲内存，内核就启动 OOM killer，挑一个占用大的进程杀掉。
 
-    所以服务“莫名其妙被杀”，常常要去 dmesg 里找 OOM 记录。'
+    所以服务“莫名其妙被杀”，常常要去 dmesg 里找 OOM 记录。
+
+
+    具体数字：minor fault（页已在内存、只补映射）约微秒级，major fault（要去 SSD 读）约几十到上百微秒、去机械盘是毫秒级。/proc/vmstat 的 pgmajfault 持续增长，就是服务在被内存压力拖慢的信号。'
   derivation: original
   sources:
   - ref: linux-kernel-docs

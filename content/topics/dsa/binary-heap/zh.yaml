@@ -244,7 +244,10 @@ steps:
 
     要从海量数据里找前 10 名，可以维护一个大小为 10 的堆，不用全部排序。
 
-    JS 没有内置堆，需要自己写或用库；Java 有 PriorityQueue，Python 有 heapq。'
+    JS 没有内置堆，需要自己写或用库；Java 有 PriorityQueue，Python 有 heapq。
+
+
+    工程注记：定时器轮、请求优先级、Top-K 保留都是堆的直接应用：保留最大的 K 个元素用大小为 K 的最小堆，流式数据来多少处理多少，内存恒定 K。'
   derivation: original
   sources:
   - ref: mit-6006

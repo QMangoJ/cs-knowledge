@@ -288,7 +288,10 @@ steps:
 
     Linux 把一小段内核提供的代码和数据映射进每个进程（叫 vDSO），clock_gettime、gettimeofday 通常直接在用户态读出结果。
 
-    这就像前端把不常变的数据放在本地缓存，不必每次都请求后端。'
+    这就像前端把不常变的数据放在本地缓存，不必每次都请求后端。
+
+
+    工程注记：用 strace -c 看一个真实程序，常会发现 read/write 之外还有大量 mmap 与 futex；推理框架启动慢常不是模型算得慢，而是成千上万次小文件 openat/read 累积出来的。'
   derivation: original
   sources:
   - ref: ostep

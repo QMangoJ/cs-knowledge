@@ -448,7 +448,10 @@ steps:
 
     读多写少的数据用读写锁，多个读者可以同时进。
 
-    只是一个计数器时，直接用原子操作（如 atomic_fetch_add）就够了，不必加锁。'
+    只是一个计数器时，直接用原子操作（如 atomic_fetch_add）就够了，不必加锁。
+
+
+    工程注记：排障时先分清锁竞争还是锁等待——perf lock 与 /proc/<pid>/status 能看出线程睡在 futex 上；睡得多但 CPU 不满，问题在锁粒度或临界区里做了慢操作（如在锁内打日志）。'
   derivation: original
   sources:
   - ref: ostep

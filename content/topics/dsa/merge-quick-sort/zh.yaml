@@ -449,7 +449,10 @@ steps:
 - id: lab-compare
   title: 动手实验：归并 vs 快排对比
   tldr: 同一组输入同时跑两种排序，比较次数的差距一目了然。
-  body: 切换「已排序」预设再单步到底：快排（末元素 pivot）会做出 28 次比较——每次只排好一个元素，这就是 O(n²) 退化；归并仍是 12 次。乱序输入下两者接近，这正是随机 pivot 的价值：让输入分布无法针对你。
+  body: '切换「已排序」预设再单步到底：快排（末元素 pivot）会做出 28 次比较——每次只排好一个元素，这就是 O(n²) 退化；归并仍是 12 次。乱序输入下两者接近，这正是随机 pivot 的价值：让输入分布无法针对你。
+
+
+    工程注记：JS 的 Array.prototype.sort 在 V8 中是 TimSort（归并变体，稳定）；Python 的 sorted 同样。业务里多关键字排序先想稳定性，再决定写几次 sort。'
   derivation: original
   sources: []
   canvas:

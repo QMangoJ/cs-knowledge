@@ -386,7 +386,10 @@ steps:
 
     算钱用整数“分”来存，或者用十进制库，不要用浮点数。
 
-    JS 里超过 Number.MAX_SAFE_INTEGER 的整数会失去精度，需要用 BigInt，后端传来的 64 位 ID 最好当字符串处理。'
+    JS 里超过 Number.MAX_SAFE_INTEGER 的整数会失去精度，需要用 BigInt，后端传来的 64 位 ID 最好当字符串处理。
+
+
+    工程注记：比较浮点数永远不要用 ==：0.1 + 0.2 !== 0.3 在所有语言里都成立。金额用整数分、误差敏感处用容差比较，是从表示误差里长出来的工程纪律。'
   derivation: original
   sources:
   - ref: csapp
