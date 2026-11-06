@@ -1,6 +1,9 @@
+// Browser verification suite (local production build): serve out/ on 4174 first, then
+// CHROME=<chrome path> node scripts/browser-verify.mjs — 45 assertions: homepage/progress, topic walks,
+// quiz + localStorage, both labs, coding judge (pass/fail/perf-trap), network topics, 390px viewport.
 import { chromium } from "playwright-core";
-const CHROME = "/home/hatch/workspace/yumi-mobile-test/browsers/chrome/linux-157.0.8103.38/chrome-linux64/chrome";
-const base = "http://127.0.0.1:4174";
+const CHROME = process.env.CHROME ?? "/usr/bin/google-chrome";
+const base = process.env.BASE ?? "http://127.0.0.1:4174";
 let pass = 0, fail = 0; const fails = [];
 const ok = (c, m) => { if (c) { pass++; console.log("ok  ", m); } else { fail++; fails.push(m); console.log("FAIL", m); } };
 const browser = await chromium.launch({ executablePath: CHROME, args: ["--no-sandbox"] });
