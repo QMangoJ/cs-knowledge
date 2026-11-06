@@ -23,7 +23,7 @@ overview:
 - key: 原地
   value: 快排原地（只用递归栈）；数组归并需要 O(n) 额外空间
 - key: 下限
-  value: 比较排序最坏至少约 n log n 次比较；计数、基数排序不靠比较
+  value: 比较排序最坏至少约 n log n 次比较；计数、基数排序不靠比较（复杂度含值域/位数项）
 - key: 小数组
   value: 标准库在小区间常切换到插入排序
 visual: datastate
@@ -47,8 +47,10 @@ steps:
     locator: 排序相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 归并排序为 O(n log n)，优于 O(n²) 的简单排序
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: array
@@ -88,8 +90,10 @@ steps:
     locator: 归并排序相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 归并排序递归地将数组二分
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: array
@@ -166,8 +170,10 @@ steps:
     locator: 归并排序相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 合并两个有序数组为线性时间，归并排序是稳定排序
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: array
@@ -237,8 +243,10 @@ steps:
     locator: 快速排序相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 快速排序平均 O(n log n)，最坏 O(n²)，随机化基准可避免最坏情况
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: array
@@ -291,8 +299,10 @@ steps:
     locator: 排序相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 快排好坏取决于基准选得好不好；递归深度也要控制住。
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: array
@@ -342,7 +352,7 @@ steps:
 
     所以归并、快排、堆排序在“比较排序”里已经是最优量级了。
 
-    如果不靠比较，而是利用值的范围，比如计数排序、基数排序，可以做到 O(n)，但只适用于整数这类有限范围的键。
+    如果不靠比较，而是利用值的范围，比如计数排序、基数排序，可以突破这个下限：计数排序是 O(n+k)（k 为值域大小）、基数排序是 O(d·(n+b))（d 为位数），只在值域/位数受限时才近似线性，且只适用于整数这类有限范围的键。
 
 
     数字例子：n = 100 万时，n log n ≈ 2000 万次比较，n² = 1 万亿次——相差 5 万倍。一次被构造的已排序输入就能让朴素快排从毫秒级掉到分钟级，生产代码都用随机/中位数 pivot 或内省排序兜底。'
@@ -352,8 +362,10 @@ steps:
     locator: 排序相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 只靠两两比较来排序，最坏情况下至少要 n log n 量级的比较次数。
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: array
@@ -412,8 +424,10 @@ steps:
     locator: 排序相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 排序算法在稳定性、空间与最坏情况上有不同取舍
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: array
@@ -452,7 +466,7 @@ steps:
   body: '切换「已排序」预设再单步到底：快排（末元素 pivot）会做出 28 次比较——每次只排好一个元素，这就是 O(n²) 退化；归并仍是 12 次。乱序输入下两者接近，这正是随机 pivot 的价值：让输入分布无法针对你。
 
 
-    工程注记：JS 的 Array.prototype.sort 在 V8 中是 TimSort（归并变体，稳定）；Python 的 sorted 同样。业务里多关键字排序先想稳定性，再决定写几次 sort。'
+    工程注记：JS 的 Array.prototype.sort 在 V8 中是 TimSort（归并变体，稳定）；Python 的 sorted 长期用 TimSort，3.11 起换成它的改进版 Powersort（同为稳定的自适应归并）。业务里多关键字排序先想稳定性，再决定写几次 sort。'
   derivation: original
   sources: []
   canvas:

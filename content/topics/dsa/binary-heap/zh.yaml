@@ -45,8 +45,10 @@ steps:
     locator: 二叉堆相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 优先队列支持插入与取最小值操作
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: tree
@@ -84,8 +86,10 @@ steps:
     locator: 二叉堆相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 堆以数组存储完全二叉树，满足堆序性质
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: tree
@@ -117,8 +121,10 @@ steps:
     locator: 二叉堆相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 插入通过上浮恢复堆序，O(log n)
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: tree
@@ -162,8 +168,10 @@ steps:
     locator: 二叉堆相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 取出最小值后通过下沉恢复堆序，O(log n)
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: tree
@@ -204,8 +212,10 @@ steps:
     locator: 二叉堆相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 已有 n 个元素时，从最后一个非叶子节点往前逐个下沉，总共只要 O(n)。
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: tree
@@ -242,7 +252,7 @@ steps:
   tldr: 调度器、定时器、Top K 问题，背后常常是一个堆。
   body: 'React 的调度器用最小堆按过期时间管理任务，先处理最急的更新。
 
-    要从海量数据里找前 10 名，可以维护一个大小为 10 的堆，不用全部排序。
+    要从海量数据里找最大的 10 名，可以维护一个大小为 10 的最小堆（堆顶就是这 10 个里最小的，新元素比它大才替换），不用全部排序。
 
     JS 没有内置堆，需要自己写或用库；Java 有 PriorityQueue，Python 有 heapq。
 
@@ -254,8 +264,10 @@ steps:
     locator: 二叉堆相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 堆用于实现优先队列
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: tree
@@ -286,7 +298,7 @@ objectives:
 - 用完全二叉树的数组下标算父/子位置
 - 描述上浮与下沉如何恢复堆序
 - 说清建堆为什么是 O(n) 而非 O(n log n)
-aiLink: 优先队列是调度器的心脏：推理服务的请求优先级队列、束搜索（beam search）的候选保留、定时器与事件循环，全靠堆在 O(log n) 内取最值。理解堆，就理解这些系统如何排队。
+aiLink: 优先队列是调度器的心脏：推理服务的请求优先级队列、定时器与事件循环靠堆在 O(log n) 内取最值；束搜索（beam search）每步要保留 top-k 候选，也常借助堆或部分排序来做。理解堆，就理解这些系统如何排队。
 quiz:
 - q: 数组下标 i（0 起）的左孩子下标是？
   options:

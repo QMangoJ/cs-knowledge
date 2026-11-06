@@ -21,7 +21,7 @@ overview:
 - key: 存储
   value: 邻接表 O(V + E)，邻接矩阵 O(V²)
 - key: DFS 三色
-  value: 白（未访问）、灰（在路径上，遇到即有环）、黑（完成）
+  value: 白（未访问）、灰（在当前路径上；有向图中遇到灰色节点即有环）、黑（完成）
 - key: 连通分量
   value: 从每个未访问点出发遍历一次，就能数出有几块
 - key: 注意
@@ -47,8 +47,10 @@ steps:
     locator: 图搜索相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 图遍历需记录已访问节点以避免重复
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: graph
@@ -110,8 +112,10 @@ steps:
     locator: BFS 相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: BFS 按层访问，求得无权图中的最短路径
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: graph
@@ -184,15 +188,17 @@ steps:
 
     递归调用本身就是一个栈，所以 DFS 常写成递归。
 
-    它像走迷宫时的“右手扶墙”：先走到底，再回头。'
+    它像走迷宫：先一条路走到底，走不通再回头换路。'
   derivation: original
   sources:
   - ref: mit-6006
     locator: DFS 相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: DFS 沿路径深入并回溯
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: graph
@@ -270,8 +276,10 @@ steps:
     locator: 图搜索相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 稀疏图用邻接表，省空间；稠密图或要快速判断“有没有边”时用邻接矩阵。
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: graph
@@ -344,8 +352,10 @@ steps:
     locator: 图搜索相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: BFS 与 DFS 的时间复杂度为 O(V + E)
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: graph
@@ -416,8 +426,10 @@ steps:
     locator: 图搜索相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: DFS 走到一个“还在当前路径上”的点，说明有环；按完成顺序倒过来，就是依赖顺序。
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: graph
@@ -490,8 +502,10 @@ steps:
     locator: 图搜索相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: DFS 可用于拓扑排序与环检测
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: graph

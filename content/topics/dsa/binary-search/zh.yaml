@@ -15,7 +15,7 @@ overview:
 - key: 前提
   value: 数据必须有序，且能按下标直接访问
 - key: 工程里
-  value: lodash 的 sortedIndex、数据库 B+ 树索引、git bisect 找出引入 bug 的提交
+  value: lodash 的 sortedIndex、数据库 B+ 树在节点内对键二分、git bisect 找出引入 bug 的提交
 - key: 易错点
   value: 边界条件（左闭右开还是闭区间）、取中间时整数溢出
 - key: 变体
@@ -43,8 +43,10 @@ steps:
     locator: 二分查找相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 有序数组可用二分查找在 O(log n) 时间内查找
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: array
@@ -88,8 +90,10 @@ steps:
     locator: 二分查找相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 每次比较排除一半候选
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: array
@@ -143,8 +147,10 @@ steps:
     locator: 二分查找相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 范围为空时查找失败，可得到插入位置
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: array
@@ -199,8 +205,10 @@ steps:
     locator: 二分查找相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 二分最容易错的是边界，先想清楚“目标一定在哪个范围里”。
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: array
@@ -343,7 +351,7 @@ steps:
 
     更广的用法是在答案上二分：只要“答案为 k 时是否可行”随 k 单调变化，就能二分找最小可行的 k，比如找最小的带宽让任务按时完成。
 
-    git bisect 也是这个思路：提交按时间有序，“有没有这个 bug”在某个提交前后发生改变。
+    git bisect 也是这个思路（在线性历史上可这样直观理解：提交按时间有序，“有没有这个 bug”在某个提交前后发生改变；实际实现是在提交图上按祖先关系收窄候选）。
 
 
     完整例子——在答案上二分：要把一批请求分给服务器，每台每秒能处理 k 个请求才不超时。可行性随 k 单调（k 越大越容易按时完成），于是对 k 二分：检查 k 是否可行只需 O(n) 模拟，总复杂度 O(n log 范围)。同理可二分最小批大小、最低置信度阈值。'
@@ -353,8 +361,10 @@ steps:
     locator: 二分查找相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 有重复元素时可以找“第一个 ≥ x”的位置；只要有单调性，就能二分。
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: array
@@ -469,15 +479,17 @@ steps:
 
     数据量翻倍，只多比较一次，这就是对数增长。
 
-    这也是数据库索引能在海量数据里瞬间定位的原因之一。'
+    数据库索引能瞬间定位主要靠 B+ 树的低深度（详见数据存储科），二分是它在每个节点内部查找键的那一环。'
   derivation: original
   sources:
   - ref: mit-6006
     locator: 渐近分析相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 二分查找比较次数为对数级
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: array
@@ -514,15 +526,23 @@ steps:
     二分的思想也不只用于数组：git bisect 在提交历史里二分，找出是哪次提交引入了 bug。
 
 
-    溢出的真实故事：(lo + hi) / 2 的溢出 bug 在 Java 的 Arrays.binarySearch 里潜伏了约 9 年才被公开指出——当数组索引接近 2^30 时 lo + hi 会超过 int 上限变负数。JS 里数字是双精度浮点、2^53 内整数精确，所以不会真溢出，但写 lo + (hi - lo) / 2 的习惯要保留，换到任何语言都安全。'
+    溢出的真实故事：(lo + hi) / 2 的溢出 bug 在 Java 的 Arrays.binarySearch 里潜伏了约 9 年才被公开指出——当数组索引接近 2^30 时 lo + hi 会超过 int 上限变负数。JS 里数字是双精度浮点、整数在 ±(2^53−1) 内可精确表示（MAX_SAFE_INTEGER），所以不会真溢出，但写 lo + (hi - lo) / 2 的习惯要保留，换到任何语言都安全。'
   derivation: original
   sources:
   - ref: mit-6006
     locator: 二分查找相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 二分查找要求有序与随机访问
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+  - ref: joshua-bloch
+    locator: 全文（2006-06-02）
+    claim: (low+high)/2 溢出 bug 在 JDK 的 Arrays.binarySearch 里潜伏约九年，数组长度达 2^30 时触发
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
   canvas:
     kind: datastate
     structure: array
@@ -566,7 +586,7 @@ objectives:
 - 在闭区间/半开区间两种写法下都写对二分
 - 实现 lower_bound 并处理重复元素
 - 识别可在答案上二分的单调性问题
-aiLink: 二分在 AI 工程里以「阈值搜索」的样子反复出现：在单调的代价曲线上找最优的置信度阈值、批大小、量化档位；向量检索的图索引（HNSW）也是逐层缩小候选范围。掌握不变式写法，这类搜索就不会写出边界 bug。
+aiLink: 二分在 AI 工程里以「阈值搜索」的样子反复出现：当指标随参数单调变化时，可在代价曲线上二分找最优的置信度阈值、批大小、量化档位（不单调时不适用，要先验证单调性）。另作类比：向量检索的图索引（HNSW）同样逐层缩小候选范围，但机制是图上的贪心游走，不是二分。掌握不变式写法，这类搜索就不会写出边界 bug。
 quiz:
 - q: 左闭右开 [lo, hi) 写法里，循环条件与收缩正确的是？
   options:
@@ -583,7 +603,7 @@ quiz:
   - 让结果更大
   - 兼容链表
   answer: 1
-  explain: Java 标准库这个溢出 bug 存在多年；JS 数字是双精度浮点，整数在 2^53 内也安然无恙，但思想要懂。
+  explain: Java 标准库这个溢出 bug 存在多年（Bloch 2006 年博文）；JS 数字是双精度浮点，整数在 ±(2^53−1) 内可精确表示，但思想要懂。
 - q: 数组 [5,12,23,23,23,38] 中 23 出现几次，用什么算？
   options:
   - lower_bound 一次

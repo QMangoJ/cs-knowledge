@@ -49,8 +49,10 @@ steps:
     locator: Hashing 相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 哈希表支持期望 O(1) 的查找
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: array
@@ -99,8 +101,10 @@ steps:
     locator: Hashing 相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 哈希函数将键映射到表中的位置
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: array
@@ -149,8 +153,10 @@ steps:
     locator: Hashing 相关讲义，冲突处理
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 通过链接或开放寻址解决冲突
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: array
@@ -187,7 +193,7 @@ steps:
 - id: open-addr
   title: 两种处理冲突的方式各有什么代价
   tldr: 链表法简单、能装超过桶数的元素；开放寻址更省内存、缓存更友好，但删除麻烦。
-  body: '链表法：表很挤时链会变长，但不会“装满”；Java 8 的 HashMap 在一个桶的链太长时，还会把它变成红黑树。
+  body: '链表法：表很挤时链会变长，但不会“装满”；Java 8 的 HashMap 在一个桶的链长达到 8 且表容量至少 64 时（两个条件都满足），还会把那条链变成红黑树（容量不够时优先扩容）。
 
     开放寻址：所有元素都在一个连续数组里，顺着往后找对 CPU 缓存很友好，Python dict 就用这种思路。
 
@@ -198,8 +204,10 @@ steps:
     locator: Hashing 相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 链表法简单、能装超过桶数的元素；开放寻址更省内存、缓存更友好，但删除麻烦。
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: array
@@ -292,15 +300,17 @@ steps:
     单次扩容要搬全部元素，但它很少发生，平均摊到每次插入上仍是 O(1)，这叫“均摊”。
 
 
-    数字例子：从 16 个桶开始、负载因子 0.75 扩容，插入 100 万个元素共扩容约 16 次，总搬运量约 200 万次量级——每次插入均摊仍是常数。这与动态数组 push 的均摊 O(1) 是同一个几何级数道理。'
+    数字例子：从 16 个桶开始、负载因子 0.75 扩容，插入 100 万个元素共扩容约 17 次，总搬运量约 157 万次（<2n）——每次插入均摊仍是常数。这与动态数组 push 的均摊 O(1) 是同一个几何级数道理。'
   derivation: original
   sources:
   - ref: mit-6006
     locator: Hashing / 动态数组相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 表大小翻倍使插入的均摊代价为 O(1)
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: array
@@ -390,8 +400,10 @@ steps:
     locator: Hashing 相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: O(1) 是平均情况；如果攻击者故意造出大量冲突的键，哈希表会变慢到 O(n)。
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: array
@@ -451,8 +463,10 @@ steps:
     locator: Hashing 相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 哈希表适合精确查找，不支持有序操作
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: array
@@ -496,7 +510,7 @@ objectives:
 - 解释哈希函数、冲突与负载因子的关系
 - 对比拉链法与开放寻址的取舍
 - 说清扩容为什么均摊是 O(1)
-aiLink: 词表查表就是哈希：分词器把 token 映射到 id、embedding 层按 id 取向量、特征哈希（hashing trick）把高维特征压进固定表——全是哈希表。理解冲突与扩容，就理解这些查表为什么平均 O(1)、最坏会退化。
+aiLink: 查表在 AI 管线里无处不在，但要分清三种：分词器把 token 映射到 id 是真正的哈希表（词表 dict）；embedding 层是拿 id 直接索引向量矩阵的行——同为 O(1) 查表，但没有哈希函数、没有冲突，不是哈希表；特征哈希（hashing trick）用哈希函数把特征直接定到列下标，是真哈希。理解冲突与扩容，就理解哈希类查表为什么平均 O(1)、最坏会退化。
 quiz:
 - q: 负载因子过高时哈希表变慢的原因？
   options:
@@ -505,7 +519,7 @@ quiz:
   - 哈希函数变慢
   - CPU 降频
   answer: 1
-  explain: 负载因子 = 元素数/桶数；常用阈值 0.7 左右触发扩容。
+  explain: 负载因子 = 元素数/桶数；扩容阈值因实现而异，如 Java HashMap 是 0.75。
 - q: 扩容时逐个把 n 个元素搬进新表，为什么插入的均摊复杂度还是 O(1)？
   options:
   - 因为搬运免费

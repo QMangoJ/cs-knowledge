@@ -47,8 +47,10 @@ steps:
     locator: 最短路径相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 带权图的最短路径不能直接用 BFS 求得
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: graph
@@ -120,8 +122,10 @@ steps:
     locator: Dijkstra 相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 在非负权图中，每次取出的最近点其距离已是最终值
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: graph
@@ -209,8 +213,10 @@ steps:
     locator: 最短路径相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 松弛操作更新距离估计
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: graph
@@ -304,15 +310,17 @@ steps:
     这就是上一个主题“二叉堆”的典型用途，整体约为 O((V + E) log V)。
 
 
-    数字对比：10 万个节点的图，朴素 O(V²) 是 100 亿次量级，堆优化 O((V+E) log V) 约百万级——地图与调度系统只能选后者。懒删除（旧距离条目跳过）是工程实现的常用技巧。'
+    数字对比：10 万个节点的图，朴素 O(V²) 是 100 亿次量级；堆优化 O((V+E) log V) 在稀疏图（E 是 V 的常数倍）下约数百万次量级——地图与调度系统只能选后者。懒删除（旧距离条目跳过）是工程实现的常用技巧。'
   derivation: original
   sources:
   - ref: mit-6006
     locator: Dijkstra 相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 使用优先队列实现 Dijkstra 算法
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: graph
@@ -392,8 +400,10 @@ steps:
     locator: 最短路径相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 每次松弛成功时，记下“我是从谁过来的”，最后倒着走就是完整路线。
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: graph
@@ -468,18 +478,20 @@ steps:
 
     地图导航、网络路由协议 OSPF 都用到 Dijkstra 的思想。
 
-    游戏寻路常用 A*：在 Dijkstra 的基础上加一个“离终点大概多远”的估计，优先往目标方向搜索。
+    游戏寻路常用 A*：在 Dijkstra 的基础上加一个“离终点大概多远”的估计，优先往目标方向搜索；只要这个估计不高估真实距离（admissible），A* 仍保证最短路径。
 
 
-    工程注记：Dijkstra 的「距离表 + 优先队列」骨架换个代价函数就是 A* 搜索与束搜索：把「已付代价 + 启发估计」塞进堆里，取的永远是当前最 promising 的候选。'
+    工程注记：A* 是 Dijkstra 骨架的直接推广：把「已付代价 + 启发估计」塞进优先队列，取的永远是当前估计总代价最小的候选。束搜索不同——它只保留固定宽度的候选、丢弃其余，是贪心截断，不保证最优，只是借用了「保留最有希望的候选」这个思想。'
   derivation: original
   sources:
   - ref: mit-6006
     locator: 最短路径相关讲义
     url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
     claim: 负权边需使用 Bellman-Ford 等算法
-    status: unverified
-    note: 按 Daniel 决定不核对出处
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-07
+    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
   canvas:
     kind: datastate
     structure: graph
