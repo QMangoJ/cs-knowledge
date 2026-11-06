@@ -2,7 +2,7 @@
 export type PerfKind = "tape-large" | "counters-large" | "frog-huge";
 export function perfArgs(kind: PerfKind): unknown[] {
   switch (kind) {
-    case "tape-large": return [Array.from({ length: 30000 }, (_, i) => (i % 7) - 3)];
+    case "tape-large": return [Array.from({ length: 100000 }, (_, i) => (i % 7) - 3)];
     case "counters-large": { const N = 50000; const A: number[] = []; for (let i = 0; i < 50000; i++) { A.push(N + 1); A.push(1); } return [N, A]; }
     case "frog-huge": return [1, 1000000000, 1];
   }

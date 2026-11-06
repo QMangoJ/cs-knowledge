@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Problem } from "@/lib/coding/problems";
 import { perfArgs, perfCheck, deepEqual, PERF_LIMIT_MS } from "@/lib/coding/run";
 import { codingKey, isDone, setDone } from "@/lib/progress";
@@ -9,7 +9,8 @@ type Row = { name: string; pass: boolean; detail: string; ms?: number };
 export function ProblemRunner({ problem }: { problem: Problem }) {
   const [code, setCode] = useState(problem.stub);
   const [rows, setRows] = useState<Row[] | null>(null);
-  const [done, setDoneState] = useState(() => (typeof window !== "undefined" ? isDone(codingKey(problem.slug)) : false));
+  const [done, setDoneState] = useState(false);
+  useEffect(() => { setDoneState(isDone(codingKey(problem.slug))); }, [problem.slug]);
   const [err, setErr] = useState("");
   const run = () => {
     setErr("");

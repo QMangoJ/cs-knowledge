@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { stepPath } from "@/lib/paths";
-import { doneKey, isDone, useProgressVersion } from "@/lib/progress";
+import { doneKey, isDone, useMounted, useProgressVersion } from "@/lib/progress";
 import { t } from "@/i18n";
 
 export type HomeTopic = {
@@ -19,8 +19,9 @@ const ROADMAP = ["数据库与存储：索引、事务、LSM 树与向量数据�
 
 export function Home({ topics }: { topics: HomeTopic[] }) {
   useProgressVersion();
+  const mounted = useMounted();
   const published = topics.filter((x) => x.status === "published");
-  const doneCount = typeof window !== "undefined" ? published.filter((x) => isDone(doneKey(x.id))).length : 0;
+  const doneCount = mounted ? published.filter((x) => isDone(doneKey(x.id))).length : 0;
   const pct = published.length ? Math.round((doneCount / published.length) * 100) : 0;
   return (
     <div className="home">
@@ -48,7 +49,7 @@ export function Home({ topics }: { topics: HomeTopic[] }) {
             {list.length === 0 ? <p className="muted">{t.comingSoon}</p> : (
               <ul className="cards">
                 {list.map((x) => {
-                  const done = typeof window !== "undefined" && isDone(doneKey(x.id));
+                  const done = mounted && isDone(doneKey(x.id));
                   return x.status === "coming-soon" ? (
                     <li key={x.id} className="topic-card disabled"><h3>{x.title}</h3><p>{x.summary}</p><span className="badge">{t.comingSoon}</span></li>
                   ) : (

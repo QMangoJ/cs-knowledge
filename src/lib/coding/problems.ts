@@ -113,7 +113,7 @@ const P: Problem[] = [
     { name: "extremes", args: [[-1000, 1000]], expect: 2000 },
     { name: "negatives", args: [[-10, -20, -30]], expect: 0 },
   ],
-  perf: { name: "large input (performance): N=30,000", kind: "tape-large", note: "O(N²) 写法在 30,000 个元素上要算近 9 亿次加法；O(N) 前缀和毫秒级完成。限时 1000 ms。" },
+  perf: { name: "large input (performance): N=100,000", kind: "tape-large", note: "O(N²) 写法在 100,000 个元素上要算约 50 亿次加法（浏览器里也要数秒）；O(N) 前缀和只要几毫秒。限时 1000 ms。原练习包的 Node 版用例是 30,000 个元素——浏览器 JIT 太快会让 O(N²) 蒙混过关，所以这里按约束上限取 100,000。" },
   reference: "function solution(A) {\n  let total = 0;\n  for (const v of A) total += v;\n  let left = 0, best = Infinity;\n  for (let p = 0; p < A.length - 1; p++) {\n    left += A[p];\n    best = Math.min(best, Math.abs(total - 2 * left));\n  }\n  return best;\n}",
   explainZh: "思路：先求总和 total。左半边逐个累加 left，右半边就是 total − left，差 = |total − 2·left|，一次遍历扫完所有切分点（注意 P 不能等于 N，最后一个元素必须留在右边）。关键是右半边的和由减法得来，而不是每个点重算——这是前缀和思想的入门形态。",
 },

@@ -22,3 +22,10 @@ export function useProgressVersion(): number {
   }, []);
   return v;
 }
+
+/** False during SSR + first client render, true after mount — use to gate localStorage-dependent UI and avoid hydration mismatches. */
+export function useMounted(): boolean {
+  const [m, setM] = useState(false);
+  useEffect(() => { setM(true); }, []);
+  return m;
+}

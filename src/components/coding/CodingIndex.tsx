@@ -1,18 +1,19 @@
 "use client";
 import Link from "next/link";
 import type { Problem } from "@/lib/coding/problems";
-import { codingKey, isDone, useProgressVersion } from "@/lib/progress";
+import { codingKey, isDone, useMounted, useProgressVersion } from "@/lib/progress";
 
 export function CodingIndex({ problems }: { problems: Problem[] }) {
   useProgressVersion();
-  const doneCount = typeof window !== "undefined" ? problems.filter((p) => isDone(codingKey(p.slug))).length : 0;
+  const mounted = useMounted();
+  const doneCount = mounted ? problems.filter((p) => isDone(codingKey(p.slug))).length : 0;
   const group = (g: Problem["group"], title: string, note?: string) => (
     <section className="subject">
       <h2>{title}</h2>
       {note && <p className="muted">{note}</p>}
       <ul className="coding-grid">
         {problems.filter((p) => p.group === g).map((p) => {
-          const done = typeof window !== "undefined" && isDone(codingKey(p.slug));
+          const done = mounted && isDone(codingKey(p.slug));
           return (
             <li key={p.slug} className="topic-card"><Link href={`/coding/${p.slug}/`}>
               <h3>{p.title} · {p.titleZh}{done && <span className="done-check"> ✓</span>}</h3>

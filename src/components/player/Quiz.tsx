@@ -1,12 +1,13 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { QuizItem } from "@/lib/schema";
 import { doneKey, isDone, setDone } from "@/lib/progress";
 import { t } from "@/i18n";
 
 export function Quiz({ items, topicId }: { items: QuizItem[]; topicId: string }) {
   const [picked, setPicked] = useState<Record<number, number>>({});
-  const [done, setDoneState] = useState(() => (typeof window !== "undefined" ? isDone(doneKey(topicId)) : false));
+  const [done, setDoneState] = useState(false);
+  useEffect(() => { setDoneState(isDone(doneKey(topicId))); }, [topicId]);
   const correct = items.filter((q, i) => picked[i] === q.answer).length;
   const allRight = correct === items.length;
   const pick = (i: number, j: number) => {
@@ -39,7 +40,8 @@ export function Quiz({ items, topicId }: { items: QuizItem[]; topicId: string })
 }
 
 export function MarkDone({ topicId }: { topicId: string }) {
-  const [done, setDoneState] = useState(() => (typeof window !== "undefined" ? isDone(doneKey(topicId)) : false));
+  const [done, setDoneState] = useState(false);
+  useEffect(() => { setDoneState(isDone(doneKey(topicId))); }, [topicId]);
   if (done) return <p className="mark-done done">{t.done}</p>;
   return <button type="button" className="mark-done" onClick={() => { setDone(doneKey(topicId)); setDoneState(true); }}>{t.markDone}</button>;
 }
