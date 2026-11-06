@@ -10,7 +10,7 @@ for (const vp of [{ width: 1440, height: 900 }, { width: 1280, height: 800 }, { 
   const rsc = []; page.on("request", (r) => { if (/\/os\/syscall\/.*(_rsc=|\.txt)/.test(r.url())) rsc.push(r.url()); });
   const tag = `${vp.width}x${vp.height}`;
   await page.goto(`${base}/os/syscall/3/`);
-  ok((await page.locator(".step h2").textContent()) === "保存现场", `${tag} direct /3/ shows step 3`);
+  ok((await page.locator(".step h2").textContent()) === "切到内核态", `${tag} direct /3/ shows step 3`);
   rsc.length = 0;
   await page.keyboard.press("ArrowRight");
   ok(page.url().endsWith("/os/syscall/4/"), `${tag} ArrowRight -> /4/`);
@@ -24,7 +24,7 @@ for (const vp of [{ width: 1440, height: 900 }, { width: 1280, height: 800 }, { 
   await page.waitForFunction(() => document.querySelectorAll('.log tbody tr').length === 3, null, { timeout: 3000 }).catch(() => {});
   ok(page.url().endsWith("/os/syscall/3/") && (await page.locator(".log tbody tr").count()) === 3, `${tag} back -> /3/ with 3 log rows`);
   await page.reload();
-  ok((await page.locator(".step h2").textContent()) === "保存现场", `${tag} reload stays on step 3`);
+  ok((await page.locator(".step h2").textContent()) === "切到内核态", `${tag} reload stays on step 3`);
   ok(rsc.length === 0, `${tag} no RSC fetch while stepping ${rsc.join(",")}`);
   const sw = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   ok(sw <= 0, `${tag} no horizontal scroll (${sw})`);
