@@ -83,3 +83,14 @@ P2（只记录，不排期）：总线与 DMA、内存一致性模型、gRPC 与
 - 引用核实（本轮）：新增来源 mysql-innodb-docs（MySQL 官方手册/内部文档：默认页大小 16384、redo 为预写日志且提交时刷盘、undo 保留旧版本供并发事务读取、检查点与崩溃恢复）与 sqlite-docs（SQLite 官方 File Format 与 WAL 文档：默认页大小 4096、WAL 追加整页帧、检查点回搬、单写者），均于 2026-11-07 对官方页面核对后标 verified；页解剖的槽位页布局沿用已 verified 的 cmu-15445。
 - 连贯性接入：subjects.yaml 数据存储科新增板块「引擎内幕：页、日志与一次读写」；数据存储路径由 3 站扩为 4 站（btree-index 1、db-internals 2、transactions 3、lsm-kv 4，order 已顺延）。邻居桥同步：btree-index 的 next 改指向本课（页在系统里的日常）、transactions 的 prev 改自本课写入之旅承接、transactions 的 position 首句同步改指本课；本课 position 与 prev/next 桥全新撰写。position/bridge 长句全站查重仍为 0 重复（构建期硬校验）。
 - 至此全站 36 课。
+
+---
+
+## 2026-11-07 第六轮：数据存储科补三课（查询执行 / 锁与死锁 / 主从复制）
+
+- 新增 data/query-execution（10 步，正文 5,807 字，design 3 条，order 5）：从单行到任意查询、优化器与执行器分工、统计信息（行数/基数/直方图）与成本模型（以页计价）、选索引的选择性账（回表 vs 全表扫的数字账）、连接顺序与中间结果、三连接算法（嵌套循环/哈希/排序合并，含「MySQL 未实现排序合并」的诚实标注）、执行计划流水线树与 EXPLAIN ANALYZE、计划翻车与纠错序。
+- 新增 data/locks-deadlocks（11 步，正文 6,152 字，design 3 条，order 6）：丢失更新与锁的动机、锁挂在索引记录上（反直觉起点）、记录锁/间隙锁/临键锁谱系与 (10,20] 区间形状、间隙锁防幻读与两个例外、锁与 MVCC 的分工（快照读 vs 当前读、半一致性读）、等待队列与超时兜底、死锁成环与四条件对号、等待图检测与可关闭性、按改动行数挑牺牲者、少死锁的工程习惯。
+- 新增 data/replication（10 步，正文 5,934 字，design 3 条，order 7）：复制的三个理由与写不可摊的边界、binlog 与 redo 两本账的区分、三线程复制链与 relay log、三种 binlog 格式的取舍、异步延迟的成因链与并行重放、写后读不一致的三档对策、半同步的签收语义与超时降级、故障切换的裁决与旧主隔离、脑裂与 fencing、一致性谱系定位、D1 同构收尾。
+- 引用核实（本轮）：新增来源 mysql-optimizer-docs（10.9.6 直方图用于行数估算、10.2.1.4 哈希连接的适用条件与内存上限）、mysql-locking-docs（17.7.1 记录锁锁索引记录/间隙锁/临键锁/RC 关闭间隙锁、17.7.5.2 死锁检测按改动行数挑小事务回滚且高并发可关闭）、mysql-replication-docs（19.2.1 三种格式与 ROW 默认、19.2.3 三线程与 replica_parallel_workers 并行应用、19.4.10 半同步签收语义与超时降级、异步宕机丢事务与旧主隔离），均于 2026-11-07 对 MySQL 8.4 官方手册页面逐项核对后标 verified。
+- 连贯性接入：数据存储科新增板块「查询的执行」「锁与死锁」「复制：一本账，多个副本」；数据存储路径由 4 站扩为 7 站。邻居桥同步：lsm-kv 新增 next 指向查询执行课、query-execution 新增 next 指向锁课、locks-deadlocks 新增 next 指向复制课；三课 position 与桥全新撰写。position/bridge 长句全站查重仍为 0 重复（构建期硬校验）。e2e 新增 phase8 共 17 条断言。
+- 至此全站 39 课。

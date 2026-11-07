@@ -186,6 +186,29 @@ ok((await x.locator(".bridge a.bridge-title").last().getAttribute("href")).inclu
 await x.goto(`${base}/data/transactions/`);
 ok((await x.locator(".bridge a.bridge-title").first().getAttribute("href")).includes("/data/db-internals/"), "phase7 transactions bridge prev links to db-internals");
 ok(xerr.filter((e) => !(xBeacon && e.includes("ERR_CERT_AUTHORITY_INVALID"))).length === 0, `phase7 pages no console errors ${xerr.join(";")}`);
+// ---- phase 8: data expansion (query-execution / locks-deadlocks / replication, data stations 5-7 of 7) ----
+for (const u of ["/data/query-execution/", "/data/locks-deadlocks/", "/data/replication/"]) {
+  const rr = await x.goto(`${base}${u}`);
+  ok(rr.status() === 200, `phase8 new topic ${u} 200`);
+}
+await x.goto(`${base}/data/query-execution/`);
+ok((await x.locator(".p-station").textContent()).includes("第 5 站"), "phase8 query-execution is data station 5");
+ok((await x.locator(".p-station").textContent()).includes("共 7 站"), "phase8 data path now has 7 stations");
+ok((await x.locator(".design .design-item").count()) >= 2, "phase8 query-execution design block renders");
+ok((await x.locator(".bridge a.bridge-title").first().getAttribute("href")).includes("/data/lsm-kv/"), "phase8 query-execution bridge prev links to lsm-kv");
+ok((await x.locator(".bridge a.bridge-title").last().getAttribute("href")).includes("/data/locks-deadlocks/"), "phase8 query-execution bridge next links to locks-deadlocks");
+await x.goto(`${base}/data/lsm-kv/`);
+ok((await x.locator(".bridge a.bridge-title").last().getAttribute("href")).includes("/data/query-execution/"), "phase8 lsm-kv bridge next links to query-execution");
+await x.goto(`${base}/data/locks-deadlocks/`);
+ok((await x.locator(".p-station").textContent()).includes("第 6 站"), "phase8 locks-deadlocks is data station 6");
+ok((await x.locator(".design .design-item").count()) >= 2, "phase8 locks-deadlocks design block renders");
+ok((await x.locator(".bridge a.bridge-title").first().getAttribute("href")).includes("/data/query-execution/"), "phase8 locks bridge prev links to query-execution");
+ok((await x.locator(".bridge a.bridge-title").last().getAttribute("href")).includes("/data/replication/"), "phase8 locks bridge next links to replication");
+await x.goto(`${base}/data/replication/`);
+ok((await x.locator(".p-station").textContent()).includes("第 7 站"), "phase8 replication is data station 7");
+ok((await x.locator(".design .design-item").count()) >= 2, "phase8 replication design block renders");
+ok((await x.locator(".bridge a.bridge-title").first().getAttribute("href")).includes("/data/locks-deadlocks/"), "phase8 replication bridge prev links to locks-deadlocks");
+ok(xerr.filter((e) => !(xBeacon && e.includes("ERR_CERT_AUTHORITY_INVALID"))).length === 0, `phase8 pages no console errors ${xerr.join(";")}`);
 await x.close();
 await w.close();
 await browser.close();
