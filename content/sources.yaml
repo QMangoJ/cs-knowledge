@@ -86,3 +86,11 @@
   title: "RFC 9000: QUIC: A UDP-Based Multiplexed and Secure Transport"
   url: https://www.rfc-editor.org/rfc/rfc9000
   license: rfc
+- id: boyer-moore-1977
+  title: "Boyer & Moore: A Fast String Searching Algorithm, Communications of the ACM 20(10):762-772, 1977"
+  url: https://dl.acm.org/doi/10.1145/359842.359859
+  license: "见原文"
+- id: mars-pathfinder
+  title: "Mars Pathfinder 优先级反转报告（据 JPL 软件团队负责人 Glenn Reeves 与 Mike Jones 的一手记述整理）"
+  url: https://www.cs.jhu.edu/~huang/cs318/fall20/readings/Report_MarsPathFinder.pdf
+  license: "见原文"

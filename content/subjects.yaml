@@ -10,10 +10,7 @@ subjects:
     topics: [os/syscall]
   - name: 进程管理
     blurb: 进程怎样诞生、怎样被轮流换上 CPU——一个核心伺候全部程序的调度台。
-    topics: [os/fork-exec, os/context-switch]
-    gaps:
-    - title: 线程与调度
-      note: 待补——线程与进程的区别、调度器如何挑下一个任务，尚未成课
+    topics: [os/fork-exec, os/context-switch, os/threads-scheduling]
   - name: 内存管理
     blurb: 给每个程序一份「独占内存」的错觉，并在它真正用到时才把物理页补上。
     topics: [os/virtual-memory, os/page-fault]
@@ -62,6 +59,12 @@ subjects:
   - name: 记住子问题的答案
     blurb: 当子问题大量重叠时，把算过的答案存下来，指数爆炸就塌缩成多项式。
     topics: [dsa/dynamic-programming]
+  - name: 贪心：每步只取眼前最优
+    blurb: 不回头、不存表：每一步都选当下最好的那份，问题结构选对了，这就是最省事的正确算法。
+    topics: [dsa/greedy]
+  - name: 字符串里的模式
+    blurb: 在长文本里找一小段模式：先把模式本身学透，再让文本只过一遍。
+    topics: [dsa/string-matching]
 - id: network
   tagline: 计算机网络只讲一件事：数据怎样可靠、有序、就近地从一台机器走到另一台机器。
   blocks:

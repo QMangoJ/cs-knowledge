@@ -1,7 +1,7 @@
 id: os/page-fault
 subject: os
 slug: page-fault
-order: 5
+order: 6
 status: published
 license: CC-BY-4.0
 title: 缺页异常：用到时才分配

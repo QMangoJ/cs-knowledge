@@ -137,7 +137,8 @@ ok((await w.locator(".position-card").textContent()).includes("系统调用接�
 ok((await w.locator(".p-station").textContent()).includes("第 1 站"), "phase4 station label in topbar");
 ok((await w.locator(".below .kernel-diagram").count()) === 1, "phase4 OS kernel diagram below screen");
 ok((await w.locator(".below .kernel-diagram .pano-chip.current").textContent()).includes("系统调用"), "phase4 kernel diagram highlights current topic");
-ok((await w.locator(".below .kernel-diagram .pano-gap").textContent()).includes("线程与调度"), "phase4 kernel diagram shows scheduling gap placeholder");
+ok((await w.locator(".below .kernel-diagram .pano-gap").count()) === 0, "phase6 kernel diagram has no gap placeholder left");
+ok((await w.locator(".below .kernel-diagram").textContent()).includes("线程与调度"), "phase6 kernel diagram pins the threads-scheduling topic");
 ok((await w.locator(".bridge .bridge-card").count()) === 2, "phase4 bridge has prev/next cards");
 ok((await w.locator(".bridge a.bridge-title").first().getAttribute("href")).includes("/os/fork-exec/"), "phase4 bridge next links to fork-exec");
 await w.goto(`${base}/os/fork-exec/`);
@@ -149,5 +150,29 @@ ok((await w.locator(".subject-guide").count()) === 6, "phase4 home has 6 subject
 const cardHs = await w.evaluate(() => [...document.querySelectorAll(".subject .topic-card")].slice(0, 3).map((el) => Math.round(el.getBoundingClientRect().height)));
 ok(Math.max(...cardHs) - Math.min(...cardHs) <= 1, `phase4 first-row cards equal height (${cardHs})`);
 ok(werr.filter((e) => !(wBeacon && e.includes("ERR_CERT_AUTHORITY_INVALID"))).length === 0, `phase4 pages no console errors ${werr.join(";")}`);
+// ---- phase 6: P1 topics (threads-scheduling / greedy / string-matching) ----
+const x = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+const xerr = []; x.on("pageerror", (e) => xerr.push(e.message)); x.on("console", (m) => m.type() === "error" && xerr.push(m.text()));
+let xBeacon = false; x.on("requestfailed", (r) => { if (r.url().includes("cloudflareinsights.com")) xBeacon = true; });
+for (const u of ["/os/threads-scheduling/", "/dsa/greedy/", "/dsa/string-matching/"]) {
+  const rr = await x.goto(`${base}${u}`);
+  ok(rr.status() === 200, `phase6 new topic ${u} 200`);
+}
+await x.goto(`${base}/os/threads-scheduling/`);
+ok((await x.locator(".p-station").textContent()).includes("第 4 站"), "phase6 threads is OS station 4");
+ok((await x.locator(".p-station").textContent()).includes("共 9 站"), "phase6 OS path now has 9 stations");
+ok((await x.locator(".design .design-item").count()) >= 2, "phase6 threads design block renders");
+ok((await x.locator(".bridge a.bridge-title").first().getAttribute("href")).includes("/os/context-switch/"), "phase6 threads bridge prev links to context-switch");
+await x.goto(`${base}/os/context-switch/`);
+ok((await x.locator(".bridge a.bridge-title").last().getAttribute("href")).includes("/os/threads-scheduling/"), "phase6 context-switch bridge next links to threads");
+await x.goto(`${base}/dsa/greedy/`);
+ok((await x.locator(".p-station").textContent()).includes("共 10 站"), "phase6 DSA path now has 10 stations");
+ok((await x.locator(".design .design-item").count()) >= 2, "phase6 greedy design block renders");
+await x.goto(`${base}/dsa/dynamic-programming/`);
+ok((await x.locator(".bridge a.bridge-title").last().getAttribute("href")).includes("/dsa/greedy/"), "phase6 dp bridge next links to greedy");
+await x.goto(`${base}/dsa/string-matching/`);
+ok((await x.locator(".bridge a.bridge-title").first().getAttribute("href")).includes("/dsa/greedy/"), "phase6 string-matching bridge prev links to greedy");
+ok(xerr.filter((e) => !(xBeacon && e.includes("ERR_CERT_AUTHORITY_INVALID"))).length === 0, `phase6 pages no console errors ${xerr.join(";")}`);
+await x.close();
 await w.close();
 await browser.close();

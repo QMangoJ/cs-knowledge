@@ -50,8 +50,8 @@ P1 缺失（尽量补，剩余在此标注状态）：
 - network/http2-quic —— HTTP/2 多路复用、队头阻塞与 QUIC/HTTP/3。（已补）
 - data/lsm-kv —— LSM 树与 KV 存储、向量索引入门。（已补）
 - math/probability（新学科「数学基础」）—— 条件概率、贝叶斯、期望与方差。（已补）
-- dsa/greedy、dsa/string-matching（KMP/Trie）：未补，列入下一轮。
-- os/threads-scheduling（调度算法 MLFQ/CFS 深入）：未补，列入下一轮。
+- dsa/greedy、dsa/string-matching（KMP/BM）：（已补，2026-11-07 第四轮）
+- os/threads-scheduling（线程模型、调度指标、FCFS/SJF/STCF/RR、MLFQ、优先级反转）：（已补，2026-11-07 第四轮）
 
 P2（只记录，不排期）：总线与 DMA、内存一致性模型、gRPC 与序列化、概率分布与假设检验、计算理论（NP 完全性直觉）。
 
@@ -62,4 +62,15 @@ P2（只记录，不排期）：总线与 DMA、内存一致性模型、gRPC 与
 - 全部 32 个主题正文（steps body）由 45,192 字增至 150,490 字（3.33×），每课均 ≥3 倍、每步 body ≥300 字（脚本 scripts/depth-stats.mjs 逐课统计），步数普遍扩到 9–14，按对应教材章节结构补子话题。
 - 全部 32 个主题新增 Topic 级 design 区块（每课 2–3 个机制，四要素：根本问题 / 为什么是这个方案 / 权衡 / 底层根源），schema 强制 published 主题 design ≥2 条；Player 在每课页头渲染独立区块。
 - TCP 握手/挥手三点已按 Daniel 要求补齐：两将军不可能性（新步 two-generals + design）、为什么两次不够（新步 why-not-two + design）、四次挥手与 TIME_WAIT（half-close / timewait-ack / timewait 三步 + design）。
-- 仍未补（P1 剩余）：dsa/greedy、dsa/string-matching、os/threads-scheduling。
+- 仍未补（P1 剩余）：无——已于第四轮全部补齐（见下）。
+
+---
+
+## 2026-11-07 第四轮：P1 三课补齐（贪心 / 字符串匹配 / 线程与调度）
+
+- 新增 os/threads-scheduling（11 步，正文 6,504 字，design 3 条）：线程与进程的共享/独享清单、Linux 任务模型（clone 共享谱）、切换成本账、调度指标（周转/响应/公平）、FCFS 护航效应与 SJF 最优（OSTEP 例：平均周转 110 → 50）、STCF、作业时长不可知、MLFQ 五规则与防钻空子记账、优先级反转与 Pathfinder 案例、优先级继承。
+- 新增 dsa/greedy（11 步，正文 6,317 字，design 3 条）：活动选择与交换论证、贪心选择性 + 最优子结构两道检查、找零反例（币制 1/3/4 凑 6：贪心 3 枚 vs 最优 2 枚）、分数背包与 0/1 背包分界（160 vs 220）、哈夫曼合并（经典频率总成本 224）、带权区间调度出局、最小生成树切割性质（例图总造价 13）、Dijkstra 贪心重审与负边反例（定案 2/4 vs 真实 1/3）、拟阵与对拍验证纪律。
+- 新增 dsa/string-matching（11 步，正文 6,717 字，design 3 条）：问题定义、朴素法 Θ((n−m+1)m) 最坏构造、信息浪费的病理、KMP 思想、π 手算（模式 ABABCABAB：π = 0,0,1,2,0,1,2,3,4）、扫描走例（命中偏移 10）、摊还分析、BM 坏字符/好后缀与最好约 n/m、Rabin-Karp 与有限自动机（π 是自动机转移表的压缩）、选型、标准库 Two-Way 与向量化朴素法。
+- 引用核实（本轮）：OSTEP Ch.7（cpu-sched.pdf）与 Ch.8（cpu-sched-mlfq.pdf）原文已逐条对照（指标定义、护航数值例、SJF/STCF 最优性表述、MLFQ 五规则、99% 钻空子与累计记账修正）；Mars Pathfinder 优先级反转据 JPL 团队负责人 Glenn Reeves 与 Mike Jones 的一手记述整理稿核查（1997-07-04 登陆、气象任务持信息总线锁、通信任务抢占、看门狗重启、从地球打开优先级继承开关），新增来源 mars-pathfinder；Boyer-Moore 原始论文出处经 Crossref 记录核对（CACM 20(10):762-772，DOI 10.1145/359842.359859），新增来源 boyer-moore-1977；其余引用沿用已 verified 的 ostep / csapp / linux-man-pages / linux-kernel-docs / xv6-book / clrs。
+- 连贯性接入：subjects.yaml 中 OS「进程管理」板块的「线程与调度（待补）」虚线占位已由真课替换；DSA 新增「贪心：每步只取眼前最优」「字符串里的模式」两个板块。OS 路径 order 顺延：threads-scheduling 为第 4 站，virtual-memory 5、page-fault 6、lock 7、file-system 8、io-multiplexing 9；DSA 扩至 10 站（greedy 9、string-matching 10）。邻居桥同步：context-switch 的 next 改指向线程课、virtual-memory 的 prev 改自线程课承接、lock 的 prev 改为从线程的共享清单承接、dynamic-programming 新增指向 greedy 的 next。position/bridge 长句全站查重仍为 0 重复（构建期硬校验）。
+- 至此 P1 缺口全部清零；全站 35 课。

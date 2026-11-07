@@ -1,7 +1,7 @@
 id: os/file-system
 subject: os
 slug: file-system
-order: 7
+order: 8
 status: published
 license: CC-BY-4.0
 title: 文件系统：名字、inode 与日志

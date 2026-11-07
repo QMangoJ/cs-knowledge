@@ -1,7 +1,7 @@
 id: os/io-multiplexing
 subject: os
 slug: io-multiplexing
-order: 8
+order: 9
 status: published
 license: CC-BY-4.0
 title: IO 多路复用：从阻塞到 epoll
