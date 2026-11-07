@@ -297,6 +297,7 @@ details.ref-sol summary{cursor:pointer;font-weight:700}
 .stage-body .datastate.with-table{grid-template-columns:minmax(0,1fr) auto;align-items:start}
 .stage-body > .lab{width:100%;max-height:100%;overflow-y:auto}
 .stage-controls{border-top:1px solid var(--line-soft);padding-top:12px}
+.stage-controls button,.stage-controls .btn{white-space:nowrap}
 .p-details{min-width:0}
 .topic-intro{border-bottom:1px solid var(--line-soft);padding-bottom:14px;margin-bottom:16px}
 .topic-intro h1{font-size:20px;line-height:1.45}
