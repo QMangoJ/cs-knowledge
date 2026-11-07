@@ -4,7 +4,7 @@ import type { DatastateState } from "@/lib/schema";
 type Cell = NonNullable<DatastateState["rows"]>[number]["cells"][number];
 type Row = NonNullable<DatastateState["rows"]>[number];
 type Hover = { i: number | null; set: (i: number | null) => void };
-const W = 560, ROW_H = 100, CH = 42, BAR_H = 110, LINK_H = 34;
+const W = 560, ROW_H = 88, CH = 42, BAR_H = 110, LINK_H = 34;
 const cls = (base: string, mark?: string, hot?: boolean) => [base, mark && `m-${mark}`, hot && "hot"].filter(Boolean).join(" ");
 
 function rowLayout(r: Row, labelW: number) {

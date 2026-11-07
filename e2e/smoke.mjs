@@ -113,9 +113,24 @@ let wBeacon = false; w.on("requestfailed", (r) => { if (r.url().includes("cloudf
 await w.goto(`${base}/os/syscall/`);
 const fit = await w.evaluate(() => {
   const r = document.querySelector(".app-screen").getBoundingClientRect();
-  return { bottom: r.bottom, ih: window.innerHeight };
+  const sb = document.querySelector(".stage-body").getBoundingClientRect();
+  const det = document.querySelector(".p-details");
+  return { screenH: r.height, ih: window.innerHeight, stageBodyH: sb.height, detScrolls: det.scrollHeight > det.clientHeight + 4, detH: det.clientHeight, stageH: document.querySelector(".p-stage").getBoundingClientRect().height };
 });
-ok(Math.abs(fit.bottom - fit.ih) <= 4, `phase4 app screen ends at viewport bottom (${Math.round(fit.bottom)} vs ${fit.ih})`);
+ok(fit.screenH < fit.ih - 140, `phase5 sparse step: app screen hugs content, no fake full-viewport blank (${Math.round(fit.screenH)} vs viewport ${fit.ih})`);
+ok(fit.stageBodyH >= 230 && fit.stageBodyH < 460, `phase5 sparse step: stage body height adaptive (${Math.round(fit.stageBodyH)}px, was ~560 fixed)`);
+ok(fit.detScrolls && Math.abs(fit.detH - fit.stageH) < 190, `phase5 details column aligns with stage row and scrolls inside (${Math.round(fit.detH)} vs stage ${Math.round(fit.stageH)})`);
+for (const u of ["/os/syscall/6/", "/network/tcp-handshake/3/", "/dsa/hash-table/4/", "/co/cache/4/", "/dsa/dynamic-programming/5/", "/dsa/bst-trees/6/"]) {
+  await w.goto(`${base}${u}`);
+  const dh = await w.evaluate(() => document.querySelector(".stage-body").getBoundingClientRect().height);
+  ok(dh <= 580, `phase5 dense sample ${u}: stage body capped (${Math.round(dh)}px <= 580)`);
+}
+const m5 = await browser.newPage({ viewport: { width: 390, height: 844 } });
+await m5.goto(`${base}/os/syscall/`);
+const m5r = await m5.evaluate(() => ({ sw: document.documentElement.scrollWidth, sb: document.querySelector(".stage-body").getBoundingClientRect().height }));
+ok(m5r.sw <= 390, `phase5 390 no horizontal overflow (scrollWidth ${m5r.sw})`);
+ok(m5r.sb < 320, `phase5 390 stage body adaptive (${Math.round(m5r.sb)}px)`);
+await m5.close();
 ok((await w.locator(".position-card").count()) === 1, "phase4 position card on step 1");
 ok((await w.locator(".position-card").textContent()).includes("系统调用接口"), "phase4 position names its block");
 ok((await w.locator(".p-station").textContent()).includes("第 1 站"), "phase4 station label in topbar");

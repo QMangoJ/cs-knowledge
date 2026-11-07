@@ -2,8 +2,8 @@ import type { SwimlaneState } from "@/lib/schema";
 
 type Lane = { id: string; label: string };
 type Box = { x: number; y: number; w: number; h: number };
-const TOP = 8, LABEL_W = 84, W = 560, BOX_H = 52, GAP = 20, MAX_BOX_W = 180;
-const laneH = (n: number) => (n <= 3 ? 120 : 92);
+const TOP = 8, LABEL_W = 84, W = 560, BOX_H = 52, GAP = 20, MAX_BOX_W = 320;
+const laneH = (n: number) => (n <= 3 ? 88 : 78);
 
 /** Point where the segment from the box centre towards (tx,ty) leaves the box. */
 function edge(b: Box, tx: number, ty: number): [number, number] {
