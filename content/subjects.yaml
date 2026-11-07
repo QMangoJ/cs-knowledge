@@ -119,6 +119,9 @@ subjects:
   - name: 共识：让多台机器同意一件事
     blurb: 选主、任期、多数派：Raft 怎样在同伴会死、消息会迟的前提下，商量出一个所有人都认账的决定。
     topics: [distributed/raft-consensus]
+  - name: 时间与跨机事务
+    blurb: 墙上时钟排不了序，就用因果计数；跨机的原子性太贵，就先问能不能不做——逻辑时钟与 2PC 的取舍都在这一段。
+    topics: [distributed/time-and-transactions]
 - id: math
   tagline: 数学基础是其余各科的暗线：概率是描述不确定性的语言，缓存命中、排队延迟、模型输出，最后都要用它来度量。
   blocks:
