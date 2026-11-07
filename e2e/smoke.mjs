@@ -67,7 +67,7 @@ ok(r ? r.status() === 404 : base.startsWith("https://"), "unknown step -> 404");
 const q = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 const qerr = []; q.on("pageerror", (e) => qerr.push(e.message)); q.on("console", (m) => m.type() === "error" && qerr.push(m.text()));
 let qBeacon = false; q.on("requestfailed", (r) => { if (r.url().includes("cloudflareinsights.com")) qBeacon = true; });
-await q.goto(`${base}/os/syscall/11/`);
+await q.goto(`${base}/os/syscall/10/`);
 ok((await q.locator(".quiz").count()) === 0, "phase2 no quiz rendered on last step");
 ok((await q.locator(".now-bar").count()) >= 1, "phase2 now-bar present on canvas");
 await q.locator(".mark-done").click();

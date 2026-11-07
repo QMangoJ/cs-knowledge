@@ -7,562 +7,475 @@ license: CC-BY-4.0
 title: 缺页异常：用到时才分配
 summary: Linux 不会提前把内存给足，等程序真正用到时再补上，内存紧张时还可能“超卖”。
 premise: 以程序 malloc 一大块内存、之后第一次写入为例。
-position: >-
-  地址已许诺、物理页却未到场的缺口，专由内存管理板块的这一课收尾，全靠缺页异常这个钩子来补。流程会分清次要缺页、需读盘的主要缺页与写时复制缺页各自的补法。malloc 成功为何不等于内存到手、overcommit 敢超卖的底气在哪里、OOM killer 又怎样兜底，这三问学完都要能答上来。
+position: 地址已许诺、物理页却未到场的缺口，专由内存管理板块的这一课收尾，全靠缺页异常这个钩子来补。流程会分清次要缺页、需读盘的主要缺页与写时复制缺页各自的补法。malloc 成功为何不等于内存到手、overcommit 敢超卖的底气在哪里、OOM killer 又怎样兜底，这三问学完都要能答上来。
 bridge:
-  prev: >-
-    虚拟内存课只登记了映射关系却未备齐实体页，本课便守在 MMU 翻译失败的那一刻，看 CR2 里的出错地址如何指引内核补页并重演指令。
-  next: >-
-    缺页补页要在并发访问下改页表与分配页框，一旦两个线程同时动手改同一个计数器，竞态与丢更新又该拿什么挡住？
+  prev: 虚拟内存课只登记了映射关系却未备齐实体页，本课便守在 MMU 翻译失败的那一刻，看 CR2 里的出错地址如何指引内核补页并重演指令。
+  next: 缺页补页要在并发访问下改页表与分配页框，一旦两个线程同时动手改同一个计数器，竞态与丢更新又该拿什么挡住？
 overview:
-- key: 一句话总结
-  value: 访问还没准备好的页 → 陷入内核 → 内核补上 → 重新执行那条指令
-- key: 核心思想
-  value: 按需分配：不用就不花
-- key: 超额承诺
-  value: Linux 默认允许申请超过实际可用的内存
-- key: OOM killer
-  value: 内存真的不够时，内核挑一个进程杀掉
-- key: 类比
-  value: 前端的图片懒加载、路由按需加载代码
-- key: 三种结果
-  value: 次要缺页（补一页）、主要缺页（读磁盘）、非法访问（段错误）
-- key: 其他用途
-  value: 写时复制、文件映射 mmap、换出页读回
-- key: 在终端里看一看
-  value: /usr/bin/time -v ls　看 Minor/Major page faults；dmesg | grep -i oom　看 OOM killer 记录（可能需要 sudo）
+  - key: 一句话总结
+    value: 访问还没准备好的页 → 陷入内核 → 内核补上 → 重新执行那条指令
+  - key: 核心思想
+    value: 按需分配：不用就不花
+  - key: 超额承诺
+    value: Linux 默认允许申请超过实际可用的内存
+  - key: OOM killer
+    value: 内存真的不够时，内核挑一个进程杀掉
+  - key: 类比
+    value: 前端的图片懒加载、路由按需加载代码
+  - key: 三种结果
+    value: 次要缺页（补一页）、主要缺页（读磁盘）、非法访问（段错误）
+  - key: 其他用途
+    value: 写时复制、文件映射 mmap、换出页读回
 visual: swimlane
 lanes:
-- id: procs
-  label: 程序
-- id: kernel
-  label: 内核
-- id: mem
-  label: 物理内存
+  - id: procs
+    label: 程序
+  - id: kernel
+    label: 内核
+  - id: mem
+    label: 物理内存
 logColumns:
-- key: mode
-  label: 当前状态
-- key: event
-  label: 发生了什么
+  - key: mode
+    label: 当前状态
+  - key: event
+    label: 发生了什么
 steps:
-- id: why-lazy
-  title: 为什么不一次分配好
-  tldr: 程序申请的内存，很多根本用不到，提前分配是浪费。
-  body: '程序常常 malloc 一大块“备用”，实际只用一小部分。举个走例：程序 malloc 了 1 GB，最后真正写入的只有开头十几 MB；若申请时就把 1 GB 物理页全给它，剩下近 1 GB 会被一个还没兑现的承诺长期占住，其他进程只能去挤页缓存甚至用交换区。
+  - id: why-lazy
+    title: 为什么不一次分配好
+    tldr: 程序申请的内存，很多根本用不到，提前分配是浪费。
+    body: |-
+      程序常常 malloc 一大块「备用」，实际只用一小部分。走个例子：程序 malloc 了 1 GB，最后真正写入的只有开头十几 MB；若申请时就把 1 GB 物理页全给它，剩下近 1 GB 会被一个还没兑现的承诺长期占住，其他进程只能去挤页缓存甚至用交换区。
 
-    Linux 于是只在账本（虚拟内存区域 VMA）上记下“这段地址归你了”，暂时不给真实内存，第一次真正访问时再经缺页补上。
+      Linux 于是只在账本（虚拟内存区域 VMA）上记下「这段地址归你了」，暂时不给真实内存，第一次真正访问时再经缺页补上——和前端图片懒加载一样：滚动到了再加载，看不到的就不花流量。代价是第一次访问要多付一次缺页处理，省下的是整段未用内存的机会成本。要纠正一个常见误解：malloc 成功不等于内存到手，它只拿到了一段地址空间的使用权，物理页一张都还没有。
+    derivation: original
+    sources:
+      - ref: linux-man-pages
+        locator: malloc(3) NOTES、mmap(2)
+        url: https://man7.org/linux/man-pages/man3/malloc.3.html
+        claim: 大块分配通过 mmap 建立映射，物理页在访问时才分配
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: procs
+          id: p
+          label: 程序
+          highlight: true
+        - lane: kernel
+          id: k
+          label: 内核
+        - lane: mem
+          id: r
+          label: 物理内存
+      messages:
+        - id: m-why-lazy
+          from: p
+          to: k
+          label: malloc 一大块内存
+          active: true
+    log:
+      - mode: 用户态
+        event: 内核只记账，不分配真实内存
+    points:
+      - 程序申请的内存，很多根本用不到，提前分配是浪费。
+  - id: fault
+    title: 第一次访问：触发缺页异常
+    tldr: 程序第一次写这块内存，发现这一页还没映射，硬件陷入内核。
+    body: |-
+      程序第一次读写这块内存时，地址翻译（查 TLB 与页表）发现这一页还没有对应的物理页框，页表项是空的。硬件（MMU）不会自己去分配内存，也不会直接把程序杀掉，而是立刻停住当前这条指令、保存现场并陷入内核，同时把出错的虚拟地址放进专门的寄存器（x86-64 上是 CR2），错误码里还写明这次访问是读还是写、地址是根本不存在还是权限不对。内核的缺页处理入口由此拿到全部线索，再决定怎么补救。
 
-    这和前端图片懒加载一样：滚动到了再加载，看不到的就不花流量。代价是第一次访问要多付一次缺页处理，但省下的是整段未用内存的机会成本——对“申请多、使用少”的常见模式非常划算。常见误解是以为 malloc 成功就等于内存已经到手，其实它只拿到了一段地址空间的使用权，物理页一张都还没有。'
-  derivation: original
-  sources:
-  - ref: linux-man-pages
-    locator: malloc(3) NOTES、mmap(2)
-    url: https://man7.org/linux/man-pages/man3/malloc.3.html
-    claim: 大块分配通过 mmap 建立映射，物理页在访问时才分配
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: procs
-      id: p
-      label: 程序
-      highlight: true
-    - lane: kernel
-      id: k
-      label: 内核
-    - lane: mem
-      id: r
-      label: 物理内存
-    messages:
-    - id: m-why-lazy
-      from: p
-      to: k
-      label: malloc 一大块内存
-      active: true
-  log:
-  - mode: 用户态
-    event: 内核只记账，不分配真实内存
-  points:
-  - 程序申请的内存，很多根本用不到，提前分配是浪费。
-- id: fault
-  title: 第一次访问：触发缺页异常
-  tldr: 程序第一次写这块内存，发现这一页还没映射，硬件陷入内核。
-  body: '程序第一次读写这块内存时，地址翻译（查 TLB 与页表）发现这一页还没有对应的物理页框，页表项是空的。
+      这次异常不代表程序有错，它是内核和硬件约好的信号：异常把「页面还没准备好」变成了软件可编程的钩子——懒分配、写时复制、文件映射、栈增长全都挂在这个钩子上，没有它，任何按需机制都无从谈起。还有一个前提：出错的指令要么整体重来、要么整体没发生，程序看到的内存状态始终自洽，内核才敢在异常里做复杂处理。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: "Beyond Physical Memory: Mechanisms 一章"
+        claim: 访问未在内存中的页触发缺页异常
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: procs
+          id: p
+          label: 程序
+        - lane: kernel
+          id: k
+          label: 内核
+          highlight: true
+        - lane: mem
+          id: r
+          label: 物理内存
+      messages:
+        - id: m-fault
+          from: p
+          to: k
+          label: 缺页！陷入内核
+          active: true
+    log:
+      - mode: 进入内核态
+        event: 访问未映射的页，陷入内核
+    code:
+      lang: text
+      code: |-
+        缺页处理（内核视角）：
+        1. 查 VMA：地址不合法 → SIGSEGV
+        2. 文件页 → 从页缓存/磁盘读入该页
+        3. 匿名页 → 读时映射共享零页，写时才分配清零的私有页
+        4. COW 页 → 复制一份再写
+        填好页表后重新执行出错的那条指令
+      note: 流程伪代码
+  - id: decide
+    title: 内核判断：合法还是越界
+    tldr: 内核查账本，看这个地址是不是程序有权使用的。
+    body: |-
+      内核拿到出错地址后，第一件事不是分配，而是查账本：这个地址落在哪个 VMA 里、该 VMA 允许读还是写、这次访问的方式是否合规。地址在程序申请过的范围内、权限也允许，说明只是还没分配，内核继续往下补页。地址根本不属于任何 VMA，或对只读映射做了写操作，那才是真错误，内核发 SIGSEGV 终止它，也就是常见的「段错误」（Segmentation fault）。
 
-    硬件（MMU）不会自己去分配内存，也不会直接把程序杀掉，而是立刻停住当前这条指令、保存现场并陷入内核，同时把出错的虚拟地址放进专门的寄存器（x86-64 上是 CR2），错误码里还写明这次访问是读还是写、地址是根本不存在还是权限不对。内核的缺页处理入口由此拿到全部线索，再决定怎么补救。
+      还有一种中间情形：地址紧挨着栈的边缘且落在栈的生长方向上，内核会判定为栈在扩展，补一页让栈长高，而不是杀进程。同一种异常，内核根据账本与权限给出完全不同的处理——补页、扩栈、换入、复制或终止，分岔点全在这一步。所以调试段错误时先要分清：它到底是真越界，还是某个本该合法的映射没有按预期建立。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: "Beyond Physical Memory: Mechanisms 一章"
+        claim: 操作系统区分合法缺页与非法访问
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: procs
+          id: p
+          label: 程序
+        - lane: kernel
+          id: k
+          label: 内核
+          highlight: true
+        - lane: mem
+          id: r
+          label: 物理内存
+      messages: []
+    log:
+      - mode: 内核态
+        event: 确认地址合法，只是尚未分配
+  - id: fill
+    title: 补上这一页，并重新执行
+    tldr: 内核分一页内存填进页表，程序重新执行刚才那条指令。
+    body: |-
+      判定合法后，内核按页面类型补页：匿名页就拿一页空闲内存清零后映射过去（清零是安全要求，不能把别的进程用过的数据漏给新主人）；文件页就从页缓存或磁盘把那一页读进来；被换出的页则从交换区读回。补好页表项之后，内核返回用户态，CPU 重新执行刚才出错的那条指令，这次翻译成功，程序完全不知道中间发生了什么。
 
-    这次异常不代表程序有错，它是内核和硬件约好的信号：异常把“页面还没准备好”变成了软件可编程的钩子，懒分配、写时复制、文件映射、栈增长全都挂在这个钩子上。没有这个钩子，任何按需机制都无从谈起。还要注意：这次陷入不会让指令执行一半就跑掉，出错的指令要么整体重来、要么整体没发生，程序看到的内存状态始终是自洽的，这也是内核敢在异常里做复杂处理的前提。'
-  derivation: original
-  sources:
-  - ref: ostep
-    locator: 'Beyond Physical Memory: Mechanisms 一章'
-    claim: 访问未在内存中的页触发缺页异常
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: procs
-      id: p
-      label: 程序
-    - lane: kernel
-      id: k
-      label: 内核
-      highlight: true
-    - lane: mem
-      id: r
-      label: 物理内存
-    messages:
-    - id: m-fault
-      from: p
-      to: k
-      label: 缺页！陷入内核
-      active: true
-  log:
-  - mode: 进入内核态
-    event: 访问未映射的页，陷入内核
-  code:
-    lang: text
-    code: '缺页处理（内核视角）：
+      按代价分两类：无需磁盘 I/O 就能解决的（补映射、分配清零页、COW 复制、页已在页缓存里）叫次要缺页（minor fault）；必须去磁盘或交换区读的叫主要缺页（major fault）。两者差几个数量级，所以分析性能时要分开看：刚启动的进程第一次碰堆内存，产生的几乎全是次要缺页，这是正常冷启动成本；一个跑了很久的服务主要缺页持续上涨，才说明它的工作集已经被挤出了内存。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: Beyond Physical Memory 相关章节
+        claim: 缺页处理分配或读回页面后重新执行指令
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: procs
+          id: p
+          label: 程序
+        - lane: kernel
+          id: k
+          label: 内核
+        - lane: mem
+          id: r
+          label: 物理内存
+          highlight: true
+      messages:
+        - id: m-fill
+          from: k
+          to: r
+          label: 分配一页并映射
+          active: true
+    log:
+      - mode: 内核态 → 用户态
+        event: 新页映射进页表，重试成功
+  - id: cow-mmap
+    title: 缺页的其他用途：写时复制和文件映射
+    tldr: 缺页不只用来按需分配，内核还靠它实现写时复制和按需读文件。
+    body: |-
+      fork 之后父子共享只读页，子进程一写就触发缺页，内核复制出一份私有页，再让它重做写入。mmap 映射一个文件，也不是立刻读进来，而是访问到哪一页才从磁盘读哪一页；程序本身的代码也是这样按需加载的。所以「缺页」是内核偷懒和省内存的通用开关，不是错误。
 
-      1. 查 VMA：地址不合法 → SIGSEGV
+      文件映射还有一层共享红利：页缓存全系统只有一份，多个进程映射同一文件时共享同一批页，一个进程写入的内容其他进程立刻能看到——进程间共享内存本质上就是这个机制换了个接口。相比之下，用 read 把文件读进每个进程自己的缓冲区，就要多占一份拷贝。
+    derivation: original
+    sources:
+      - ref: linux-man-pages
+        locator: malloc(3) NOTES、mmap(2)
+        url: https://man7.org/linux/man-pages/man3/malloc.3.html
+        claim: 缺页不只用来按需分配，内核还靠它实现写时复制和按需读文件。
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: procs
+          id: p
+          label: 程序
+        - lane: kernel
+          id: k
+          label: 内核
+          highlight: true
+        - lane: mem
+          id: r
+          label: 物理内存
+      messages:
+        - id: m-cow-mmap
+          from: k
+          to: r
+          label: 复制出私有页 / 从文件读入
+          active: true
+    log:
+      - mode: 缺页
+        event: 写时复制或文件页读入
+  - id: replace
+    title: 页框不够时换谁出去：置换算法
+    tldr: major fault 要腾位子，挑哪一页换出决定了之后还会缺多少次页。
+    body: |-
+      新页要装入而没有空闲页框时，内核必须挑一页「牺牲者」：干净的文件页直接丢弃，脏页或匿名页要先写回交换区或文件。挑错了，刚换出的页马上又被访问，缺页率会雪崩——这就是抖动（thrashing）。
 
-      2. 文件页 → 从页缓存/磁盘读入该页
+      理论上最优的是换掉「最久以后才再用到」的那页（Belady 最优），但它需要预知未来，只能当标尺。实用算法都是近似：LRU 换掉最久没被访问的页，可精确维护 LRU 要在每次访问时更新全局顺序，成本压过访问本身、多核下还会成为争抢热点——所以在置换问题里，LRU 首先是个成本问题，其次才是算法问题。现实系统用硬件的已访问位做周期采样：Clock 算法给每页一个引用位，指针转圈时引用位为 1 的先给一次「第二次机会」并清零，为 0 的就是牺牲者；新版 Linux 用多级队列（如 MGLRU）把这种近似做得更细。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: "Beyond Physical Memory: Policies（页置换策略）"
+        claim: LRU 与 Clock（二次机会）是主流页置换近似算法，抖动源于工作集总和超过物理内存
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: procs
+          id: p
+          label: 程序
+        - lane: kernel
+          id: k
+          label: 内核
+          highlight: true
+        - lane: mem
+          id: r
+          label: 物理内存
+      messages:
+        - id: m-replace
+          from: k
+          to: r
+          label: 无空闲页框：Clock 扫一圈挑牺牲者换出
+          active: true
+    log:
+      - mode: 置换
+        event: 按 LRU/Clock 近似挑最久未用的页换出
+  - id: overcommit
+    title: 超卖的代价：OOM killer
+    tldr: 因为是按需分配，Linux 敢“超卖”内存；真不够时只能杀进程。
+    body: |-
+      既然大部分申请的内存用不到，Linux 默认允许大家申请的总量超过实际内存，这叫超额承诺（overcommit）。万一大家真的都来用，缺页时找不到空闲内存，内核就启动 OOM killer，按 oom_score（主要看内存占用）挑一个进程杀掉。所以服务「莫名其妙被杀」，常常要去 dmesg 里找 OOM 记录。
 
-      3. 匿名页 → 读时映射共享零页，写时才分配清零的私有页
+      代价的量级感：次要缺页约微秒级，主要缺页去 SSD 读约几十到上百微秒、去机械盘是毫秒级。生产上的应对是把「真不够时杀谁」变成业务自己定的策略：用 cgroup 内存上限圈住单个服务，或给关键进程调低 oom_score_adj，免得被杀的恰好是最重要的那个。
+    derivation: original
+    sources:
+      - ref: linux-kernel-docs
+        locator: mm/overcommit-accounting
+        url: https://docs.kernel.org/mm/overcommit-accounting.html
+        claim: Linux 的内存超额承诺策略
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: procs
+          id: p
+          label: 程序
+        - lane: kernel
+          id: k
+          label: 内核
+          highlight: true
+        - lane: mem
+          id: r
+          label: 物理内存
+      messages:
+        - id: m-overcommit
+          from: k
+          to: p
+          label: 内存不够：结束一个进程
+          active: true
+    log:
+      - mode: 内核态
+        event: OOM killer 选中并终止进程
+  - id: mmap-readahead
+    title: mmap 文件缺页与预读：顺序读为什么不一页一页等磁盘
+    tldr: 文件缺页先查页缓存；顺序访问时内核预读相邻页，后面的缺页大多只补映射不等盘。
+    body: |-
+      mmap 一个大文件后顺序读，缺页并不是一页一页孤立发生的。第一次访问触发缺页时，内核先查页缓存：命中就直接建立映射，连磁盘都不碰；未命中才发起读盘。读盘时内核还会顺带预读（readahead）：既然程序在顺序访问，就把后面相邻的一串页一起读进页缓存，赌它们马上会被用到。这样顺序读大文件时，真正等磁盘的缺页只占少数，后面的大多变成命中缓存的次要缺页。
 
-      4. COW 页 → 复制一份再写
+      反过来，随机访问会让预读基本落空，还白白占用页缓存、挤走别的热点页——所以访问模式决定 mmap 是否合适：顺序或近似顺序、能吃预读红利时它很出色；完全随机且记录很小时，普通 read 加用户态缓冲往往更可控。
+    derivation: original
+    sources:
+      - ref: linux-man-pages
+        locator: mmap(2) 与 readahead(2) 手册
+        claim: 文件映射页经缺页从页缓存调入，顺序访问时内核可预读后续页面
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: procs
+          id: p
+          label: 程序
+        - lane: kernel
+          id: k
+          label: 内核
+          highlight: true
+        - lane: mem
+          id: r
+          label: 页缓存
+      messages:
+        - id: m-readahead
+          from: k
+          to: r
+          label: 缺页读一页，顺带预读相邻一串
+          active: true
+    log:
+      - mode: 文件缺页
+        event: 顺序读时预读把等盘次数摊薄
+  - id: thrashing-numbers
+    title: 抖动的定量例子：工作集只超一点点也会悬崖
+    tldr: 三个进程工作集合计只比内存多 1 GB，吞吐不是慢一点，而是整体塌陷。
+    body: |-
+      用一个定量例子看抖动怎么发生。设物理内存 8 GB，三个进程各有约 3 GB 的工作集，合计 9 GB，只超了 1 GB。装不下的那部分页会被反复换出又换入：进程 A 刚把一页换进来，内存压力下又把 B 马上要用的页挤了出去；B 缺页调入时再挤掉 A 的页。此时主要缺页从偶尔出现变成持续不断，磁盘被换页流量占满，CPU 大量时间在等 I/O，三个进程的吞吐一起塌陷，而不是每个只慢三分之一——抖动是非线性的悬崖，不是线性变慢。
 
-      填好页表后重新执行出错的那条指令'
-    note: 流程伪代码
-- id: decide
-  title: 内核判断：合法还是越界
-  tldr: 内核查账本，看这个地址是不是程序有权使用的。
-  body: '内核拿到出错地址后，第一件事不是分配，而是查账本：这个地址落在哪个 VMA 里、该 VMA 允许读还是写、这次访问的方式是否合规。
+      解法不在置换算法里：要么加内存，要么减少并发（让一个进程先跑完、工作集完整驻留再放下一个），要么给关键进程保住其工作集的内存下限。只要把同时活跃的工作集之和压回物理内存以内，缺页率就会自己掉回正常水平。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: "Beyond Physical Memory: Policies（工作集与抖动）"
+        claim: 当所有进程工作集之和超过物理内存时发生抖动，减少并发或增加内存是根本解法
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: procs
+          id: p
+          label: 三个进程
+        - lane: kernel
+          id: k
+          label: 内核
+          highlight: true
+        - lane: mem
+          id: r
+          label: 物理内存 8 GB
+      messages:
+        - id: m-thrash
+          from: k
+          to: r
+          label: 工作集合计 9 GB：互相挤出、反复换入
+          active: true
+    log:
+      - mode: 抖动
+        event: 主要缺页持续不断，磁盘占满而 CPU 空等
+  - id: swap-anon-reclaim
+    title: 交换区与匿名页：回收为什么不对称
+    tldr: 干净文件页丢了能重读，匿名页无处可丢、只能先写交换区——回收顺序由此决定。
+    body: |-
+      内存紧张时内核回收页面，但文件页与匿名页的命运不同。干净的文件页背后有磁盘上的原文件，直接丢弃即可，下次用到再读回来，回收成本几乎为零；脏文件页要先写回原文件再丢。匿名页背后没有任何文件，无处可丢，想回收只能先把内容写进交换区（swap），下次访问再以主要缺页的形式读回来。
 
-    地址在程序申请过的范围内、权限也允许，说明只是还没分配，内核继续往下补页。地址根本不属于任何 VMA，或对只读映射做了写操作，那才是真错误，内核发 SIGSEGV 终止它，也就是常见的“段错误”（Segmentation fault）。
-
-    还有一种中间情形：地址紧挨着栈的边缘且落在栈的生长方向上，内核会判定为栈在扩展，补一页让栈长高，而不是杀进程。同一种异常，内核根据账本与权限给出完全不同的处理——补页、扩栈、换入、复制或终止，分岔点全在这一步。所以调试段错误时先要分清：它到底是真越界，还是某个本该合法的映射没有按预期建立。'
-  derivation: original
-  sources:
-  - ref: ostep
-    locator: 'Beyond Physical Memory: Mechanisms 一章'
-    claim: 操作系统区分合法缺页与非法访问
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: procs
-      id: p
-      label: 程序
-    - lane: kernel
-      id: k
-      label: 内核
-      highlight: true
-    - lane: mem
-      id: r
-      label: 物理内存
-    messages: []
-  log:
-  - mode: 内核态
-    event: 确认地址合法，只是尚未分配
-- id: fill
-  title: 补上这一页，并重新执行
-  tldr: 内核分一页内存填进页表，程序重新执行刚才那条指令。
-  body: '判定合法后，内核按页面类型补页：匿名页就拿一页空闲内存清零后映射过去（清零是安全要求，不能把别的进程用过的数据漏给新主人）；文件页就从页缓存或磁盘把那一页读进来；被换出的页则从交换区读回。补好页表项之后，内核返回用户态，CPU 重新执行刚才出错的那条指令，这次翻译成功，程序完全不知道中间发生了什么。
-
-    按代价分两类：无需磁盘 I/O 就能解决的（补映射、分配清零页、COW 复制、页已在页缓存里）叫“次要缺页”（minor fault）；必须去磁盘或交换区读的叫“主要缺页”（major fault）。
-
-    两者差几个数量级，所以分析性能时要分开看：次要缺页多半只是噪声，主要缺页持续出现才是内存压力的实锤，只看缺页总数会被误导。一个具体参照：刚启动的进程第一次碰堆内存，产生的几乎全是次要缺页，这是正常冷启动成本；而一个跑了很久的服务主要缺页突然持续上涨，才说明它的工作集已经被挤出了内存。'
-  derivation: original
-  sources:
-  - ref: ostep
-    locator: Beyond Physical Memory 相关章节
-    claim: 缺页处理分配或读回页面后重新执行指令
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: procs
-      id: p
-      label: 程序
-    - lane: kernel
-      id: k
-      label: 内核
-    - lane: mem
-      id: r
-      label: 物理内存
-      highlight: true
-    messages:
-    - id: m-fill
-      from: k
-      to: r
-      label: 分配一页并映射
-      active: true
-  log:
-  - mode: 内核态 → 用户态
-    event: 新页映射进页表，重试成功
-- id: cow-mmap
-  title: 缺页的其他用途：写时复制和文件映射
-  tldr: 缺页不只用来按需分配，内核还靠它实现写时复制和按需读文件。
-  body: 'fork 之后父子共享只读页，子进程一写就触发缺页，内核复制出一份私有页，再让它重做写入。
-
-    mmap 映射一个文件，也不是立刻读进来，而是访问到哪一页才从磁盘读哪一页；程序本身的代码也是这样按需加载的。
-
-    所以“缺页”是内核偷懒和省内存的通用开关，不是错误。
-
-
-    工程注记（数字为量级示意）：用 mmap 加载 70B 模型权重（约 140 GB，FP16）时，多个推理进程可以共享同一批文件页（页缓存只有一份）；若用 read 全量读入，文件页在页缓存里仍只有一份，但每个进程还要再占一份用户态缓冲区的拷贝；mmap 省的正是这份拷贝，还能让多个进程直接共享同一批页。vLLM 与 llama.cpp 的 mmap 模式省的正是这笔账。还要注意共享的另一面：多个进程映射同一文件时，改的是页缓存里的同一批页，一个进程写入的内容其他进程立刻能看到——进程间共享内存通信本质上就是这个机制换了个接口。'
-  derivation: original
-  sources:
-  - ref: linux-man-pages
-    locator: malloc(3) NOTES、mmap(2)
-    url: https://man7.org/linux/man-pages/man3/malloc.3.html
-    claim: 缺页不只用来按需分配，内核还靠它实现写时复制和按需读文件。
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: procs
-      id: p
-      label: 程序
-    - lane: kernel
-      id: k
-      label: 内核
-      highlight: true
-    - lane: mem
-      id: r
-      label: 物理内存
-    messages:
-    - id: m-cow-mmap
-      from: k
-      to: r
-      label: 复制出私有页 / 从文件读入
-      active: true
-  log:
-  - mode: 缺页
-    event: 写时复制或文件页读入
-- id: replace
-  title: 页框不够时换谁出去：置换算法
-  tldr: major fault 要腾位子，挑哪一页换出决定了之后还会缺多少次页。
-  body: '新页要装入而没有空闲页框时，内核必须挑一页「牺牲者」：干净的文件页直接丢弃，脏页或匿名页要先写回交换区/文件。挑错了，刚换出的页马上又被访问，缺页率会雪崩——这叫系统抖动（thrashing）。
-
-    理论上最优的是换掉「最久以后才再用到」的那页（Belady 最优，但需要预知未来，只能当标尺）。实用算法都是近似它：LRU 换掉最久没被访问的页，对局部性好的程序非常有效，但维护精确 LRU 要每次访问都更新顺序，太贵；Clock（时钟算法）是它的廉价近似：给每页一个引用位，缺页时指针转圈，引用位为 1 的先给「第二次机会」并清零，为 0 的就是牺牲者——新版 Linux 用多级队列（如 MGLRU）做更细的分代近似。
-
-    工作集（working set）是理解抖动的钥匙：进程在一段时间窗口内真正活跃的页集合。所有进程的工作集之和超过物理内存，怎么换都缺页，只能靠减少并发或加内存解决。判断自己是否正在抖动有个简单办法：看主要缺页速率与磁盘利用率——CPU 并不忙、磁盘却被换页流量占满、整体吞吐塌陷，就是工作集装不下的典型画像，这时换什么置换算法都救不回来。'
-  derivation: original
-  sources:
-  - ref: ostep
-    locator: 'Beyond Physical Memory: Policies（页置换策略）'
-    claim: LRU 与 Clock（二次机会）是主流页置换近似算法，抖动源于工作集总和超过物理内存
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: procs
-      id: p
-      label: 程序
-    - lane: kernel
-      id: k
-      label: 内核
-      highlight: true
-    - lane: mem
-      id: r
-      label: 物理内存
-    messages:
-    - id: m-replace
-      from: k
-      to: r
-      label: 无空闲页框：Clock 扫一圈挑牺牲者换出
-      active: true
-  log:
-  - mode: 置换
-    event: 按 LRU/Clock 近似挑最久未用的页换出
-- id: overcommit
-  title: 超卖的代价：OOM killer
-  tldr: 因为是按需分配，Linux 敢“超卖”内存；真不够时只能杀进程。
-  body: '既然大部分申请的内存用不到，Linux 默认允许大家申请的总量超过实际内存，这叫超额承诺（overcommit）。
-
-    万一大家真的都来用，缺页时找不到空闲内存，内核就启动 OOM killer，按 oom_score（主要看内存占用，可用 oom_score_adj 调整）挑一个进程杀掉。
-
-    所以服务“莫名其妙被杀”，常常要去 dmesg 里找 OOM 记录。
-
-
-    具体数字：minor fault（页已在内存、只补映射）约微秒级，major fault（要去 SSD 读）约几十到上百微秒、去机械盘是毫秒级。/proc/vmstat 的 pgmajfault 持续增长，就是服务在被内存压力拖慢的信号。oom_score 大致与内存占用成正比，所以常驻大内存的进程更容易先被挑中；生产环境常用 cgroup 内存上限或给关键进程调低 oom_score_adj，把“真不够时杀谁”从内核默认策略改成业务自己定的策略，免得被杀的恰好是最重要的那个服务。'
-  derivation: original
-  sources:
-  - ref: linux-kernel-docs
-    locator: mm/overcommit-accounting
-    url: https://docs.kernel.org/mm/overcommit-accounting.html
-    claim: Linux 的内存超额承诺策略
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: procs
-      id: p
-      label: 程序
-    - lane: kernel
-      id: k
-      label: 内核
-      highlight: true
-    - lane: mem
-      id: r
-      label: 物理内存
-    messages:
-    - id: m-overcommit
-      from: k
-      to: p
-      label: 内存不够：结束一个进程
-      active: true
-  log:
-  - mode: 内核态
-    event: OOM killer 选中并终止进程
-- id: fault-timeline
-  title: 完整时序：一次缺页从硬件到返回
-  tldr: 按时间顺序走完一次次要缺页：停指令、查 VMA、取页框、填页表、重执行。
-  body: '把一次匿名页次要缺页按时间顺序走完。第一步，CPU 执行写指令，MMU 查 TLB 未命中、再查页表，发现页表项为空，于是触发缺页异常：出错地址写入 CR2，返回现场被保存，控制权转给内核。第二步，内核进入缺页处理：按地址找到所属 VMA，确认这是合法的匿名映射且允许写。第三步，从空闲页链表取一个页框，清零后把物理页号填进页表项，并设置可写等标志。第四步，内核退出异常处理，CPU 回到刚才那条写指令重新执行，这次 TLB 与页表都命中，写入完成。整个过程对程序透明，唯一可观测的痕迹是这条指令花的时间比平时长，次要缺页通常在微秒量级。若第三步发现没有空闲页框，流程会岔向页面回收与置换，时延立刻被放大；若要读盘，则还要加上等 I/O 的时间，变成主要缺页。'
-  derivation: original
-  sources:
-  - ref: ostep
-    locator: 'Beyond Physical Memory: Mechanisms 一章'
-    claim: 缺页处理流程为陷入内核、查合法性、分配或读入页面、更新页表并重新执行指令
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: procs
-      id: p
-      label: 程序
-    - lane: kernel
-      id: k
-      label: 内核
-      highlight: true
-    - lane: mem
-      id: r
-      label: 物理内存
-    messages:
-    - id: m-timeline
-      from: p
-      to: k
-      label: 异常陷入：地址在 CR2 里
-      active: true
-    - id: m-timeline2
-      from: k
-      to: r
-      label: 取空闲页框、清零、填页表
-  log:
-  - mode: 时序
-    event: 停指令 → 查 VMA → 补页 → 重执行，全程对程序透明
-- id: mmap-readahead
-  title: mmap 文件缺页与预读：顺序读为什么不一页一页等磁盘
-  tldr: 文件缺页先查页缓存；顺序访问时内核预读相邻页，后面的缺页大多只补映射不等盘。
-  body: 'mmap 一个大文件后顺序读，缺页并不是一页一页孤立发生的。第一次访问触发缺页时，内核判断这是文件页：先查页缓存，命中就直接建立映射，连磁盘都不碰；未命中才发起读盘。读盘时内核还会顺带预读（readahead）：既然程序在顺序访问，就把后面相邻的一串页一起读进页缓存，赌它们马上会被用到。这样顺序读大文件时，真正等磁盘的缺页只占少数，后面的大多变成命中缓存的次要缺页。反过来，随机访问会让预读基本落空，还白白占用页缓存并挤走别的热点页，所以以随机读为主的负载常调小甚至关掉预读。还要澄清一个误解：mmap 读文件不等于把文件拷进进程私有内存，页缓存全系统只有一份，多个进程映射同一文件共享同一批页，这正是它省内存的原因。工程上判断 mmap 是否适合，关键就看访问模式：顺序或近似顺序、能吃预读红利时它很出色；完全随机且记录很小时，普通 read 加用户态缓冲往往更可控。'
-  derivation: original
-  sources:
-  - ref: linux-man-pages
-    locator: mmap(2) 与 readahead(2) 手册
-    claim: 文件映射页经缺页从页缓存调入，顺序访问时内核可预读后续页面
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: procs
-      id: p
-      label: 程序
-    - lane: kernel
-      id: k
-      label: 内核
-      highlight: true
-    - lane: mem
-      id: r
-      label: 页缓存
-    messages:
-    - id: m-readahead
-      from: k
-      to: r
-      label: 缺页读一页，顺带预读相邻一串
-      active: true
-  log:
-  - mode: 文件缺页
-    event: 顺序读时预读把等盘次数摊薄
-- id: exact-lru-cost
-  title: 精确 LRU 为什么太贵：实现代价
-  tldr: 真 LRU 要在每次访问时更新全局顺序，成本压过访问本身；系统只用已访问位做近似采样。
-  body: '精确 LRU 要求每访问一页，就把它的名次更新为“最新使用”，实现上等于每次内存访问都要维护一条按最近使用排序的链表：命中一页，要把它从链表中间摘下再插到头部。问题在于访问发生在每条指令的尺度上，硬件页表只提供一个已访问位，并不记录访问顺序；若让软件在每次访问时都去更新链表，维护成本会压过访问本身，多核下这条全局链表还会成为所有核心争抢的热点，缓存一致性流量先把系统拖垮。现实系统只保留近似：硬件负责置已访问位，内核周期性扫描并清零，用“最近一个周期内有没有被访问过”代替精确名次。Clock 算法、较新的多队列分代回收（如 MGLRU）都是在这条近似路线上把精度逐步往上推。结论是：在置换问题里 LRU 首先是个成本问题，其次才是算法问题——策略必须便宜到能放在缺页这条热路径上。'
-  derivation: original
-  sources:
-  - ref: ostep
-    locator: 'Beyond Physical Memory: Policies（页置换策略）'
-    claim: 精确 LRU 维护成本过高，实际系统用引用位与 Clock 等近似方法
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: procs
-      id: p
-      label: 程序
-    - lane: kernel
-      id: k
-      label: 内核
-      highlight: true
-    - lane: mem
-      id: r
-      label: 物理内存
-    messages:
-    - id: m-lrucost
-      from: k
-      to: r
-      label: 只采样已访问位，不维护精确顺序
-      active: true
-  log:
-  - mode: 近似
-    event: 用周期采样代替每次访问都更新顺序
-- id: thrashing-numbers
-  title: 抖动的定量例子：工作集只超一点点也会悬崖
-  tldr: 三个进程工作集合计只比内存多 1 GB，吞吐不是慢一点，而是整体塌陷。
-  body: '用一个定量例子看抖动怎么发生。设物理内存 8 GB，三个进程各有约 3 GB 的工作集，合计 9 GB，只超了 1 GB。装不下的那部分页会被反复换出又换入：进程 A 刚把一页换进来，内存压力下又把 B 马上要用的页挤了出去；B 缺页调入时再挤掉 A 的页。此时主要缺页从偶尔出现变成持续不断，磁盘被换页流量占满，CPU 大量时间在等 I/O，三个进程的吞吐一起塌陷，而不是每个只慢三分之一——抖动是非线性的悬崖，不是线性变慢。解法不在置换算法里：要么加内存，要么减少并发（让一个进程先跑完、工作集完整驻留再放下一个），要么给关键进程保住其工作集的内存下限。只要把同时活跃的工作集之和压回物理内存以内，缺页率就会自己掉回正常水平。'
-  derivation: original
-  sources:
-  - ref: ostep
-    locator: 'Beyond Physical Memory: Policies（工作集与抖动）'
-    claim: 当所有进程工作集之和超过物理内存时发生抖动，减少并发或增加内存是根本解法
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: procs
-      id: p
-      label: 三个进程
-    - lane: kernel
-      id: k
-      label: 内核
-      highlight: true
-    - lane: mem
-      id: r
-      label: 物理内存 8 GB
-    messages:
-    - id: m-thrash
-      from: k
-      to: r
-      label: 工作集合计 9 GB：互相挤出、反复换入
-      active: true
-  log:
-  - mode: 抖动
-    event: 主要缺页持续不断，磁盘占满而 CPU 空等
-- id: swap-anon-reclaim
-  title: 交换区与匿名页：回收为什么不对称
-  tldr: 干净文件页丢了能重读，匿名页无处可丢、只能先写交换区——回收顺序由此决定。
-  body: '内存紧张时内核回收页面，但文件页与匿名页的命运不同。干净的文件页背后有磁盘上的原文件，直接丢弃即可，下次用到再读回来，回收成本几乎为零；脏文件页要先写回原文件再丢。匿名页背后没有任何文件，无处可丢，想回收只能先把内容写进交换区（swap），下次访问再以主要缺页的形式读回来。所以没有交换区时，匿名页基本不可回收，内核只能反复去挤文件页缓存，常表现为内存明明很满、页缓存却被压得只剩很小一块，文件读性能跟着变差。这也解释了为什么关掉交换区并不总是更快：留一点交换给冷匿名页一条退路，反而能让页缓存保住热点文件页。回收时内核按页的活跃程度分队列管理，原则是先动冷页、保住各进程的工作集，而不是按进程平均主义地乱挤。'
-  derivation: original
-  sources:
-  - ref: linux-kernel-docs
-    locator: 内核文档 mm（页面回收与交换相关文档）
-    claim: 匿名页回收需要交换区，文件页可通过丢弃或写回回收，内核按活跃程度组织回收队列
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: procs
-      id: p
-      label: 程序
-    - lane: kernel
-      id: k
-      label: 内核
-      highlight: true
-    - lane: mem
-      id: r
-      label: 物理内存 / 交换区
-    messages:
-    - id: m-swap
-      from: k
-      to: r
-      label: 文件页直接丢，匿名页先写交换区
-      active: true
-  log:
-  - mode: 回收
-    event: 先动冷页，匿名页的回收成本高于文件页
+      所以没有交换区时，匿名页基本不可回收，内核只能反复去挤文件页缓存，常表现为内存明明很满、页缓存却被压得只剩很小一块，文件读性能跟着变差。这也解释了为什么关掉交换区并不总是更快：留一点交换给冷匿名页一条退路，反而能让页缓存保住热点文件页。回收的原则是先动冷页、保住各进程的工作集，而不是平均主义地乱挤。
+    derivation: original
+    sources:
+      - ref: linux-kernel-docs
+        locator: 内核文档 mm（页面回收与交换相关文档）
+        claim: 匿名页回收需要交换区，文件页可通过丢弃或写回回收，内核按活跃程度组织回收队列
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: procs
+          id: p
+          label: 程序
+        - lane: kernel
+          id: k
+          label: 内核
+          highlight: true
+        - lane: mem
+          id: r
+          label: 物理内存 / 交换区
+      messages:
+        - id: m-swap
+          from: k
+          to: r
+          label: 文件页直接丢，匿名页先写交换区
+          active: true
+    log:
+      - mode: 回收
+        event: 先动冷页，匿名页的回收成本高于文件页
 level: 进阶
-minutes: 28
+minutes: 19
 prereq:
-- os/virtual-memory
+  - os/virtual-memory
 objectives:
-- 按顺序说出缺页处理流程
-- 区分文件页、匿名页与写时复制缺页
-- 解释 overcommit 为什么敢承诺超过物理内存
+  - 按顺序说出缺页处理流程
+  - 区分文件页、匿名页与写时复制缺页
+  - 解释 overcommit 为什么敢承诺超过物理内存
 aiLink: 大模型权重常用 mmap 加载：进程启动瞬间并不把几十 GB 权重全读进内存，而是靠缺页按需调入——服务冷启动快、内存峰值可控。看懂缺页与 mmap，就看懂了 safetensors 懒加载、按需分页与内存超卖的底层机制。
 design:
-- mechanism: 为什么按需分页，而不是在申请时预先全装入
-  problem: 根本约束是物理内存总量有限，且远小于所有进程地址空间之和；程序申请的内存又有很大比例从头到尾根本不会被访问到。
-  choice: 选择第一次真正访问时才经缺页分配物理页。替代方案预先全装入的失败模式是：未用承诺长期占用页框，内存利用率被虚假申请绑架，系统更早陷入回收与换页。
-  tradeoff: 代价是第一次访问要多付一次异常处理、甚至一次读盘的延迟，承担者是第一次碰到冷页的那个请求；换来的是整机内存利用率与更高的进程并发度。
-  root: 底层依托是虚拟内存的间接性：虚拟地址与物理页的绑定本来就可以推迟到访问那一刻由页表完成，而硬件缺页异常正好提供了在绑定缺失时转交软件处理的入口。
-- mechanism: 页置换为什么用 LRU 近似，而不是实现真正的 LRU
-  problem: 根本约束是置换决策位于缺页热路径上必须极便宜，而且硬件只提供已访问位，并不记录每次访问的精确先后顺序，信息本身就是残缺的。
-  choice: 选择 Clock、多队列分代等近似算法，用周期采样代替精确排序。真 LRU 的失败模式是每次访问都要维护一条全局有序链表，维护成本压过访问本身，多核下还会成为争抢热点。
-  tradeoff: 代价是近似会偶尔换错页、让个别进程多付几次主要缺页，承担者是被误判为冷页的页面主人；换来的是回收路径足够便宜、能在内存压力下持续运转。
-  root: 底层原理是程序的时间局部性：近期被访问过的页在近未来大概率还会再被访问，所以哪怕只是粗糙采样最近用没用过，也能抓住绝大部分可预测性。
-- mechanism: 为什么允许内存超额承诺（overcommit），而不是申请时就预留足额
-  problem: 根本约束是若按申请量足额预留，内存利用率会被从未兑现的承诺锁死：大量进程都按峰值申请、按低谷使用，足额预留等于让整机长期空转着一半内存。
-  choice: 选择只记账不预留、真用时再分配。替代方案严格预留的失败模式是：申请本身频繁失败，程序被迫自己做内存池与假承诺，系统级利用率反而更差。
-  tradeoff: 代价是极端情况下承诺无法兑现，只能由 OOM killer 杀进程收场，承担者是被选中的大内存进程；换来的是日常状态下高得多的内存利用率与更少的无谓申请失败。
-  root: 底层依据是大数意义上的使用率统计：独立进程同时把承诺全部兑现的概率很低，超卖是把这种统计规律变成机制，与航空超售、带宽超售同构。
+  - mechanism: 为什么按需分页，而不是在申请时预先全装入
+    problem: 物理内存总量有限，且远小于所有进程地址空间之和；程序申请的内存又有很大比例从头到尾根本不会被访问到。
+    choice: 第一次真正访问时才经缺页分配物理页。预先全装入的失败模式是：未用承诺长期占用页框，内存利用率被虚假申请绑架，系统更早陷入回收与换页。
+    tradeoff: 代价是第一次访问要多付一次异常处理、甚至一次读盘的延迟，承担者是第一次碰到冷页的那个请求；换来的是整机内存利用率与更高的进程并发度。
+    root: 虚拟内存的间接性：虚拟地址与物理页的绑定本来就可以推迟到访问那一刻由页表完成，而硬件缺页异常正好提供了在绑定缺失时转交软件处理的入口。
+  - mechanism: 页置换为什么用 LRU 近似，而不是实现真正的 LRU
+    problem: 置换决策位于缺页热路径上必须极便宜，而且硬件只提供已访问位，并不记录每次访问的精确先后顺序，信息本身就是残缺的。
+    choice: 用 Clock、多队列分代等近似算法，以周期采样代替精确排序。真 LRU 的失败模式是每次访问都要维护一条全局有序链表，维护成本压过访问本身，多核下还会成为争抢热点。
+    tradeoff: 代价是近似会偶尔换错页、让个别进程多付几次主要缺页，承担者是被误判为冷页的页面主人；换来的是回收路径足够便宜、能在内存压力下持续运转。
+    root: 程序的时间局部性：近期被访问过的页在近未来大概率还会再被访问，所以哪怕只是粗糙采样「最近用没用过」，也能抓住绝大部分可预测性。
+  - mechanism: 为什么允许内存超额承诺（overcommit），而不是申请时就预留足额
+    problem: 若按申请量足额预留，内存利用率会被从未兑现的承诺锁死：大量进程都按峰值申请、按低谷使用，足额预留等于让整机长期空转着一半内存。
+    choice: 只记账不预留、真用时再分配。严格预留的失败模式是：申请本身频繁失败，程序被迫自己做内存池与假承诺，系统级利用率反而更差。
+    tradeoff: 代价是极端情况下承诺无法兑现，只能由 OOM killer 杀进程收场，承担者是被选中的大内存进程；换来的是日常状态下高得多的内存利用率与更少的无谓申请失败。
+    root: 大数意义上的使用率统计：独立进程同时把承诺全部兑现的概率很低，超卖是把这种统计规律变成机制，与航空超售、带宽超售同构。
 quiz:
-- q: 缺页异常一定是程序出错吗？
-  options:
-  - 是的，立刻段错误
-  - 不是，按需调页、COW、栈增长都靠缺页正常完成
-  - 只有写代码时才会
-  - 是内核 bug
-  answer: 1
-  explain: 缺页是机制而非错误；只有地址确实非法时才发 SIGSEGV。
-- q: mmap 一个 40 GB 权重文件后立刻能运行，靠的是？
-  options:
-  - 文件已全读进内存
-  - 只建映射，真正读盘由第一次访问时的缺页触发
-  - 权重被压缩了
-  - GPU 直接读文件
-  answer: 1
-  explain: 映射 ≠ 加载，缺页时按页从文件调入页缓存。
-- q: overcommit 的风险是什么？
-  options:
-  - 没有风险
-  - 真用超了物理内存+交换区时 OOM Killer 会杀掉进程
-  - 程序变慢
-  - 文件损坏
-  answer: 1
-  explain: 承诺时不预留，真超限就由 OOM Killer 按策略回收进程。
+  - q: 缺页异常一定是程序出错吗？
+    options:
+      - 是的，立刻段错误
+      - 不是，按需调页、COW、栈增长都靠缺页正常完成
+      - 只有写代码时才会
+      - 是内核 bug
+    answer: 1
+    explain: 缺页是机制而非错误；只有地址确实非法时才发 SIGSEGV。
+  - q: mmap 一个 40 GB 权重文件后立刻能运行，靠的是？
+    options:
+      - 文件已全读进内存
+      - 只建映射，真正读盘由第一次访问时的缺页触发
+      - 权重被压缩了
+      - GPU 直接读文件
+    answer: 1
+    explain: 映射 ≠ 加载，缺页时按页从文件调入页缓存。
+  - q: overcommit 的风险是什么？
+    options:
+      - 没有风险
+      - 真用超了物理内存+交换区时 OOM Killer 会杀掉进程
+      - 程序变慢
+      - 文件损坏
+    answer: 1
+    explain: 承诺时不预留，真超限就由 OOM Killer 按策略回收进程。

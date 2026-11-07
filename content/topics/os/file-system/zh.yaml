@@ -7,495 +7,505 @@ license: CC-BY-4.0
 title: 文件系统：名字、inode 与日志
 summary: 文件不是一团字节：目录管名字，inode 管元数据，页缓存管速度，日志管崩溃后的一致性。
 premise: 以在 Linux 上保存一个文件、然后断电重启为例。
-position: >-
-  计数器这类内存数据断电即逝，文件要解决的却是按名字持久保存、且崩溃后仍能自洽，文件系统板块由此独立成篇。内容沿路径解析一路追到 inode，再看页缓存与预写日志怎样兼顾速度与一致性。硬链接为何只是同一 inode 多一个名字、write 返回后为何仍须 fsync 才敢断言落盘，都是本课要拿下的判断。
+position: 计数器这类内存数据断电即逝，文件要解决的却是按名字持久保存、且崩溃后仍能自洽，文件系统板块由此独立成篇。内容沿路径解析一路追到 inode，再看页缓存与预写日志怎样兼顾速度与一致性。硬链接为何只是同一 inode 多一个名字、write 返回后为何仍须 fsync 才敢断言落盘，都是本课要拿下的判断。
 bridge:
-  prev: >-
-    锁课结尾把共享数据护在临界区内，本课则把视线移出内存：当这份数据要写进 notes.md 时，目录项与 inode 怎样接手它的长期保管？
-  next: >-
-    文件读写最终都要等磁盘与网络这类慢设备，若每个连接都配一个线程阻塞等 read，网关在一万个长连接面前会先被哪笔账拖垮？
+  prev: 锁课结尾把共享数据护在临界区内，本课则把视线移出内存：当这份数据要写进 notes.md 时，目录项与 inode 怎样接手它的长期保管？
+  next: 文件读写最终都要等磁盘与网络这类慢设备，若每个连接都配一个线程阻塞等 read，网关在一万个长连接面前会先被哪笔账拖垮？
 overview:
-- key: 一句话总结
-  value: 目录把名字映射到 inode 号，inode 指向数据块；写先走页缓存，落盘靠 fsync 与日志
-- key: 文件名在哪
-  value: 不在 inode 里——在目录项里；所以一个 inode 可以有多个名字（硬链接）
-- key: 读写的加速
-  value: 页缓存：读过的文件页留在内存，写也是先写进缓存再刷盘
-- key: 崩溃一致性
-  value: 日志（journaling）：先把要改什么写进日志区并提交，再改正式位置
-- key: 持久化契约
-  value: write() 成功 ≠ 已落盘；fsync 才是「写进稳定存储」的承诺点
-- key: 常见文件系统
-  value: ext4、XFS、APFS、NTFS，思想相通（inode/日志/写时拷贝各有取舍）
+  - key: 一句话总结
+    value: 目录把名字映射到 inode 号，inode 指向数据块；写先走页缓存，落盘靠 fsync 与日志
+  - key: 文件名在哪
+    value: 不在 inode 里——在目录项里；所以一个 inode 可以有多个名字（硬链接）
+  - key: 读写的加速
+    value: 页缓存：读过的文件页留在内存，写也是先写进缓存再刷盘
+  - key: 崩溃一致性
+    value: 日志（journaling）：先把要改什么写进日志区并提交，再改正式位置
+  - key: 持久化契约
+    value: write() 成功 ≠ 已落盘；fsync 才是「写进稳定存储」的承诺点
+  - key: 常见文件系统
+    value: ext4、XFS、APFS、NTFS，思想相通（inode/日志/写时拷贝各有取舍）
 visual: swimlane
 lanes:
-- id: app
-  label: 应用程序
-- id: kernel
-  label: 内核（文件系统 + 页缓存）
-- id: disk
-  label: 磁盘
+  - id: app
+    label: 应用程序
+  - id: kernel
+    label: 内核（文件系统 + 页缓存）
+  - id: disk
+    label: 磁盘
 logColumns:
-- key: mode
-  label: 当前状态
-- key: event
-  label: 发生了什么
+  - key: mode
+    label: 当前状态
+  - key: event
+    label: 发生了什么
 steps:
-- id: why
-  title: 为什么需要文件系统
-  tldr: 磁盘只认扇区号，程序要的是「按名字找到一串可增长的字节」——中间这层就是文件系统。
-  body: '磁盘/SSD 的原生接口是「读写第 N 个块」，没有名字、没有大小增长、没有权限，也不知道哪些块是空的。文件系统在这层之上提供文件（有名字、可增长的字节序列）、目录（名字的组织）与元数据（大小、权限、时间戳），还要自己记账：哪些块已分配、哪些空闲、每个文件占了哪些块。
+  - id: why
+    title: 为什么需要文件系统
+    tldr: 磁盘只认扇区号，程序要的是「按名字找到一串可增长的字节」——中间这层就是文件系统。
+    body: |-
+      磁盘/SSD 的原生接口是「读写第 N 个块」，没有名字、没有大小增长、没有权限，也不知道哪些块是空的。文件系统在这层之上提供文件（有名字、可增长的字节序列）、目录（名字的组织）与元数据（大小、权限、时间戳），还要自己记账：哪些块已分配、哪些空闲、每个文件占了哪些块。
 
-    还要解决两个现实问题。速度：磁盘比内存慢几个数量级，每次读写都真碰盘会慢得没法用，靠页缓存把热点数据留在内存里顶着。可靠性：一次逻辑更新往往要改好几个块，写一半断电不能让文件系统结构自相矛盾，靠日志保证事务要么全成、要么全不成。
+      还要解决两个现实问题。速度：磁盘比内存慢几个数量级，每次读写都真碰盘会慢得没法用，靠页缓存把热点数据留在内存里顶着。可靠性：一次逻辑更新往往要改好几个块，写一半断电不能让文件系统结构自相矛盾，靠日志保证事务要么全成、要么全不成。
 
-    可以说文件系统就是块设备之上的一个专用数据库：它管理的“表”是目录与 inode，它要的同样是索引、缓存与崩溃恢复这三件套，后面几步正是逐件拆开看。还有个常被忽略的职责是并发与权限的仲裁：多个进程同时写同一个文件时，文件系统至少要保证自己的元数据结构不被并发更新弄坏，至于应用数据层面的冲突，则要靠锁与上层协议另行解决，这条边界后面讲打开文件表时还会再碰到。'
-  derivation: original
-  sources:
-  - ref: ostep
-    locator: File System Implementation 一章
-    claim: 文件系统在块设备之上提供文件与目录抽象，并管理空闲空间与元数据
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: app
-      id: a
-      label: 编辑器
-      highlight: true
-    - lane: kernel
-      id: k
-      label: 文件系统
-    - lane: disk
-      id: d
-      label: 磁盘（块）
-    messages: []
-  log:
-  - mode: 抽象
-    event: 程序说「打开 notes.md」，磁盘只听得懂块号
-- id: path
-  title: 路径解析：名字 → inode 号
-  tldr: 逐级查目录：每个目录就是一张「名字 → inode 号」的表，解析完拿到目标的 inode。
-  body: '打开 /home/daniel/notes.md 时，内核从根目录开始逐级查：根目录里查 home 得到它的 inode，读进来再查 daniel，再查 notes.md，最后拿到目标文件的 inode 号。每查一级都要验一次权限：对路径上每个目录没有执行（搜索）权限，解析当场失败——这就是有时文件本身权限没问题、却仍然打不开的原因，卡点在中间某级目录上。
+      可以说文件系统就是块设备之上的一个专用数据库：它管理的“表”是目录与 inode，它要的同样是索引、缓存与崩溃恢复这三件套，后面几步正是逐件拆开看。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: File System Implementation 一章
+        claim: 文件系统在块设备之上提供文件与目录抽象，并管理空闲空间与元数据
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: app
+          id: a
+          label: 编辑器
+          highlight: true
+        - lane: kernel
+          id: k
+          label: 文件系统
+        - lane: disk
+          id: d
+          label: 磁盘（块）
+      messages: []
+    log:
+      - mode: 抽象
+        event: 程序说「打开 notes.md」，磁盘只听得懂块号
+  - id: path
+    title: 路径解析：名字 → inode 号
+    tldr: 逐级查目录：每个目录就是一张「名字 → inode 号」的表，解析完拿到目标的 inode。
+    body: |-
+      打开 /home/daniel/notes.md 时，内核从根目录开始逐级查：根目录里查 home 得到它的 inode，读进来再查 daniel，再查 notes.md，最后拿到目标文件的 inode 号。每查一级都要验一次权限：对路径上每个目录没有执行（搜索）权限，解析当场失败——这就是有时文件本身权限没问题、却仍然打不开的原因，卡点在中间某级目录上。
+      目录本身也是文件，只是内容是目录项（名字 + inode 号）。相对路径只是起点不同（从当前工作目录对应的 inode 开始），解析规则完全一样；路径里的符号链接会在解析途中被展开成目标路径继续走，这也是软链接能“透明跳转”的原因。
+      路径解析的结果会被缓存（dentry 缓存），所以重复打开同一路径很快；反过来说，解析是一条热路径，深层路径加冷缓存时，一次 open 的开销主要就花在这趟逐级查找上。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: Files and Directories 一章
+        claim: 目录把文件名映射到 inode 号，路径解析逐级查找目录项
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: app
+          id: a
+          label: 编辑器
+        - lane: kernel
+          id: k
+          label: 文件系统
+          highlight: true
+        - lane: disk
+          id: d
+          label: 磁盘（块）
+      messages:
+        - id: m-path
+          from: a
+          to: k
+          label: open("/home/daniel/notes.md")
+          active: true
+        - id: m-path2
+          from: k
+          to: d
+          label: 逐级读目录块，查名字 → inode 号
+    log:
+      - mode: 解析
+        event: 三级目录查完，拿到 notes.md 的 inode 号
+  - id: inode
+    title: inode：元数据与数据块指针
+    tldr: inode 存大小、权限、时间戳与数据块的位置，唯独不存文件名。
+    body: |-
+      每个文件（包括目录、符号链接）有一个 inode：里面是元数据（类型、权限、所有者、大小、时间戳、链接计数）和数据块指针——小文件直接指向数据块，大文件用间接块（指针的指针）逐级放大可寻址范围。
 
-    目录本身也是文件，只是内容是目录项（名字 + inode 号）。相对路径只是起点不同（从当前工作目录对应的 inode 开始），解析规则完全一样；路径里的符号链接会在解析途中被展开成目标路径继续走，这也是软链接能“透明跳转”的原因。
+      因为文件名不在 inode 里，同一 inode 可以被多个目录项指向，这就是硬链接：ln a b 之后 a、b 是同一个文件的两个名字，链接计数变 2；删掉一个名字只是计数减 1，计数归 0 才真正回收。符号链接（软链接）则是另一种文件，内容是目标路径字符串，删了目标它就会悬空。
 
-    路径解析的结果会被缓存（dentry 缓存），所以重复打开同一路径很快；反过来说，解析是一条热路径，深层路径加冷缓存时，一次 open 的开销主要就花在这趟逐级查找上。'
-  derivation: original
-  sources:
-  - ref: ostep
-    locator: Files and Directories 一章
-    claim: 目录把文件名映射到 inode 号，路径解析逐级查找目录项
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: app
-      id: a
-      label: 编辑器
-    - lane: kernel
-      id: k
-      label: 文件系统
-      highlight: true
-    - lane: disk
-      id: d
-      label: 磁盘（块）
-    messages:
-    - id: m-path
-      from: a
-      to: k
-      label: open("/home/daniel/notes.md")
-      active: true
-    - id: m-path2
-      from: k
-      to: d
-      label: 逐级读目录块，查名字 → inode 号
-  log:
-  - mode: 解析
-    event: 三级目录查完，拿到 notes.md 的 inode 号
-- id: inode
-  title: inode：元数据与数据块指针
-  tldr: inode 存大小、权限、时间戳与数据块的位置，唯独不存文件名。
-  body: '每个文件（包括目录、符号链接）有一个 inode：里面是元数据（类型、权限、所有者、大小、时间戳、链接计数）和数据块指针——小文件直接指向数据块，大文件用间接块（指针的指针）逐级放大可寻址范围。
+      块指针分级还决定了单个文件的大小上限与访问成本：文件开头的数据靠直接指针一步到位，深处的数据要多绕一两层间接块才能找到块号——这不是实现偷懒，而是用指针层级换寻址范围。（stat 命令打印的 inode 号、链接数正是这些字段的真身：两个文件名 stat 出同一个 inode 号，就是硬链接的实锤。）
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: File System Implementation 一章（inode 与多级索引）
+        claim: inode 保存文件元数据与数据块指针（直接 + 间接），文件名只存在于目录项中
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: app
+          id: a
+          label: 编辑器
+        - lane: kernel
+          id: k
+          label: 文件系统
+          highlight: true
+        - lane: disk
+          id: d
+          label: 磁盘（块）
+      messages:
+        - id: m-inode
+          from: k
+          to: d
+          label: 读 inode → 按块指针拼出文件内容
+          active: true
+    log:
+      - mode: 元数据
+        event: inode 里没有文件名；硬链接 = 同一 inode 的多个名字
+  - id: pagecache
+    title: 页缓存：读写为什么「看起来」很快
+    tldr: 读命中缓存就不碰磁盘；写是先写进缓存就返回，脏页由内核稍后批量刷盘。
+    body: |-
+      所有文件读写都经过页缓存（page cache）：读时先查缓存，命中直接复制给进程，连磁盘都不碰；未命中才读盘，并把读到的整页留在缓存里等下次。写时 write() 把数据拷进缓存页、标脏就返回成功，内核的回写线程稍后把脏页批量刷到磁盘，刷的时机与批量大小由回写策略控制，而不是由每次 write 决定。
 
-    因为文件名不在 inode 里，同一 inode 可以被多个目录项指向，这就是硬链接：ln a b 之后 a、b 是同一个文件的两个名字，链接计数变 2；删掉一个名字只是计数减 1，计数归 0 才真正回收。符号链接（软链接）则是另一种文件，内容是目标路径字符串，删了目标它就会悬空。还有个数字感：块指针分级决定了单个文件的大小上限与访问成本——文件开头的数据靠直接指针一步到位，深处的数据要多绕一两层间接块才能找到块号，所以“小文件快、大文件略多一跳”不是实现偷懒，而是用指针层级换寻址范围的结果。实践中看 inode 最顺手的工具是 stat：它打印的大小、链接数、inode 号都是本步说的字段真身；两个文件名 stat 出同一个 inode 号，就是硬链接的实锤证据，比任何解释都直接。'
-  derivation: original
-  sources:
-  - ref: ostep
-    locator: File System Implementation 一章（inode 与多级索引）
-    claim: inode 保存文件元数据与数据块指针（直接 + 间接），文件名只存在于目录项中
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: app
-      id: a
-      label: 编辑器
-    - lane: kernel
-      id: k
-      label: 文件系统
-      highlight: true
-    - lane: disk
-      id: d
-      label: 磁盘（块）
-    messages:
-    - id: m-inode
-      from: k
-      to: d
-      label: 读 inode → 按块指针拼出文件内容
-      active: true
-  log:
-  - mode: 元数据
-    event: inode 里没有文件名；硬链接 = 同一 inode 的多个名字
-- id: pagecache
-  title: 页缓存：读写为什么「看起来」很快
-  tldr: 读命中缓存就不碰磁盘；写是先写进缓存就返回，脏页由内核稍后批量刷盘。
-  body: '所有文件读写都经过页缓存（page cache）：读时先查缓存，命中直接复制给进程，连磁盘都不碰；未命中才读盘，并把读到的整页留在缓存里等下次。写时 write() 把数据拷进缓存页、标脏就返回成功，内核的回写线程稍后把脏页批量刷到磁盘，刷的时机与批量大小由回写策略控制，而不是由每次 write 决定。
+      这解释了很多现象：刚写完的文件立刻读很快，因为读的就是刚写进缓存的那份；大批量小写被合并成少量顺序刷盘，效率远高于一次次真写盘；free 命令里 buff/cache 占了很多内存不是浪费，那是随时可回收的缓存，内存一紧张就先让它们。
 
-    这解释了很多现象：刚写完的文件立刻读很快，因为读的就是刚写进缓存的那份；大批量小写被合并成少量顺序刷盘，效率远高于一次次真写盘；free 命令里 buff/cache 占了很多内存不是浪费，那是随时可回收的缓存，内存一紧张就先让它们。
+      硬币的另一面是：进程眼里的“写成功”只是进了内存，离真正落盘还隔着回写这一段异步路程——这段路程正是下一步 fsync 要收紧的口子，也是“刚存的文件断电就没了”这类事故的源头。（附带一句：文件类基准测试若不先清缓存，量到的往往是缓存速度而不是磁盘速度。）
+    derivation: original
+    sources:
+      - ref: linux-kernel-docs
+        locator: 内核文档：页缓存与回写（mm/page cache）
+        claim: 文件读写经页缓存，脏页由回写机制异步刷到存储设备
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: app
+          id: a
+          label: 编辑器
+        - lane: kernel
+          id: k
+          label: 页缓存
+          highlight: true
+        - lane: disk
+          id: d
+          label: 磁盘（块）
+      messages:
+        - id: m-pc
+          from: a
+          to: k
+          label: write() 数据进入缓存页 → 立刻返回
+          active: true
+        - id: m-pc2
+          from: k
+          to: d
+          label: 脏页稍后由回写线程批量刷盘
+    log:
+      - mode: 缓存
+        event: write 成功时数据可能还在内存里，没到磁盘
+  - id: journal
+    title: 日志：断电后为什么不会结构损坏
+    tldr: 先把「我要改 A、B、C」写进日志区并落盘提交，再改正式位置；崩溃后重放日志即可。
+    body: |-
+      更新一个文件常要同时改数据块、inode 与空闲位图。写到一半断电，结构就会不一致（比如 inode 指向一个被标记空闲的块）。
+      日志型文件系统（如 ext4 的 jbd2）的做法是预写日志（write-ahead logging）：先把这次事务的全部修改写到磁盘上专门的日志区，等日志落盘（提交）后再慢慢写回正式位置。崩溃重启后扫描日志：已提交的事务重放一遍，未提交的当没发生过——每个事务要么全生效、要么全不生效。
+      ext4 默认的 ordered 模式还保证数据块先于引用它的元数据提交，进一步避免 inode 指向垃圾数据。代价也要说清：同一份修改等于要写两遍（先日志、后正式位置），日志区本身还要占一块磁盘空间，所以日志换来的不是免费的安全，而是用一遍额外写入换崩溃后不用全盘扫描修复——对绝大多数负载这笔账划算，但对写极密集的场景，日志模式的选择会直接进到性能调优清单里。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: Crash Consistency / Journaling 章节
+        claim: 日志文件系统先将事务写入日志并提交，再写回正式位置，崩溃后通过重放恢复一致性
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: app
+          id: a
+          label: 编辑器
+        - lane: kernel
+          id: k
+          label: 文件系统
+          highlight: true
+        - lane: disk
+          id: d
+          label: 磁盘（日志区 + 正式区）
+      messages:
+        - id: m-j1
+          from: k
+          to: d
+          label: ① 事务写进日志区并提交
+          active: true
+        - id: m-j2
+          from: k
+          to: d
+          label: ② 再写回正式位置（checkpoint）
+    log:
+      - mode: 恢复
+        event: 崩溃重启：重放已提交事务，未提交的丢弃
+  - id: fsync
+    title: fsync：write 成功 ≠ 数据安全
+    tldr: 要保证断电不丢，必须在关键点 fsync 文件；新建/改名还要 fsync 所在目录。
+    body: |-
+      既然写只是进了页缓存，write() 返回后断电，数据可能全没。数据库、钱包类应用的契约是：关键记录写完后调 fsync(fd)（或开 O_DSYNC），它把该文件的脏页与必要元数据真正刷到稳定存储才返回——慢，但这是持久化的唯一承诺点。慢到什么程度取决于存储设备：一块要等设备确认落盘的同步写，比走缓存的写贵几个数量级，所以数据库才要把多次提交攒成一批一起刷（组提交），而不是每条记录都单独付一次全价。
+      还有一个常被漏的细节：新建文件或 rename 之后，要对所在目录也 fsync 一次，目录项本身才算落盘。只 fsync 文件就关机，重启后可能连文件名都找不到，文件内容再完整也等于不存在。
+      顺带澄清一个误解：fsync 贵不等于平时能省就省。正确做法是先想清每类数据的丢失容忍度，只给真正丢不起的那批付这个价，而不是全省或全付两个极端。
+    derivation: original
+    sources:
+      - ref: linux-man-pages
+        locator: fsync(2) 手册
+        claim: fsync 将文件脏数据与元数据刷到稳定存储；write 返回不提供持久性保证
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: app
+          id: a
+          label: 数据库
+          highlight: true
+        - lane: kernel
+          id: k
+          label: 页缓存
+        - lane: disk
+          id: d
+          label: 磁盘
+      messages:
+        - id: m-fs
+          from: a
+          to: k
+          label: fsync(fd) —— 等刷盘完成才返回
+          active: true
+        - id: m-fs2
+          from: k
+          to: d
+          label: 脏页 + 元数据落盘
+    log:
+      - mode: 持久化
+        event: fsync 返回 = 这批数据断电不丢
+    code:
+      lang: c
+      code: |-
+        // 写关键记录的正确收尾（伪代码级示意）
+        write(fd, record, len);   // 只是进了页缓存
+        fsync(fd);                // 文件数据 + 元数据落盘
+        fsync(dirfd);             // 若刚新建/改名：目录项也要落盘
+      note: 数据库 WAL 的每一次提交都在做这件事
+      highlight: 3
+  - id: engineering
+    title: 工程视角：从文件系统到对象存储
+    tldr: 本地文件系统的语义是很多系统设计的原点：日志思想变成数据库 WAL，页缓存思想变成各种缓存层。
+    body: |-
+      把这几步串起来看：数据库的预写日志（WAL）就是文件系统日志思想在应用层的重演；mmap 加载模型权重靠的是页缓存 + 缺页；容器镜像的分层与写时拷贝，源头是 inode/链接与快照思想。很多应用层的“原子保存”套路——先写临时文件、fsync、再 rename 覆盖、再 fsync 目录——本质上是把文件系统提供的原语拼成一个迷你事务，不懂本课的语义就只能照抄还抄漏。
 
-    硬币的另一面是：进程眼里的“写成功”只是进了内存，离真正落盘还隔着回写这一段异步路程——这段路程正是下一课 fsync 要收紧的口子，也是“刚存的文件断电就没了”这类事故的源头。一个实用的观察法：同一文件第一次读明显慢、立刻再读飞快，差的就是第一遍读盘、第二遍命中缓存；压测时若不先清缓存或换冷数据，量到的往往是缓存速度而不是磁盘速度，这是文件类基准测试最常见的自欺。'
-  derivation: original
-  sources:
-  - ref: linux-kernel-docs
-    locator: 内核文档：页缓存与回写（mm/page cache）
-    claim: 文件读写经页缓存，脏页由回写机制异步刷到存储设备
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: app
-      id: a
-      label: 编辑器
-    - lane: kernel
-      id: k
-      label: 页缓存
-      highlight: true
-    - lane: disk
-      id: d
-      label: 磁盘（块）
-    messages:
-    - id: m-pc
-      from: a
-      to: k
-      label: write() 数据进入缓存页 → 立刻返回
-      active: true
-    - id: m-pc2
-      from: k
-      to: d
-      label: 脏页稍后由回写线程批量刷盘
-  log:
-  - mode: 缓存
-    event: write 成功时数据可能还在内存里，没到磁盘
-- id: journal
-  title: 日志：断电后为什么不会结构损坏
-  tldr: 先把「我要改 A、B、C」写进日志区并落盘提交，再改正式位置；崩溃后重放日志即可。
-  body: '更新一个文件常要同时改数据块、inode 与空闲位图。写到一半断电，结构就会不一致（比如 inode 指向一个被标记空闲的块）。
+      到了分布式时代，对象存储（如 S3）放弃了「原地修改」与目录语义，换成不可变对象 + 元数据服务——正是为了绕开分布式下文件系统一致性的难题。理解本地文件系统的每个设计点，才看得懂这些取舍：每一个被放弃的语义，都是在为跨机器的一致性与扩展性让路。读新存储系统时可以先问三个问题：它的名字到对象的映射放在哪、写成功到底承诺了哪一层持久性、崩溃或断电后靠什么恢复——能在本课框架里一一对上号，说明你已经抓住了它的设计骨架。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: Distributed Systems / 文件系统相关章节
+        claim: 分布式存储在一致性与语义上对本地文件系统作出不同取舍
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: app
+          id: a
+          label: 应用
+        - lane: kernel
+          id: k
+          label: 文件系统
+        - lane: disk
+          id: d
+          label: 磁盘
+      messages:
+        - id: m-eng
+          from: a
+          to: k
+          label: 语义原点：名字/inode/缓存/日志
+          active: true
+    log:
+      - mode: 总结
+        event: WAL、mmap、快照都是这套语义的回声
+  - id: dir-impl
+    title: 目录实现：线性表为什么撑不住大目录
+    tldr: 小目录线性扫描足够；文件数上万后查找变线性噩梦，哈希树让查找回到近似对数级。
+    body: |-
+      目录的内容就是一串目录项，最直白的实现是线性表：查找一个名字就从头逐项比对，插入就追加，删除就留个空洞等复用。文件只有几个到几十个时这完全够用，实现也简单。但目录里文件数涨到成千上万后，每次 open 都要先在目录里线性扫一遍找名字，查找成本随文件数线性增长；更糟的是这类大目录很常见——日志目录、缓存目录、对象存储的本地落盘层都喜欢把海量小文件平铺在一个目录里。
 
-    日志型文件系统（如 ext4 的 jbd2）的做法是预写日志（write-ahead logging）：先把这次事务的全部修改写到磁盘上专门的日志区，等日志落盘（提交）后再慢慢写回正式位置。崩溃重启后扫描日志：已提交的事务重放一遍，未提交的当没发生过——每个事务要么全生效、要么全不生效。
+      现代文件系统（如 ext4）对大目录改用哈希树：把文件名的哈希值组织成树形索引，查找先算哈希再定位到对应的叶子块，只在小范围内线性比对，成本降到与目录总大小近似对数相关的量级。代价是小目录也要维护索引结构、删除与改名要同步更新哈希树，所以实现上常是“小目录先用线性、长大后自动转哈希”的混合策略。分界大致在几百到上万：以内两种实现几乎没差别，过万以后线性目录的单次打开耗时肉眼可见地往上爬，哈希目录基本持平——目录组织方式是大文件量服务绕不开的一道坎。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: File System Implementation 一章（目录组织）
+        claim: 目录可以用线性列表组织，查找需要在目录项中搜索目标名字
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: app
+          id: a
+          label: 应用程序
+        - lane: kernel
+          id: k
+          label: 文件系统
+          highlight: true
+        - lane: disk
+          id: d
+          label: 磁盘（目录块）
+      messages:
+        - id: m-dir
+          from: k
+          to: d
+          label: 大目录按名哈希定位，小目录线性扫
+          active: true
+    log:
+      - mode: 目录
+        event: 线性表撑小目录，哈希树撑大目录
+  - id: open-tables
+    title: 打开文件表：三层结构各管一段
+    tldr: 进程 fd 表、系统级打开文件表、inode 表分工不同，文件偏移量到底存在哪一层决定了 dup 与 fork 的共享行为。
+    body: open 成功后拿到的文件描述符（fd）只是第一层：每个进程有一张 fd 表，表项指向第二层。系统级只有一张打开文件表（open file table），每个表项（打开文件描述）存着当前文件偏移量、打开模式等“这一次打开”的状态，并指向第三层的 inode 表项（内存中的 inode，代表文件本身）。为什么要分三层？因为共享关系不一样：dup 复制 fd、或 fork 出子进程时，复制的是第一层指针，父子与两个 fd 共享同一个打开文件描述，于是共享偏移量——父进程读了 100 字节，子进程接着读会从 101 开始。反过来，同一个文件被独立 open 两次，会得到两个打开文件描述，偏移量各走各的。很多“我明明写进去了、读出来却是旧位置”的诡异 bug，根子就在没分清偏移量属于“打开”而不是属于“文件”或“fd 本身”。关闭 fd 也只是摘掉第一层引用，引用都清零后第二层表项才回收，inode 则要等链接计数与打开计数都归零才真正释放空间。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: Files and Directories 一章（文件描述符与打开文件）
+        claim: 文件描述符经打开文件状态关联到 inode，偏移量属于打开状态
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: app
+          id: a
+          label: 进程（fd 表）
+          highlight: true
+        - lane: kernel
+          id: k
+          label: 打开文件表 → inode 表
+        - lane: disk
+          id: d
+          label: 磁盘
+      messages:
+        - id: m-oft
+          from: a
+          to: k
+          label: fd → 打开文件描述（偏移量在这层）
+          active: true
+    log:
+      - mode: 打开状态
+        event: dup 与 fork 共享偏移量，独立 open 各走各的
+  - id: fsck-vs-journal
+    title: 崩溃一致性两条路线：事后全盘修 vs 事前留日志
+    tldr: fsck 崩溃后把整盘扫一遍找矛盾，慢且只能修结构；日志只重放最近事务，快且语义完整。
+    body: 日志出现之前，崩溃一致性靠的是 fsck 这类事后检查工具：重启时把整个文件系统的元数据扫一遍，核对 inode、位图、目录与链接计数之间是否自洽，发现矛盾就按规则修补（比如把找不到归属的数据块标回已用、把断裂的目录项清掉）。它的问题很实际：一是慢，扫描时间随磁盘容量增长，大盘修复可能要很久，服务就停摆多久；二是只能修“结构自洽”，修不回“业务上到底写到哪一步”——它不知道刚才那次更新本应包含哪几步。日志路线把功夫下在事前：每次更新先把完整事务写进日志并提交，崩溃后只需扫描一小段日志区、重放已提交事务，恢复时间与最近写入量相关而与盘的总容量无关，且能保证每次更新整体生效或整体不生效。如今主流文件系统都用日志做日常恢复，fsck 退居二线，只在日志也救不回的严重损坏时才上场做全盘抢救。还要强调日志的保证范围：它保的是文件系统结构与已提交事务的一致性，不保“应用写了但还没 fsync 的数据一定不丢”——页缓存里那段没落盘的路程，仍然要应用自己用 fsync 来收口，两个机制管的是两层不同的契约。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: Crash Consistency / Journaling 与 FSCK 章节
+        claim: fsck 通过全盘扫描修复不一致，日志文件系统则通过重放已提交事务快速恢复
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: app
+          id: a
+          label: 应用程序
+        - lane: kernel
+          id: k
+          label: 文件系统
+          highlight: true
+        - lane: disk
+          id: d
+          label: 磁盘（日志区 + 正式区）
+      messages:
+        - id: m-fsck
+          from: k
+          to: d
+          label: 恢复时只扫日志区，不扫全盘
+          active: true
+    log:
+      - mode: 恢复路线
+        event: 日志恢复与盘容量无关，fsck 与容量成正比
+  - id: link-boundaries
+    title: 硬链接与符号链接的边界清单
+    tldr: 硬链接不能跨文件系统、一般不能指向目录；软链接什么都能指，但会悬空、会成环、每次解析都要多走一趟。
+    body: |-
+      两种链接的边界值得单独列清。硬链接是在目录里多写一个指向同一 inode 的名字，所以它有三条硬边界：不能跨文件系统（inode 号只在单个文件系统内有意义，跨盘就找不到对象）；一般不允许指向目录（否则目录结构会出现环，遍历与删除都会乱套，目录的层级关系只由系统在创建与移动目录时内部维护）；目标被删时不悬空，因为每个名字都是平等的入口，链接计数归零才回收。
 
-    ext4 默认的 ordered 模式还保证数据块先于引用它的元数据提交，进一步避免 inode 指向垃圾数据。代价也要说清：同一份修改等于要写两遍（先日志、后正式位置），日志区本身还要占一块磁盘空间，所以日志换来的不是免费的安全，而是用一遍额外写入换崩溃后不用全盘扫描修复——对绝大多数负载这笔账划算，但对写极密集的场景，日志模式的选择会直接进到性能调优清单里。'
-  derivation: original
-  sources:
-  - ref: ostep
-    locator: Crash Consistency / Journaling 章节
-    claim: 日志文件系统先将事务写入日志并提交，再写回正式位置，崩溃后通过重放恢复一致性
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: app
-      id: a
-      label: 编辑器
-    - lane: kernel
-      id: k
-      label: 文件系统
-      highlight: true
-    - lane: disk
-      id: d
-      label: 磁盘（日志区 + 正式区）
-    messages:
-    - id: m-j1
-      from: k
-      to: d
-      label: ① 事务写进日志区并提交
-      active: true
-    - id: m-j2
-      from: k
-      to: d
-      label: ② 再写回正式位置（checkpoint）
-  log:
-  - mode: 恢复
-    event: 崩溃重启：重放已提交事务，未提交的丢弃
-- id: fsync
-  title: fsync：write 成功 ≠ 数据安全
-  tldr: 要保证断电不丢，必须在关键点 fsync 文件；新建/改名还要 fsync 所在目录。
-  body: '既然写只是进了页缓存，write() 返回后断电，数据可能全没。数据库、钱包类应用的契约是：关键记录写完后调 fsync(fd)（或开 O_DSYNC），它把该文件的脏页与必要元数据真正刷到稳定存储才返回——慢，但这是持久化的唯一承诺点。慢到什么程度取决于存储设备：一块要等设备确认落盘的同步写，比走缓存的写贵几个数量级，所以数据库才要把多次提交攒成一批一起刷（组提交），而不是每条记录都单独付一次全价。
-
-    还有一个常被漏的细节：新建文件或 rename 之后，要对所在目录也 fsync 一次，目录项本身才算落盘。只 fsync 文件就关机，重启后可能连文件名都找不到，文件内容再完整也等于不存在。
-
-    顺带澄清一个误解：fsync 贵不等于平时能省就省。正确做法是先想清每类数据的丢失容忍度，只给真正丢不起的那批付这个价，而不是全省或全付两个极端。'
-  derivation: original
-  sources:
-  - ref: linux-man-pages
-    locator: fsync(2) 手册
-    claim: fsync 将文件脏数据与元数据刷到稳定存储；write 返回不提供持久性保证
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: app
-      id: a
-      label: 数据库
-      highlight: true
-    - lane: kernel
-      id: k
-      label: 页缓存
-    - lane: disk
-      id: d
-      label: 磁盘
-    messages:
-    - id: m-fs
-      from: a
-      to: k
-      label: fsync(fd) —— 等刷盘完成才返回
-      active: true
-    - id: m-fs2
-      from: k
-      to: d
-      label: 脏页 + 元数据落盘
-  log:
-  - mode: 持久化
-    event: fsync 返回 = 这批数据断电不丢
-  code:
-    lang: c
-    code: "// 写关键记录的正确收尾（伪代码级示意）\nwrite(fd, record, len);   // 只是进了页缓存\nfsync(fd);                // 文件数据 + 元数据落盘\nfsync(dirfd);             // 若刚新建/改名：目录项也要落盘"
-    note: 数据库 WAL 的每一次提交都在做这件事
-    highlight: 3
-- id: engineering
-  title: 工程视角：从文件系统到对象存储
-  tldr: 本地文件系统的语义是很多系统设计的原点：日志思想变成数据库 WAL，页缓存思想变成各种缓存层。
-  body: '把这几课串起来看：数据库的预写日志（WAL）就是文件系统日志思想在应用层的重演；mmap 加载模型权重靠的是页缓存 + 缺页；容器镜像的分层与写时拷贝，源头是 inode/链接与快照思想。很多应用层的“原子保存”套路——先写临时文件、fsync、再 rename 覆盖、再 fsync 目录——本质上是把文件系统提供的原语拼成一个迷你事务，不懂本课的语义就只能照抄还抄漏。
-
-    到了分布式时代，对象存储（如 S3）放弃了「原地修改」与目录语义，换成不可变对象 + 元数据服务——正是为了绕开分布式下文件系统一致性的难题。理解本地文件系统的每个设计点，才看得懂这些取舍：每一个被放弃的语义，都是在为跨机器的一致性与扩展性让路。所以读新存储系统的文档时，不妨先问三个问题：它的名字到对象的映射放在哪、写成功到底承诺了哪一层持久性、崩溃或断电后靠什么恢复——能在本课框架里一一对上号，说明你已经抓住了它的设计骨架。'
-  derivation: original
-  sources:
-  - ref: ostep
-    locator: Distributed Systems / 文件系统相关章节
-    claim: 分布式存储在一致性与语义上对本地文件系统作出不同取舍
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: app
-      id: a
-      label: 应用
-    - lane: kernel
-      id: k
-      label: 文件系统
-    - lane: disk
-      id: d
-      label: 磁盘
-    messages:
-    - id: m-eng
-      from: a
-      to: k
-      label: 语义原点：名字/inode/缓存/日志
-      active: true
-  log:
-  - mode: 总结
-    event: WAL、mmap、快照都是这套语义的回声
-- id: dir-impl
-  title: 目录实现：线性表为什么撑不住大目录
-  tldr: 小目录线性扫描足够；文件数上万后查找变线性噩梦，哈希树让查找回到近似对数级。
-  body: '目录的内容就是一串目录项，最直白的实现是线性表：查找一个名字就从头逐项比对，插入就追加，删除就留个空洞等复用。文件只有几个到几十个时这完全够用，实现也简单。但目录里文件数涨到成千上万后，每次 open 都要先在目录里线性扫一遍找名字，查找成本随文件数线性增长；更糟的是这类大目录很常见——日志目录、缓存目录、对象存储的本地落盘层都喜欢把海量小文件平铺在一个目录里。现代文件系统（如 ext4）对大目录改用哈希树：把文件名的哈希值组织成树形索引，查找先算哈希再定位到对应的叶子块，只在小范围内线性比对，成本回到与目录总大小近似对数相关的量级。代价是小目录也要维护索引结构、删除与改名要同步更新哈希树，所以实现上常是“小目录先用线性、长大后自动转哈希”的混合策略。自己做压测可以直观看到分界：文件数在几百以内时两种实现几乎没差别，上万以后线性目录的单次打开耗时会肉眼可见地往上爬，而哈希目录基本持平——目录组织方式是大文件量服务绕不开的一道坎。'
-  derivation: original
-  sources:
-  - ref: ostep
-    locator: File System Implementation 一章（目录组织）
-    claim: 目录可以用线性列表组织，查找需要在目录项中搜索目标名字
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: app
-      id: a
-      label: 应用程序
-    - lane: kernel
-      id: k
-      label: 文件系统
-      highlight: true
-    - lane: disk
-      id: d
-      label: 磁盘（目录块）
-    messages:
-    - id: m-dir
-      from: k
-      to: d
-      label: 大目录按名哈希定位，小目录线性扫
-      active: true
-  log:
-  - mode: 目录
-    event: 线性表撑小目录，哈希树撑大目录
-- id: open-tables
-  title: 打开文件表：三层结构各管一段
-  tldr: 进程 fd 表、系统级打开文件表、inode 表分工不同，文件偏移量到底存在哪一层决定了 dup 与 fork 的共享行为。
-  body: 'open 成功后拿到的文件描述符（fd）只是第一层：每个进程有一张 fd 表，表项指向第二层。系统级只有一张打开文件表（open file table），每个表项（打开文件描述）存着当前文件偏移量、打开模式等“这一次打开”的状态，并指向第三层的 inode 表项（内存中的 inode，代表文件本身）。为什么要分三层？因为共享关系不一样：dup 复制 fd、或 fork 出子进程时，复制的是第一层指针，父子与两个 fd 共享同一个打开文件描述，于是共享偏移量——父进程读了 100 字节，子进程接着读会从 101 开始。反过来，同一个文件被独立 open 两次，会得到两个打开文件描述，偏移量各走各的。很多“我明明写进去了、读出来却是旧位置”的诡异 bug，根子就在没分清偏移量属于“打开”而不是属于“文件”或“fd 本身”。关闭 fd 也只是摘掉第一层引用，引用都清零后第二层表项才回收，inode 则要等链接计数与打开计数都归零才真正释放空间。'
-  derivation: original
-  sources:
-  - ref: ostep
-    locator: Files and Directories 一章（文件描述符与打开文件）
-    claim: 文件描述符经打开文件状态关联到 inode，偏移量属于打开状态
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: app
-      id: a
-      label: 进程（fd 表）
-      highlight: true
-    - lane: kernel
-      id: k
-      label: 打开文件表 → inode 表
-    - lane: disk
-      id: d
-      label: 磁盘
-    messages:
-    - id: m-oft
-      from: a
-      to: k
-      label: fd → 打开文件描述（偏移量在这层）
-      active: true
-  log:
-  - mode: 打开状态
-    event: dup 与 fork 共享偏移量，独立 open 各走各的
-- id: fsck-vs-journal
-  title: 崩溃一致性两条路线：事后全盘修 vs 事前留日志
-  tldr: fsck 崩溃后把整盘扫一遍找矛盾，慢且只能修结构；日志只重放最近事务，快且语义完整。
-  body: '日志出现之前，崩溃一致性靠的是 fsck 这类事后检查工具：重启时把整个文件系统的元数据扫一遍，核对 inode、位图、目录与链接计数之间是否自洽，发现矛盾就按规则修补（比如把找不到归属的数据块标回已用、把断裂的目录项清掉）。它的问题很实际：一是慢，扫描时间随磁盘容量增长，大盘修复可能要很久，服务就停摆多久；二是只能修“结构自洽”，修不回“业务上到底写到哪一步”——它不知道刚才那次更新本应包含哪几步。日志路线把功夫下在事前：每次更新先把完整事务写进日志并提交，崩溃后只需扫描一小段日志区、重放已提交事务，恢复时间与最近写入量相关而与盘的总容量无关，且能保证每次更新整体生效或整体不生效。如今主流文件系统都用日志做日常恢复，fsck 退居二线，只在日志也救不回的严重损坏时才上场做全盘抢救。还要强调日志的保证范围：它保的是文件系统结构与已提交事务的一致性，不保“应用写了但还没 fsync 的数据一定不丢”——页缓存里那段没落盘的路程，仍然要应用自己用 fsync 来收口，两个机制管的是两层不同的契约。'
-  derivation: original
-  sources:
-  - ref: ostep
-    locator: Crash Consistency / Journaling 与 FSCK 章节
-    claim: fsck 通过全盘扫描修复不一致，日志文件系统则通过重放已提交事务快速恢复
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: app
-      id: a
-      label: 应用程序
-    - lane: kernel
-      id: k
-      label: 文件系统
-      highlight: true
-    - lane: disk
-      id: d
-      label: 磁盘（日志区 + 正式区）
-    messages:
-    - id: m-fsck
-      from: k
-      to: d
-      label: 恢复时只扫日志区，不扫全盘
-      active: true
-  log:
-  - mode: 恢复路线
-    event: 日志恢复与盘容量无关，fsck 与容量成正比
-- id: link-boundaries
-  title: 硬链接与符号链接的边界清单
-  tldr: 硬链接不能跨文件系统、一般不能指向目录；软链接什么都能指，但会悬空、会成环、每次解析都要多走一趟。
-  body: '两种链接的边界值得单独列清。硬链接是在目录里多写一个指向同一 inode 的名字，所以它有三条硬边界：不能跨文件系统（inode 号只在单个文件系统内有意义，跨盘就找不到对象）；一般不允许指向目录（否则目录结构会出现环，遍历与删除都会乱套，目录的层级关系只由系统在创建与移动目录时内部维护）；目标被删时不悬空，因为每个名字都是平等的入口，链接计数归零才回收。符号链接是内容为路径字符串的独立文件，边界完全不同：可以跨文件系统、可以指向目录，但目标被删或改名后它会悬空成“断链”；链接套链接、甚至指回自己时会形成环，内核在路径解析时对跳转次数设了上限，超了就报 ELOOP 错误让你知道绕圈了。还有个行为差异：大多数命令默认跟随软链接操作目标，但删除软链接本身删的是链接不是目标——把 rm 用在软链接上很安全，用在硬链接的某个名字上也只是少一个名字，数据都还在。'
-  derivation: original
-  sources:
-  - ref: linux-man-pages
-    locator: link(2)、symlink(2) 与 symlink(7) 手册
-    claim: 硬链接要求同一文件系统且通常不能指向目录，符号链接是保存目标路径的独立文件，解析环路会返回 ELOOP
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: app
-      id: a
-      label: 应用程序
-    - lane: kernel
-      id: k
-      label: 文件系统
-      highlight: true
-    - lane: disk
-      id: d
-      label: 磁盘
-    messages:
-    - id: m-link
-      from: a
-      to: k
-      label: ln 建硬链接，ln -s 建软链接
-      active: true
-  log:
-  - mode: 链接
-    event: 硬链接平权不悬空，软链接灵活但会断链与成环
+      符号链接是内容为路径字符串的独立文件，边界完全不同：可以跨文件系统、可以指向目录，但目标被删或改名后它会悬空成“断链”；链接套链接、甚至指回自己时会形成环，内核在路径解析时对跳转次数设了上限，超了就报 ELOOP。还有个行为差异：大多数命令默认跟随软链接操作目标，但删除软链接本身删的是链接不是目标——把 rm 用在软链接上很安全，用在硬链接的某个名字上也只是少一个名字，数据都还在。
+    derivation: original
+    sources:
+      - ref: linux-man-pages
+        locator: link(2)、symlink(2) 与 symlink(7) 手册
+        claim: 硬链接要求同一文件系统且通常不能指向目录，符号链接是保存目标路径的独立文件，解析环路会返回 ELOOP
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: app
+          id: a
+          label: 应用程序
+        - lane: kernel
+          id: k
+          label: 文件系统
+          highlight: true
+        - lane: disk
+          id: d
+          label: 磁盘
+      messages:
+        - id: m-link
+          from: a
+          to: k
+          label: ln 建硬链接，ln -s 建软链接
+          active: true
+    log:
+      - mode: 链接
+        event: 硬链接平权不悬空，软链接灵活但会断链与成环
 level: 进阶
-minutes: 34
+minutes: 28
 prereq:
-- os/page-fault
+  - os/page-fault
 objectives:
-- 说清目录、inode、硬链接/软链接的分工
-- 解释 write 成功不等于落盘，以及 fsync 的完整用法
-- 复述日志文件系统的崩溃恢复过程
+  - 说清目录、inode、硬链接/软链接的分工
+  - 解释 write 成功不等于落盘，以及 fsync 的完整用法
+  - 复述日志文件系统的崩溃恢复过程
 aiLink: AI 系统天天和文件系统打交道：数据集与 checkpoint 的落盘契约（fsync/原子改名）、mmap 懒加载权重、对象存储与本地缓存的分工，全是这一课语义的延伸。训练任务「checkpoint 写一半断电」会不会坏，就取决于你是否懂日志与 fsync。
 design:
-- mechanism: 为什么日志先行（预写日志 WAL），而不是直接改正式位置再补救
-  problem: 根本约束是一次逻辑更新要同时改数据块、inode 与空闲位图等多个磁盘位置，而磁盘写入不是原子的，断电可能发生在任意两步之间，直接改会留下无法自洽的中间状态。
-  choice: 选择先把完整事务写进日志区并确认提交，再慢慢写回正式位置。替代方案直接改加事后 fsck 的失败模式是：恢复要全盘扫描且只能修结构自洽，修不回这次更新到底完成了几步，业务语义已经丢了。
-  tradeoff: 代价是每次更新要写两遍（日志一遍、正式位置一遍）并占用一段日志空间，承担者是写密集型负载的吞吐；换来的是恢复时间只与最近事务量有关，且每次更新全生效或全不生效。
-  root: 底层原理是先行记录意图：只要“打算做什么”被原子地持久化下来，后面的执行就可以被安全地重做或放弃，事务的原子性由此从多点写入问题降维成单点提交问题。
-- mechanism: inode 为什么不存文件名，名字只放在目录项里
-  problem: 根本约束是一个文件天然需要多个名字：改名不应搬动数据，硬链接要求多个目录项指向同一文件，若每个名字都持有一份元数据副本，多份副本之间的一致性根本无法维护。
-  choice: 选择元数据只存一份在 inode 中、目录项只存名字到 inode 号的映射。替代方案把文件名放进 inode 的失败模式是：硬链接无从实现，改名要回头改文件本体，同一文件在不同目录下改了元数据还会互相打架。
-  tradeoff: 代价是仅拿到 inode 无法反查它有哪些名字，删除文件时还要靠链接计数间接判断何时能回收，承担者是需要按文件反查路径的工具（如备份与审计程序），只能全盘扫目录来重建映射。
-  root: 底层原理是身份与命名的分离：inode 号是文件在文件系统内的稳定身份，路径只是某一时刻指向这个身份的可变标签，身份一份、标签多份是这类指代系统的通用解法。
+  - mechanism: 为什么日志先行（预写日志 WAL），而不是直接改正式位置再补救
+    problem: 根本约束是一次逻辑更新要同时改数据块、inode 与空闲位图等多个磁盘位置，而磁盘写入不是原子的，断电可能发生在任意两步之间，直接改会留下无法自洽的中间状态。
+    choice: 选择先把完整事务写进日志区并确认提交，再慢慢写回正式位置。替代方案直接改加事后 fsck 的失败模式是：恢复要全盘扫描且只能修结构自洽，修不回这次更新到底完成了几步，业务语义已经丢了。
+    tradeoff: 代价是每次更新要写两遍（日志一遍、正式位置一遍）并占用一段日志空间，承担者是写密集型负载的吞吐；换来的是恢复时间只与最近事务量有关，且每次更新全生效或全不生效。
+    root: 底层原理是先行记录意图：只要“打算做什么”被原子地持久化下来，后面的执行就可以被安全地重做或放弃，事务的原子性由此从多点写入问题降维成单点提交问题。
+  - mechanism: inode 为什么不存文件名，名字只放在目录项里
+    problem: 根本约束是一个文件天然需要多个名字：改名不应搬动数据，硬链接要求多个目录项指向同一文件，若每个名字都持有一份元数据副本，多份副本之间的一致性根本无法维护。
+    choice: 选择元数据只存一份在 inode 中、目录项只存名字到 inode 号的映射。替代方案把文件名放进 inode 的失败模式是：硬链接无从实现，改名要回头改文件本体，同一文件在不同目录下改了元数据还会互相打架。
+    tradeoff: 代价是仅拿到 inode 无法反查它有哪些名字，删除文件时还要靠链接计数间接判断何时能回收，承担者是需要按文件反查路径的工具（如备份与审计程序），只能全盘扫目录来重建映射。
+    root: 底层原理是身份与命名的分离：inode 号是文件在文件系统内的稳定身份，路径只是某一时刻指向这个身份的可变标签，身份一份、标签多份是这类指代系统的通用解法。
 quiz:
-- q: 文件名存在哪里？
-  options:
-  - inode 里
-  - 目录项里（名字 → inode 号）
-  - 数据块里
-  - 页缓存里
-  answer: 1
-  explain: inode 只存元数据与块指针；名字到 inode 号的映射在目录中，所以同一 inode 可以有多个名字（硬链接）。
-- q: write() 返回成功后立刻断电，数据一定还在吗？
-  options:
-  - 一定在，write 是同步落盘的
-  - 不一定：可能只进了页缓存；要保证持久化需 fsync
-  - 一定不在
-  - 取决于文件名长度
-  answer: 1
-  explain: 写路径只保证数据进了页缓存；fsync（以及对目录的 fsync）才是持久化承诺点。
-- q: 日志文件系统崩溃后如何恢复一致性？
-  options:
-  - 把所有文件重新下载一遍
-  - 扫描日志：重放已提交事务，未提交的丢弃
-  - 忽略日志直接挂载
-  - 把脏页全部写回原处
-  answer: 1
-  explain: 预写日志保证每个事务全生效或全不生效；重启时重放已提交事务即可恢复到一致状态。
+  - q: 文件名存在哪里？
+    options:
+      - inode 里
+      - 目录项里（名字 → inode 号）
+      - 数据块里
+      - 页缓存里
+    answer: 1
+    explain: inode 只存元数据与块指针；名字到 inode 号的映射在目录中，所以同一 inode 可以有多个名字（硬链接）。
+  - q: write() 返回成功后立刻断电，数据一定还在吗？
+    options:
+      - 一定在，write 是同步落盘的
+      - 不一定：可能只进了页缓存；要保证持久化需 fsync
+      - 一定不在
+      - 取决于文件名长度
+    answer: 1
+    explain: 写路径只保证数据进了页缓存；fsync（以及对目录的 fsync）才是持久化承诺点。
+  - q: 日志文件系统崩溃后如何恢复一致性？
+    options:
+      - 把所有文件重新下载一遍
+      - 扫描日志：重放已提交事务，未提交的丢弃
+      - 忽略日志直接挂载
+      - 把脏页全部写回原处
+    answer: 1
+    explain: 预写日志保证每个事务全生效或全不生效；重启时重放已提交事务即可恢复到一致状态。
