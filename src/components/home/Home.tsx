@@ -16,10 +16,11 @@ const ROUTE: { subject: string; blurb: string }[] = [
   { subject: "dsa", blurb: "把数据组织与查找/排序/图算法练成肌肉记忆，这是面试与工程调优的共同基本功。" },
   { subject: "network", blurb: "再补上网络：请求、连接与流式传输——LLM API、推理服务天天在用。" },
   { subject: "data", blurb: "然后是数据怎么存：B+ 树索引、事务与日志——任何后端服务的地基。" },
+  { subject: "distributed", blurb: "再走出单机：多台机器怎样在延迟、分区与谎言般的超时里，仍然商量出一套共同的事实。" },
   { subject: "math", blurb: "数学基础穿插着补：概率与期望是理解模型行为与 A/B 实验的语言。" },
   { subject: "coding", blurb: "到「面试刷题」里把算法题在浏览器里真刀真枪写出来、跑测试、看复杂度。" },
 ];
-const ROADMAP = ["分布式与并发：一致性、消息队列、限流与重试", "存储进阶：LSM 树、复制与向量索引", "AI 系统深化：推理调度、批处理与量化"];
+const ROADMAP = ["分布式进阶：消息队列、限流与重试、服务治理", "存储进阶：向量索引与混合检索", "AI 系统深化：推理调度、批处理与量化"];
 
 export function Home({ topics, subjects, journey }: { topics: HomeTopic[]; subjects: SubjectInfo[]; journey: JourneyStep[] }) {
   useProgressVersion();
@@ -63,7 +64,7 @@ export function Home({ topics, subjects, journey }: { topics: HomeTopic[]; subje
         <p className="muted">{t.progress}：{doneCount} / {published.length} 个主题（{pct}%）· 完成方式：在每个主题末尾手动标记「已学完」。</p>
       </section>
 
-      {(["os", "co", "dsa", "network", "data", "math"] as const).map((s) => {
+      {(["os", "co", "dsa", "network", "data", "distributed", "math"] as const).map((s) => {
         const list = topics.filter((x) => x.subject === s);
         const info = infoOf(s);
         return (

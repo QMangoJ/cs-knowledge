@@ -108,7 +108,7 @@ export const Bridge = z.object({ prev: z.string().min(1).optional(), next: z.str
 
 const TopicBase = z.object({
   id: z.string(),
-  subject: z.enum(["os", "co", "dsa", "network", "data", "math"]),
+  subject: z.enum(["os", "co", "dsa", "network", "data", "distributed", "math", "ai"]),
   position: z.string().min(1).optional(),
   bridge: Bridge.optional(),
   slug: z.string().regex(/^[a-z0-9-]+$/),
@@ -163,11 +163,11 @@ export const SubjectBlock = z.object({
   gaps: z.array(z.object({ title: z.string().min(1), note: z.string().min(1) })).default([]),
 });
 export const SubjectInfo = z.object({
-  id: z.enum(["os", "co", "dsa", "network", "data", "math"]),
+  id: z.enum(["os", "co", "dsa", "network", "data", "distributed", "math", "ai"]),
   tagline: z.string().min(1),
   blocks: z.array(SubjectBlock).min(1),
 });
-export const JourneyStep = z.object({ subject: z.enum(["os", "co", "dsa", "network", "data", "math"]), title: z.string().min(1), text: z.string().min(1) });
+export const JourneyStep = z.object({ subject: z.enum(["os", "co", "dsa", "network", "data", "distributed", "math", "ai"]), title: z.string().min(1), text: z.string().min(1) });
 export const SubjectsFile = z.object({ subjects: z.array(SubjectInfo), journey: z.array(JourneyStep).min(1) });
 export type SubjectBlock = z.infer<typeof SubjectBlock>;
 export type SubjectInfo = z.infer<typeof SubjectInfo>;
