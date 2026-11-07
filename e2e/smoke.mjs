@@ -74,7 +74,7 @@ await q.locator(".mark-done").click();
 ok(await q.evaluate(() => localStorage.getItem("cs-done:os/syscall") === "1"), "phase2 manual mark-done writes cs-done key");
 await q.goto(`${base}/`);
 ok((await q.locator("text=数据存储").count()) >= 1 && (await q.locator("text=数学基础").count()) >= 1, "phase2 home has data + math sections");
-ok((await q.locator(".route-steps li").count()) === 8, "phase2 route has 8 stages (distributed added in phase9)");
+ok((await q.locator(".route-steps li").count()) === 9, "phase2 route has 9 stages (ai added in phase10)");
 await q.goto(`${base}/dsa/binary-search/4/`);
 ok((await q.locator(".codeblock .cl.hl").count()) === 1, "phase2 code line highlight on binary search step");
 await q.locator(".stepnav .scrub").evaluate((el) => el.focus());
@@ -144,9 +144,9 @@ ok((await w.locator(".bridge a.bridge-title").first().getAttribute("href")).incl
 await w.goto(`${base}/os/fork-exec/`);
 ok((await w.locator(".bridge a.bridge-title").first().getAttribute("href")).includes("/os/syscall/"), "phase4 fork-exec bridge prev links to syscall");
 await w.goto(`${base}/`);
-ok((await w.locator(".journey-step").count()) === 7, "phase4 home journey has 7 stages (distributed ring added in phase9)");
+ok((await w.locator(".journey-step").count()) === 8, "phase4 home journey has 8 stages (ai ring added in phase10)");
 ok((await w.locator(".subject-guide .kernel-diagram").count()) === 1, "phase4 home OS guide has kernel diagram");
-ok((await w.locator(".subject-guide").count()) === 7, "phase4 home has 7 subject guides (distributed added in phase9)");
+ok((await w.locator(".subject-guide").count()) === 8, "phase4 home has 8 subject guides (ai added in phase10)");
 const cardHs = await w.evaluate(() => [...document.querySelectorAll(".subject .topic-card")].slice(0, 3).map((el) => Math.round(el.getBoundingClientRect().height)));
 ok(Math.max(...cardHs) - Math.min(...cardHs) <= 1, `phase4 first-row cards equal height (${cardHs})`);
 ok(werr.filter((e) => !(wBeacon && e.includes("ERR_CERT_AUTHORITY_INVALID"))).length === 0, `phase4 pages no console errors ${werr.join(";")}`);
@@ -231,6 +231,28 @@ await x.goto(`${base}/distributed/time-and-transactions/`);
 ok((await x.locator(".p-station").textContent()).includes("第 4 站"), "phase9 time-and-transactions is distributed station 4");
 ok((await x.locator(".design .design-item").count()) >= 2, "phase9 time-and-transactions design block renders");
 ok(xerr.filter((e) => !(xBeacon && e.includes("ERR_CERT_AUTHORITY_INVALID"))).length === 0, `phase9 pages no console errors ${xerr.join(";")}`);
+
+// ---- Phase 10: ai subject (4 lessons) ----
+for (const u of ["/ai/neural-backprop/", "/ai/attention-transformer/", "/ai/training/", "/ai/inference-kv-cache/"]) {
+  const rr = await x.goto(base + u);
+  ok(rr.status() === 200, `phase10 ai topic ${u} 200`);
+}
+await x.goto(`${base}/ai/neural-backprop/`);
+ok((await x.locator(".p-station").textContent()).includes("第 1 站"), "phase10 neural-backprop is ai station 1");
+ok((await x.locator(".p-station").textContent()).includes("共 4 站"), "phase10 ai path has 4 stations");
+ok((await x.locator(".design .design-item").count()) >= 2, "phase10 neural-backprop design block renders");
+ok((await x.locator(".bridge a.bridge-title").last().getAttribute("href")).includes("/ai/attention-transformer/"), "phase10 backprop bridge next links to attention-transformer");
+await x.goto(`${base}/ai/attention-transformer/`);
+ok((await x.locator(".p-station").textContent()).includes("第 2 站"), "phase10 attention is ai station 2");
+ok((await x.locator(".bridge a.bridge-title").first().getAttribute("href")).includes("/ai/neural-backprop/"), "phase10 attention bridge prev links to neural-backprop");
+ok((await x.locator(".bridge a.bridge-title").last().getAttribute("href")).includes("/ai/training/"), "phase10 attention bridge next links to training");
+await x.goto(`${base}/ai/training/`);
+ok((await x.locator(".p-station").textContent()).includes("第 3 站"), "phase10 training is ai station 3");
+ok((await x.locator(".bridge a.bridge-title").last().getAttribute("href")).includes("/ai/inference-kv-cache/"), "phase10 training bridge next links to inference-kv-cache");
+await x.goto(`${base}/ai/inference-kv-cache/`);
+ok((await x.locator(".p-station").textContent()).includes("第 4 站"), "phase10 inference-kv-cache is ai station 4");
+ok((await x.locator(".design .design-item").count()) >= 2, "phase10 inference design block renders");
+ok(xerr.filter((e) => !(xBeacon && e.includes("ERR_CERT_AUTHORITY_INVALID"))).length === 0, `phase10 pages no console errors ${xerr.join(";")}`);
 await x.close();
 await w.close();
 await browser.close();

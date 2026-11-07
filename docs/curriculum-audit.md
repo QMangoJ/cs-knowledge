@@ -106,3 +106,15 @@ P2（只记录，不排期）：总线与 DMA、内存一致性模型、gRPC 与
 - 引用核实（本轮）：新增来源 ddia（Kleppmann《Designing Data-Intensive Applications》，作者站 dataintensive.net 已核对；引用定位于第 8 章部分失败/不可靠时钟/故障检测/happens-before/逻辑时钟、第 9 章线性一致与 CAP 语境/共识/2PC、第 5 章购物车并集收敛）与 raft-paper（Ongaro & Ousterhout, USENIX ATC 2014；raft.github.io 与论文已核对：复制状态机结构、选举与随机超时、多数派提交、5 台容忍 2 台故障），均于 2026-11-07 核实后标 verified。
 - 连贯性接入：subjects.yaml 新增学科 distributed（tagline + 四个板块，与四课一一对应）；首页「程序的一生」旅程在网络后新增一环「走出单机」（旅程 6 环变 7 环）；schema 枚举、i18n 学科名、首页 ROUTE 与学科区同步接入（基础设施提交 5402a2e）；ROADMAP 首条改为「分布式进阶：消息队列、限流与重试、服务治理」。四课桥链完整（why-hard → cap → raft → time-and-transactions），position/bridge 长句全站查重仍为 0 重复（构建期硬校验）。e2e 新增 phase9 共 16 条断言，phase2 路线断言更新为 8 站、phase4 旅程/学科导览更新为 7。
 - 至此全站 43 课，学科 7 科。
+
+---
+
+## 2026-11-07 第八轮：新科「人工智能」（4 课）
+
+- 新增 ai/neural-backprop（10 步，正文 4,384 字，design 3 条，第 1 站）：神经元作为加权求和机器、损失作为唯一可导记分牌、一次前向 + 一次反向的完整之旅。算例全程手算并由脚本复核：x=1、w1=0.5、w2=2 时前向得 1.0、损失 0.5；三棒梯度 dL/dout=−1、dL/dw2=−0.5、dL/dw1=−2；学习率 0.1 更新后（w1=0.7、w2=2.05）再前向得 1.435、损失 ≈0.16。另讲梯度连乘的爆炸/消失种子、反向一趟算全部梯度的摊销原理与激活必存的纪律。
+- 新增 ai/attention-transformer（10 步，正文 4,645 字，design 3 条，第 2 站）：RNN 的距离账与并行账、注意力作为可导查表、QKV 三分工、softmax 算例（原始分 [2,1,0] → 权重 [0.665,0.245,0.09]，脚本复核；加权和 14.25 的指代消解演示）、√d 缩放、多头与位置编码、Transformer 层三件套（前馈/残差/归一化）、因果掩码与自回归、n² 平方账。design 正面落在「为什么并行性赢了表达力之争」：胜负手是硬件经济学而非纸面表达力。
+- 新增 ai/training（10 步，正文 4,665 字，design 3 条，第 3 站）：以 7B 模型混合精度 + Adam 逐项算显存账——参数 14 GB + 梯度 14 GB + FP32 主权重 28 GB + Adam 双动量 56 GB = 16 字节/参数 ≈ 112 GB（脚本复核），由此逼出分布式训练；激活随批×序列涨、梯度检查点以约 1/3 计算换显存；计算账由乘加计数推出前向 2N / 反向 4N / 训练 6N；batch 与学习率连体、梯度噪声的双面性、GPU/SIMT 呼应、一步时间构成与 MFU 三到五成的经验区间、训练贵于推理的三重乘积。
+- 新增 ai/inference-kv-cache（9 步，正文 4,202 字，design 3 条，第 4 站）：prefill/decode 两段与各自瓶颈、无缓存的平方重算、KV 缓存机制与内存账（2×32 层×4096×2B = 524,288 B/token，脚本复核；4K 上下文单条约 2 GB、32 并发或 128K 单条约 69 GB）、decode 的带宽瓶颈与量化的真动机、连续批处理按 token 调度、PagedAttention 与 OS 分页同构、投机解码的分布等价保证、推理作为独立生意的成本结构收官。
+- 引用核实（本轮）：新增来源 attention-paper（arXiv:1706.03762，摘要与第 3.1/3.2 节定位已核对：缩放点积注意力、多头、纯注意力弃循环）、adam-paper（arXiv:1412.6980，摘要与算法 1 已核对：双矩估计）、speculative-decoding（arXiv:2211.17192，摘要已核对：起草—验证与输出分布不变、T5-XXL 2–3 倍加速）；PagedAttention 沿用库内已 verified 的 vllm-pagedattention。本课全部教学数字（反向传播算例、softmax、显存账、6N、KV 尺寸）均以脚本逐项复算，与正文一致。
+- 连贯性接入：subjects.yaml 新增学科 ai（tagline + 四个板块）；首页旅程在数学之后新增收官一环「程序从数据里学」（旅程 7 环变 8 环）；首页 ROUTE 与学科区同步接入 ai。桥链完整（backprop → attention → training → inference），training 的 prereq 点名 co/gpu-simt、attention 与 distributed/time 的 aiLink 互文。position/bridge 长句全站查重仍为 0 重复（构建期硬校验）。e2e 新增 phase10 共 16 条断言，phase2 路线断言更新为 9 站、phase4 旅程/学科导览更新为 8。
+- 至此全站 47 课，学科 8 科。三阶段扩建（数据补三 + 分布式四 + 人工智能四，共 11 课）全部完成。
