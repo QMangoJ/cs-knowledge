@@ -177,7 +177,7 @@ ok(xerr.filter((e) => !(xBeacon && e.includes("ERR_CERT_AUTHORITY_INVALID"))).le
 const rr7 = await x.goto(`${base}/data/db-internals/`);
 ok(rr7.status() === 200, "phase7 new topic /data/db-internals/ 200");
 ok((await x.locator(".p-station").textContent()).includes("第 2 站"), "phase7 db-internals is data station 2");
-ok((await x.locator(".p-station").textContent()).includes("共 4 站"), "phase7 data path now has 4 stations");
+ok((await x.locator(".p-station").textContent()).includes("共 7 站"), "phase7 data path station total (updated by phase8 expansion to 7)");
 ok((await x.locator(".design .design-item").count()) >= 2, "phase7 db-internals design block renders");
 ok((await x.locator(".bridge a.bridge-title").first().getAttribute("href")).includes("/data/btree-index/"), "phase7 db-internals bridge prev links to btree-index");
 ok((await x.locator(".bridge a.bridge-title").last().getAttribute("href")).includes("/data/transactions/"), "phase7 db-internals bridge next links to transactions");
