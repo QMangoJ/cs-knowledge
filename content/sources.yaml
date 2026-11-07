@@ -110,3 +110,7 @@
   title: "MySQL Reference Manual — InnoDB Locking（17.7.1 锁类型：记录锁/间隙锁/临键锁/意向锁；17.7.5.2 死锁检测与牺牲者选择）"
   url: https://dev.mysql.com/doc/refman/8.4/en/innodb-locking.html
   license: "见原文"
+- id: mysql-replication-docs
+  title: "MySQL Reference Manual — Replication（19.2.1 复制格式、19.2.3 复制线程、19.4.10 半同步复制）"
+  url: https://dev.mysql.com/doc/refman/8.4/en/replication.html
+  license: "见原文"
