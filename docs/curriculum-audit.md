@@ -74,3 +74,12 @@ P2（只记录，不排期）：总线与 DMA、内存一致性模型、gRPC 与
 - 引用核实（本轮）：OSTEP Ch.7（cpu-sched.pdf）与 Ch.8（cpu-sched-mlfq.pdf）原文已逐条对照（指标定义、护航数值例、SJF/STCF 最优性表述、MLFQ 五规则、99% 钻空子与累计记账修正）；Mars Pathfinder 优先级反转据 JPL 团队负责人 Glenn Reeves 与 Mike Jones 的一手记述整理稿核查（1997-07-04 登陆、气象任务持信息总线锁、通信任务抢占、看门狗重启、从地球打开优先级继承开关），新增来源 mars-pathfinder；Boyer-Moore 原始论文出处经 Crossref 记录核对（CACM 20(10):762-772，DOI 10.1145/359842.359859），新增来源 boyer-moore-1977；其余引用沿用已 verified 的 ostep / csapp / linux-man-pages / linux-kernel-docs / xv6-book / clrs。
 - 连贯性接入：subjects.yaml 中 OS「进程管理」板块的「线程与调度（待补）」虚线占位已由真课替换；DSA 新增「贪心：每步只取眼前最优」「字符串里的模式」两个板块。OS 路径 order 顺延：threads-scheduling 为第 4 站，virtual-memory 5、page-fault 6、lock 7、file-system 8、io-multiplexing 9；DSA 扩至 10 站（greedy 9、string-matching 10）。邻居桥同步：context-switch 的 next 改指向线程课、virtual-memory 的 prev 改自线程课承接、lock 的 prev 改为从线程的共享清单承接、dynamic-programming 新增指向 greedy 的 next。position/bridge 长句全站查重仍为 0 重复（构建期硬校验）。
 - 至此 P1 缺口全部清零；全站 35 课。
+
+---
+
+## 2026-11-07 第五轮：新增 data/db-internals（数据库底层：页、日志与一次读写之旅）
+
+- 新增 data/db-internals（12 步，正文 5,708 字，design 3 条，order 2）：三件套心智模型（页文件/Buffer Pool/只追加日志）、页的等大与乘法定位、读写以页为单位的三个根本原因、页解剖（页头/记录区/空闲/页目录槽位）、Buffer Pool 与 OS 虚拟内存的同构、一次写入之旅四幕（定位上桌 → 行锁 + undo 留底 → redo 刷盘与提交成立 → 检查点刷脏与断电恢复）、一次读取之旅两幕（缓冲池命中与耗时数量级 → 沿 undo 版本链做快照可见性判定）、SQLite/WAL 对照收尾。内容取材自 Daniel 已认可的独立讲解页「数据库底层之旅」，按课程体例重写、文风向通俗靠（比方先落地再给术语，深度不降）。
+- 引用核实（本轮）：新增来源 mysql-innodb-docs（MySQL 官方手册/内部文档：默认页大小 16384、redo 为预写日志且提交时刷盘、undo 保留旧版本供并发事务读取、检查点与崩溃恢复）与 sqlite-docs（SQLite 官方 File Format 与 WAL 文档：默认页大小 4096、WAL 追加整页帧、检查点回搬、单写者），均于 2026-11-07 对官方页面核对后标 verified；页解剖的槽位页布局沿用已 verified 的 cmu-15445。
+- 连贯性接入：subjects.yaml 数据存储科新增板块「引擎内幕：页、日志与一次读写」；数据存储路径由 3 站扩为 4 站（btree-index 1、db-internals 2、transactions 3、lsm-kv 4，order 已顺延）。邻居桥同步：btree-index 的 next 改指向本课（页在系统里的日常）、transactions 的 prev 改自本课写入之旅承接、transactions 的 position 首句同步改指本课；本课 position 与 prev/next 桥全新撰写。position/bridge 长句全站查重仍为 0 重复（构建期硬校验）。
+- 至此全站 36 课。

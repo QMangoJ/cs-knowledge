@@ -94,3 +94,11 @@
   title: "Mars Pathfinder 优先级反转报告（据 JPL 软件团队负责人 Glenn Reeves 与 Mike Jones 的一手记述整理）"
   url: https://www.cs.jhu.edu/~huang/cs318/fall20/readings/Report_MarsPathFinder.pdf
   license: "见原文"
+- id: mysql-innodb-docs
+  title: "MySQL Reference Manual — InnoDB（17.8.1 页大小配置、10.5.2 事务管理、redo/undo 日志与缓冲池）"
+  url: https://dev.mysql.com/doc/refman/9.6/en/innodb-init-startup-configuration.html
+  license: "见原文"
+- id: sqlite-docs
+  title: "SQLite 官方文档（File Format 文件格式与 Write-Ahead Logging）"
+  url: https://sqlite.org/wal.html
+  license: "见原文（Public Domain）"

@@ -173,6 +173,19 @@ ok((await x.locator(".bridge a.bridge-title").last().getAttribute("href")).inclu
 await x.goto(`${base}/dsa/string-matching/`);
 ok((await x.locator(".bridge a.bridge-title").first().getAttribute("href")).includes("/dsa/greedy/"), "phase6 string-matching bridge prev links to greedy");
 ok(xerr.filter((e) => !(xBeacon && e.includes("ERR_CERT_AUTHORITY_INVALID"))).length === 0, `phase6 pages no console errors ${xerr.join(";")}`);
+// ---- phase 7: db-internals topic (data station 2 of 4) ----
+const rr7 = await x.goto(`${base}/data/db-internals/`);
+ok(rr7.status() === 200, "phase7 new topic /data/db-internals/ 200");
+ok((await x.locator(".p-station").textContent()).includes("第 2 站"), "phase7 db-internals is data station 2");
+ok((await x.locator(".p-station").textContent()).includes("共 4 站"), "phase7 data path now has 4 stations");
+ok((await x.locator(".design .design-item").count()) >= 2, "phase7 db-internals design block renders");
+ok((await x.locator(".bridge a.bridge-title").first().getAttribute("href")).includes("/data/btree-index/"), "phase7 db-internals bridge prev links to btree-index");
+ok((await x.locator(".bridge a.bridge-title").last().getAttribute("href")).includes("/data/transactions/"), "phase7 db-internals bridge next links to transactions");
+await x.goto(`${base}/data/btree-index/`);
+ok((await x.locator(".bridge a.bridge-title").last().getAttribute("href")).includes("/data/db-internals/"), "phase7 btree bridge next links to db-internals");
+await x.goto(`${base}/data/transactions/`);
+ok((await x.locator(".bridge a.bridge-title").first().getAttribute("href")).includes("/data/db-internals/"), "phase7 transactions bridge prev links to db-internals");
+ok(xerr.filter((e) => !(xBeacon && e.includes("ERR_CERT_AUTHORITY_INVALID"))).length === 0, `phase7 pages no console errors ${xerr.join(";")}`);
 await x.close();
 await w.close();
 await browser.close();

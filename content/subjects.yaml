@@ -89,6 +89,9 @@ subjects:
   - name: 索引：先找到再读
     blurb: 不扫全表的前提，是有一棵对磁盘页友好的 B+ 树替你指路。
     topics: [data/btree-index]
+  - name: 引擎内幕：页、日志与一次读写
+    blurb: 索引把你带到那一页；这一课看页进了内存之后的事：改动先记账、后落盘，走完一次读写在系统里的完整旅程。
+    topics: [data/db-internals]
   - name: 事务：并发与崩溃下的规矩
     blurb: 多个写者同时改数据、改到一半还崩了，靠 ACID、多版本与预写日志兜底。
     topics: [data/transactions]

@@ -1,7 +1,7 @@
 id: data/lsm-kv
 subject: data
 slug: lsm-kv
-order: 3
+order: 4
 status: published
 license: CC-BY-4.0
 title: LSM 树与 KV 存储：为写而生的数据结构
