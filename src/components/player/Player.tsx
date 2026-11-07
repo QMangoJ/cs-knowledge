@@ -1,5 +1,4 @@
 "use client";
-import Link from "next/link";
 import { usePlayer } from "./usePlayer";
 import { Canvas } from "@/components/renderers";
 import type { ViewTopic } from "@/lib/view";
@@ -33,7 +32,7 @@ export function Player({ topic, initialStep, nextTopic, nav }: { topic: ViewTopi
       <div className="app-screen">
         <header className="p-topbar">
           <div className="p-crumb">
-            <Link href="/">{subjectName}</Link>
+            <a href="/">{subjectName}</a>
             <span aria-hidden="true"> › </span>
             <span>{nav.blockName}</span>
             <span aria-hidden="true"> › </span>
@@ -63,7 +62,7 @@ export function Player({ topic, initialStep, nextTopic, nav }: { topic: ViewTopi
                   <div key={b.name} className={b.name === nav.blockName ? "rail-block current-block" : "rail-block"}>
                     <p className="rail-block-name">{b.name}</p>
                     {b.topics.map((x) => (
-                      <Link key={x.id} href={x.href} className={x.id === topic.id ? "rail-topic current" : "rail-topic"} aria-current={x.id === topic.id ? "page" : undefined}>{x.title}</Link>
+                      <a key={x.id} href={x.href} className={x.id === topic.id ? "rail-topic current" : "rail-topic"} aria-current={x.id === topic.id ? "page" : undefined}>{x.title}</a>
                     ))}
                     {b.gaps.map((g) => <span key={g.title} className="rail-gap" title={g.note}>{g.title}（待补）</span>)}
                   </div>

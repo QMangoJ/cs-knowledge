@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { Topic, SourceDef, SubjectInfo } from "@/lib/schema";
 import { SubjectDiagram, type TopicLinks } from "@/components/coherence/Panorama";
 import { t, REPO_URL } from "@/i18n";
@@ -93,7 +92,7 @@ export function TopicBelow({ topic, sources, info, links, nav }: {
           {nav.prev ? (
             <div className="bridge-card">
               <p className="eyebrow">{t.bridgePrev} · 第 {nav.station - 1} 站</p>
-              <Link className="bridge-title" href={nav.prev.href}>← {nav.prev.title}</Link>
+              <a className="bridge-title" href={nav.prev.href}>← {nav.prev.title}</a>
               {topic.bridge?.prev && <p>{topic.bridge.prev}</p>}
             </div>
           ) : (
@@ -109,7 +108,7 @@ export function TopicBelow({ topic, sources, info, links, nav }: {
           {nav.next ? (
             <div className="bridge-card">
               <p className="eyebrow">{t.bridgeNext} · 第 {nav.station + 1} 站</p>
-              <Link className="bridge-title" href={nav.next.href}>{nav.next.title} →</Link>
+              <a className="bridge-title" href={nav.next.href}>{nav.next.title} →</a>
               {topic.bridge?.next && <p>{topic.bridge.next}</p>}
             </div>
           ) : (
