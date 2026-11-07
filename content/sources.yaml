@@ -118,3 +118,7 @@
   title: "Designing Data-Intensive Applications, Martin Kleppmann, O'Reilly（第 8 章 分布式系统的麻烦、第 9 章 一致性与共识）"
   url: https://dataintensive.net/
   license: copyrighted
+- id: raft-paper
+  title: "In Search of an Understandable Consensus Algorithm (Raft), Ongaro & Ousterhout, USENIX ATC 2014"
+  url: https://raft.github.io/raft.pdf
+  license: copyrighted

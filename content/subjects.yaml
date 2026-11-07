@@ -116,6 +116,9 @@ subjects:
   - name: 一致性的谱系
     blurb: 副本之间的进度差无法消灭，只能标价：从强一致到最终一致，每松一格换回多少延迟与可用。
     topics: [distributed/cap-consistency]
+  - name: 共识：让多台机器同意一件事
+    blurb: 选主、任期、多数派：Raft 怎样在同伴会死、消息会迟的前提下，商量出一个所有人都认账的决定。
+    topics: [distributed/raft-consensus]
 - id: math
   tagline: 数学基础是其余各科的暗线：概率是描述不确定性的语言，缓存命中、排队延迟、模型输出，最后都要用它来度量。
   blocks:
