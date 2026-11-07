@@ -101,6 +101,9 @@ subjects:
   - name: 查询的执行
     blurb: SQL 只说要什么：优化器用统计信息给候选路线逐一估价，执行器再照最便宜的一条把页取齐。
     topics: [data/query-execution]
+  - name: 锁与死锁
+    blurb: 多个事务同时改数据时，锁守住写的秩序；锁的粒度与范围，又决定了死锁怎样找上门。
+    topics: [data/locks-deadlocks]
 - id: math
   tagline: 数学基础是其余各科的暗线：概率是描述不确定性的语言，缓存命中、排队延迟、模型输出，最后都要用它来度量。
   blocks:

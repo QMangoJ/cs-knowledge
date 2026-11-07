@@ -106,3 +106,7 @@
   title: "MySQL Reference Manual — Optimization（10.9.6 Optimizer Statistics 直方图统计、10.2.1 连接算法与优化器成本）"
   url: https://dev.mysql.com/doc/refman/8.4/en/optimization.html
   license: "见原文"
+- id: mysql-locking-docs
+  title: "MySQL Reference Manual — InnoDB Locking（17.7.1 锁类型：记录锁/间隙锁/临键锁/意向锁；17.7.5.2 死锁检测与牺牲者选择）"
+  url: https://dev.mysql.com/doc/refman/8.4/en/innodb-locking.html
+  license: "见原文"
