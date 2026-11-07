@@ -140,6 +140,9 @@ subjects:
   - name: 训练的账本
     blurb: 参数、梯度、优化器状态、激活——显存里住着四类住户；再算一遍每 token 的计算账，看清训练为什么贵。
     topics: [ai/training]
+  - name: 推理的账本
+    blurb: 逐词生成的慢有出处：先整段读题、再逐个吐字；KV 缓存、连续批处理与投机解码，都是围着带宽与显存找平的招。
+    topics: [ai/inference-kv-cache]
 
 # 全站系统全景：一个程序的一生，各科是同一件事的不同切面。
 journey:
