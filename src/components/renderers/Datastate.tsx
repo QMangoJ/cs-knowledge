@@ -9,7 +9,7 @@ const cls = (base: string, mark?: string, hot?: boolean) => [base, mark && `m-${
 
 function rowLayout(r: Row, labelW: number) {
   const gaps = r.breaks?.length ?? 0, GAP = 14;
-  const cw = Math.min(56, (W - labelW - 8 - gaps * GAP) / r.cells.length);
+  const cw = Math.min(120, (W - labelW - 8 - gaps * GAP) / r.cells.length);
   const total = cw * r.cells.length + gaps * GAP;
   const x0 = labelW + (W - labelW - total) / 2;
   return r.cells.map((_, i) => ({ x: x0 + i * cw + (r.breaks?.filter((b) => b <= i).length ?? 0) * GAP, w: cw }));
@@ -32,7 +32,10 @@ export const rowHeight = (r: Row, labelW: number) => (r.display === "bars" ? BAR
 function ArrayRow({ r, y0, labelW, hover }: { r: Row; y0: number; labelW: number; hover?: Hover }) {
   const pos = rowLayout(r, labelW), bars = r.display === "bars";
   const y = y0 + ptrTop(r, labelW), levels = ptrLevels(r, pos);
-  const fs = pos[0]!.w < 34 ? 12 : 15;
+  // Shrink the value font when the widest cell text would overflow its cell (long formula strings).
+  const baseFs = pos[0]!.w < 34 ? 12 : 15;
+  const widest = Math.max(1, ...r.cells.map((c) => textW(String(c.v), baseFs)));
+  const fs = widest > pos[0]!.w - 4 ? Math.max(10, (baseFs * (pos[0]!.w - 4)) / widest) : baseFs;
   const max = bars ? Math.max(...r.cells.map((c) => Number(c.v))) || 1 : 1;
   const base = bars ? y + BAR_H : y + CH; // bottom of cells
   return (

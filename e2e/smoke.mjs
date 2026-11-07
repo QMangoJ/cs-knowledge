@@ -125,6 +125,7 @@ for (const u of ["/os/syscall/6/", "/network/tcp-handshake/3/", "/dsa/hash-table
   const dh = await w.evaluate(() => document.querySelector(".stage-body").getBoundingClientRect().height);
   ok(dh <= 580, `phase5 dense sample ${u}: stage body capped (${Math.round(dh)}px <= 580)`);
 }
+await w.goto(`${base}/os/syscall/`);
 const m5 = await browser.newPage({ viewport: { width: 390, height: 844 } });
 await m5.goto(`${base}/os/syscall/`);
 const m5r = await m5.evaluate(() => ({ sw: document.documentElement.scrollWidth, sb: document.querySelector(".stage-body").getBoundingClientRect().height }));
