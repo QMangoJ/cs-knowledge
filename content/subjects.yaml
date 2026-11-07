@@ -113,6 +113,9 @@ subjects:
   - name: 难在哪：部分失败的世界
     blurb: 单机的隐含假设逐条作废：调用会迟到、同伴分不清死活、时钟各说各话——这一课先把敌人的清单摊开。
     topics: [distributed/why-hard]
+  - name: 一致性的谱系
+    blurb: 副本之间的进度差无法消灭，只能标价：从强一致到最终一致，每松一格换回多少延迟与可用。
+    topics: [distributed/cap-consistency]
 - id: math
   tagline: 数学基础是其余各科的暗线：概率是描述不确定性的语言，缓存命中、排队延迟、模型输出，最后都要用它来度量。
   blocks:
