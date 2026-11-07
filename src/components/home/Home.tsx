@@ -2,6 +2,8 @@
 import Link from "next/link";
 import { stepPath } from "@/lib/paths";
 import { doneKey, isDone, useMounted, useProgressVersion } from "@/lib/progress";
+import { SubjectDiagram, type TopicLinks } from "@/components/coherence/Panorama";
+import type { JourneyStep, SubjectInfo } from "@/lib/schema";
 import { t } from "@/i18n";
 
 export type HomeTopic = {
@@ -19,16 +21,34 @@ const ROUTE: { subject: string; blurb: string }[] = [
 ];
 const ROADMAP = ["分布式与并发：一致性、消息队列、限流与重试", "存储进阶：LSM 树、复制与向量索引", "AI 系统深化：推理调度、批处理与量化"];
 
-export function Home({ topics }: { topics: HomeTopic[] }) {
+export function Home({ topics, subjects, journey }: { topics: HomeTopic[]; subjects: SubjectInfo[]; journey: JourneyStep[] }) {
   useProgressVersion();
   const mounted = useMounted();
   const published = topics.filter((x) => x.status === "published");
   const doneCount = mounted ? published.filter((x) => isDone(doneKey(x.id))).length : 0;
   const pct = published.length ? Math.round((doneCount / published.length) * 100) : 0;
+  const links: TopicLinks = Object.fromEntries(topics.map((x) => [x.id, { id: x.id, title: x.title, href: stepPath(x.subject, x.slug, 0) }]));
+  const infoOf = (s: string) => subjects.find((x) => x.id === s);
   return (
     <div className="home">
       <h1>{t.siteName}</h1>
       <p className="summary">{t.tagline}</p>
+
+      <section className="journey card">
+        <h2>{t.journey}</h2>
+        <p className="muted">{t.journeyNote}</p>
+        <ol className="journey-flow">
+          {journey.map((j, i) => (
+            <li key={j.subject} className="journey-step">
+              {i > 0 && <span className="journey-arrow" aria-hidden="true">→</span>}
+              <b>{t.subjects[j.subject]}</b>
+              <span className="journey-title">{j.title}</span>
+              <p>{j.text}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
+
       <section className="route card">
         <h2>{t.route}</h2>
         <p className="muted">{t.routeNote}</p>
@@ -45,9 +65,16 @@ export function Home({ topics }: { topics: HomeTopic[] }) {
 
       {(["os", "co", "dsa", "network", "data", "math"] as const).map((s) => {
         const list = topics.filter((x) => x.subject === s);
+        const info = infoOf(s);
         return (
           <section key={s} className="subject">
             <h2>{t.subjects[s]}</h2>
+            {info && (
+              <div className="subject-guide">
+                <p className="guide-tagline">{info.tagline}</p>
+                <SubjectDiagram info={info} links={links} />
+              </div>
+            )}
             {list.length === 0 ? <p className="muted">{t.comingSoon}</p> : (
               <ul className="cards">
                 {list.map((x) => {
@@ -57,14 +84,18 @@ export function Home({ topics }: { topics: HomeTopic[] }) {
                   ) : (
                     <li key={x.id} className="topic-card"><Link href={stepPath(x.subject, x.slug, 0)}>
                       <h3>{x.title}{done && <span className="done-check" aria-label={t.done}> ✓</span>}</h3>
-                      <p>{x.summary}</p>
-                      <p className="card-meta">
-                        <span>{x.steps} 步</span>
-                        {x.minutes && <span>约 {x.minutes} {t.minutes}</span>}
-                        {x.level && <span>{x.level}</span>}
-                        {x.status === "draft" && <span className="badge pending">{t.draft}</span>}
-                      </p>
-                      {x.prereq && x.prereq.length > 0 && <p className="card-prereq">{t.prereq}：{x.prereq.join("、")}</p>}
+                      <p className="card-summary">{x.summary}</p>
+                      <div className="card-foot">
+                        <p className="card-meta">
+                          <span>{x.steps} 步</span>
+                          {x.minutes && <span>约 {x.minutes} {t.minutes}</span>}
+                          {x.level && <span>{x.level}</span>}
+                          {x.status === "draft" && <span className="badge pending">{t.draft}</span>}
+                        </p>
+                        {x.prereq && x.prereq.length > 0 && (
+                          <p className="card-prereqs">{x.prereq.map((p) => <span key={p} className="prereq-chip">{t.prereq} · {p}</span>)}</p>
+                        )}
+                      </div>
                     </Link></li>
                   );
                 })}
@@ -79,8 +110,8 @@ export function Home({ topics }: { topics: HomeTopic[] }) {
         <ul className="cards">
           <li className="topic-card"><Link href="/coding/">
             <h3>Codility 风格练习与模拟考（9 题）</h3>
-            <p>浏览器内写代码、跑全部测试用例（含性能用例），参考解法与复杂度讲解随时可查。</p>
-            <p className="card-meta"><span>Practice 6 题</span><span>Mock 01 · 3 题 / 90 分钟</span></p>
+            <p className="card-summary">浏览器内写代码、跑全部测试用例（含性能用例），参考解法与复杂度讲解随时可查。</p>
+            <div className="card-foot"><p className="card-meta"><span>Practice 6 题</span><span>Mock 01 · 3 题 / 90 分钟</span></p></div>
           </Link></li>
         </ul>
       </section>

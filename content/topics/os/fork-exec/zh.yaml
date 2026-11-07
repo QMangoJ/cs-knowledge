@@ -7,6 +7,13 @@ license: CC-BY-4.0
 title: 进程的诞生：fork + exec + wait
 summary: 在终端敲下一个命令，bash 是怎样把它变成一个新运行的程序的。
 premise: 以在 Linux 的 bash 里输入 ls 为例。
+position: >-
+  紧接调用号这条线索的是进程管理板块：bash 启动 ls，用的正是 fork、execve 这组系统调用背后的机制。这里拆开 fork 返回两次的约定、写时复制如何只拷页表，以及不 wait 就会留下僵尸的回收协议。读完便可复述敲下一条命令后进程树如何多出一个节点，也能分辨 exec 换映像与再造进程的差别。
+bridge:
+  prev: >-
+    系统调用课把入口定格在 syscall 指令与寄存器传参上，本课直接穿过这扇门，用 fork 的双返回值在父子之间分岔出两条执行流。
+  next: >-
+    子进程被 exec 换上新映像后便想独占 CPU 狂奔，可核心只有一个，内核凭什么在它陷入死循环时仍能把 CPU 夺回来分给别人？
 overview:
 - key: 一句话总结
   value: fork 复制自己，exec 换成新程序，wait 等它结束

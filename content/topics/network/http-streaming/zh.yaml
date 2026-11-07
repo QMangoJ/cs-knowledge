@@ -7,6 +7,13 @@ license: CC-BY-4.0
 title: 一个 HTTP 请求的一生：从点击到流式响应
 summary: DNS、TCP、TLS、请求、响应一次走完，并讲清 LLM API 为什么用流式输出。
 premise: 以浏览器请求 https://api.example.com/v1/chat（一次流式推理调用）为例。
+position: >-
+  本课落在「一次请求的旅程」板块，紧接上一课握手抵达 ESTABLISHED 之后的那一刻：通道既已对齐序号，下一步就看请求怎样沿它走完 TLS 验证与响应回程。学完你能逐段拆出冷启动约 3 个 RTT 的构成，也能说清 SSE 为何用 chunked 分块就能实现逐 token 推送而不必动用 WebSocket。
+bridge:
+  prev: >-
+    上一课三次握手花 1 个 RTT 把双向初始序号对齐，本课就从通道就绪处接棒，把同一笔 RTT 账继续算到 DNS 与 TLS 1.3 的叠加之上。
+  next: >-
+    本课开头只用一笔带过的 DNS 解析留了个缺口，下一课就去补它：名字究竟如何经根到权威的迭代查询变成能拨号的 IP。
 overview:
 - key: 一句话总结
   value: 一次 HTTPS 请求 = DNS 解析 + TCP 握手 + TLS 握手 + 请求/响应，可能叠加 3–4 个 RTT 才见到数据

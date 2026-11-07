@@ -1,0 +1,121 @@
+# 学科全景：每科的组成部分（板块）、每块包含哪些课、推荐顺序（= 课的 order）。
+# 一处定义，全站复用：首页导览、课程页全景位置、OS 内核结构图都读这里。
+# 校验在 src/lib/content.ts：板块引用的课必须存在且属于本科；每门 published 课必须恰好出现一次。
+subjects:
+- id: os
+  tagline: 操作系统是程序与硬件之间的总管：CPU、内存、磁盘、设备都只有一份，它负责把这些硬件安全地分给许多程序同时使用。
+  blocks:
+  - name: 系统调用接口
+    blurb: 用户态与内核态之间唯一的受控门——程序想碰硬件、读文件、上网，都得先敲这扇门。
+    topics: [os/syscall]
+  - name: 进程管理
+    blurb: 进程怎样诞生、怎样被轮流换上 CPU——一个核心伺候全部程序的调度台。
+    topics: [os/fork-exec, os/context-switch]
+    gaps:
+    - title: 线程与调度
+      note: 待补——线程与进程的区别、调度器如何挑下一个任务，尚未成课
+  - name: 内存管理
+    blurb: 给每个程序一份「独占内存」的错觉，并在它真正用到时才把物理页补上。
+    topics: [os/virtual-memory, os/page-fault]
+  - name: 并发与同步
+    blurb: 多个执行流同时改同一份数据时，用锁与同步把竞态关进笼子。
+    topics: [os/lock]
+  - name: 文件系统
+    blurb: 把磁盘上的裸字节组织成有名字、能长期保存、崩溃后还能恢复的文件与目录。
+    topics: [os/file-system]
+  - name: I/O 与设备
+    blurb: 程序等外部数据时怎样不傻等：从阻塞、轮询一路演进到 epoll。
+    topics: [os/io-multiplexing]
+- id: co
+  tagline: 组成原理往下看一层：代码最终变成指令在 CPU 里流动，数据以比特形态躺在内存里——程序快与慢的根源在这一层。
+  blocks:
+  - name: 从代码到可执行文件
+    blurb: 源代码先被翻译、链接成机器能读的产物，再被加载进内存等待执行。
+    topics: [co/compile-link]
+  - name: 指令的执行
+    blurb: CPU 循环往复地取指、译码、执行；流水线让多条指令错峰重叠起来跑。
+    topics: [co/instruction-cycle, co/pipeline]
+  - name: 存储层次与缓存
+    blurb: 从寄存器到主存逐级变大变慢，缓存靠局部性把常用数据留在离 CPU 最近的地方。
+    topics: [co/cache]
+  - name: 调用与数据的形态
+    blurb: 函数调用在栈上压帧与弹帧；数字则以补码与浮点的比特形态存进内存。
+    topics: [co/stack-frame, co/number-representation]
+  - name: 并行硬件
+    blurb: 当一个核不够用：GPU 用成千上万个线程，以吞吐换延迟。
+    topics: [co/gpu-simt]
+- id: dsa
+  tagline: 数据结构与算法决定数据怎么摆、怎么找：同一批数据，摆法不同，查找与更新的代价可以差出几个数量级。
+  blocks:
+  - name: 按名与按序查找
+    blurb: 哈希表按名字一步直达；二分在有序的世界里每次砍掉一半候选。
+    topics: [dsa/hash-table, dsa/binary-search]
+  - name: 分而治之
+    blurb: 把大问题切成同形的小问题再合并答案，排序是最经典的练兵场。
+    topics: [dsa/merge-quick-sort]
+  - name: 树形结构
+    blurb: 用父子层级换取动态集合上的高效操作——堆管优先级，搜索树管有序。
+    topics: [dsa/binary-heap, dsa/bst-trees]
+  - name: 图上的行走
+    blurb: 先学会走遍一张图，再学会在带权图上找最短的那条路。
+    topics: [dsa/bfs-dfs, dsa/dijkstra]
+  - name: 记住子问题的答案
+    blurb: 当子问题大量重叠时，把算过的答案存下来，指数爆炸就塌缩成多项式。
+    topics: [dsa/dynamic-programming]
+- id: network
+  tagline: 计算机网络只讲一件事：数据怎样可靠、有序、就近地从一台机器走到另一台机器。
+  blocks:
+  - name: 建立可靠连接
+    blurb: 在不可靠的 IP 之上，先用三次握手把双方的初始序号对齐，才敢开始传数据。
+    topics: [network/tcp-handshake]
+  - name: 一次请求的旅程
+    blurb: 从点击到响应：解析、建连、加密、发请求、流式收数据，一次走完。
+    topics: [network/http-streaming]
+  - name: 名字变地址
+    blurb: 域名先被分层委派解析成 IP，再被 CDN 指向离用户最近的那台服务器。
+    topics: [network/dns-cdn]
+  - name: 发送的节奏
+    blurb: 连接建好之后发多快是另一道题：既不能压垮接收方，也不能压垮网络。
+    topics: [network/congestion]
+  - name: 传输层的演进
+    blurb: 队头阻塞打了三场仗，最后 QUIC 干脆把传输层搬进用户态重写。
+    topics: [network/http2-quic]
+- id: data
+  tagline: 数据存储回答的是落盘之后的问题：数据怎样摆，才能查得快、改得稳、崩了不丢。
+  blocks:
+  - name: 索引：先找到再读
+    blurb: 不扫全表的前提，是有一棵对磁盘页友好的 B+ 树替你指路。
+    topics: [data/btree-index]
+  - name: 事务：并发与崩溃下的规矩
+    blurb: 多个写者同时改数据、改到一半还崩了，靠 ACID、多版本与预写日志兜底。
+    topics: [data/transactions]
+  - name: 为写优化的存储
+    blurb: 当写比读更重要时，把原地更新换成顺序追加加后台合并。
+    topics: [data/lsm-kv]
+- id: math
+  tagline: 数学基础是其余各科的暗线：概率是描述不确定性的语言，缓存命中、排队延迟、模型输出，最后都要用它来度量。
+  blocks:
+  - name: 概率的语言
+    blurb: 条件概率、贝叶斯与期望——判断、估算与实验读数的共同底座。
+    topics: [math/probability]
+
+# 全站系统全景：一个程序的一生，六科是同一件事的六个切面。
+journey:
+- subject: dsa
+  title: 写出程序
+  text: 数据先被组织好：用什么结构存、用什么算法处理，决定了程序先天快慢的量级。
+- subject: co
+  title: 在硬件上运行
+  text: 程序变成指令流经 CPU 的流水线与缓存，数字以补码与浮点的比特形态被加工。
+- subject: os
+  title: 被内核托管
+  text: 它以进程的身份被创建、调度与隔离，每一次碰硬件都要经过系统调用这扇门。
+- subject: data
+  title: 数据落盘
+  text: 要长期保存的数据交给存储引擎：索引、事务与日志决定它查得快不快、崩了丢不丢。
+- subject: network
+  title: 与外界通信
+  text: 程序很少独处：请求与响应要在不可靠的网络上，被可靠、有序、就近地送达对面。
+- subject: math
+  title: 底下垫着数学
+  text: 概率与期望贯穿始终：命中率、延迟分布、模型输出的可信程度，都要用它才说得清。

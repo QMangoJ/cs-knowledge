@@ -103,9 +103,14 @@ export function parseTerminal(v: string) {
   });
 }
 
+/** Coherence layer: where this topic sits in its subject panorama (2-3 sentences, topic-specific). */
+export const Bridge = z.object({ prev: z.string().min(1).optional(), next: z.string().min(1).optional() });
+
 const TopicBase = z.object({
   id: z.string(),
   subject: z.enum(["os", "co", "dsa", "network", "data", "math"]),
+  position: z.string().min(1).optional(),
+  bridge: Bridge.optional(),
   slug: z.string().regex(/^[a-z0-9-]+$/),
   order: z.number().int(),
   status: z.enum(["published", "draft", "coming-soon"]),
@@ -149,6 +154,25 @@ export type SwimlaneState = z.infer<typeof SwimlaneState>;
 export type DatastateState = z.infer<typeof DatastateState>;
 export type LabState = z.infer<typeof LabState>;
 
+/* ---- subject panoramas (content/subjects.yaml) ---- */
+export const SubjectBlock = z.object({
+  name: z.string().min(1),
+  blurb: z.string().min(1),
+  topics: z.array(z.string().min(1)).default([]),
+  /** Known curriculum gaps shown honestly as dashed placeholders (e.g. OS 线程与调度 待补). */
+  gaps: z.array(z.object({ title: z.string().min(1), note: z.string().min(1) })).default([]),
+});
+export const SubjectInfo = z.object({
+  id: z.enum(["os", "co", "dsa", "network", "data", "math"]),
+  tagline: z.string().min(1),
+  blocks: z.array(SubjectBlock).min(1),
+});
+export const JourneyStep = z.object({ subject: z.enum(["os", "co", "dsa", "network", "data", "math"]), title: z.string().min(1), text: z.string().min(1) });
+export const SubjectsFile = z.object({ subjects: z.array(SubjectInfo), journey: z.array(JourneyStep).min(1) });
+export type SubjectBlock = z.infer<typeof SubjectBlock>;
+export type SubjectInfo = z.infer<typeof SubjectInfo>;
+export type JourneyStep = z.infer<typeof JourneyStep>;
+
 export type Issue = { level: "error" | "warn"; where: string; msg: string };
 
 /** Content integrity rules (source-verification gate removed 2026-11-04). Returns all issues. */
@@ -159,6 +183,7 @@ export function checkTopic(t: Topic, sources: Map<string, SourceDef>): Issue[] {
   if (t.id !== base) hard(base, `id 应为 ${base}`);
   if (t.status === "published" && t.steps.length < 1) hard(base, "published 主题没有步骤");
   if (t.status === "published" && (!t.design || t.design.length < 2)) hard(base, "published 主题必须有至少 2 条 design（为什么这样设计）");
+  if (t.status === "published" && (!t.position || t.position.trim().length < 40)) hard(base, "published 主题必须有 position 定位段（≥40 字，点名本科板块与相邻课）");
   const seen = new Set<string>();
   for (const s of t.steps) {
     const w = `${base} step ${s.id}`;

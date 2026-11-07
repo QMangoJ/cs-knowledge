@@ -1,7 +1,20 @@
 // Local smoke test against a static server on out/. Usage: node e2e/smoke.mjs http://127.0.0.1:4173
+// In the Muse sandbox the only Chromium is /opt/meta-chromium/chrome, which needs the
+// WebGL domain-policy args, and live-site runs need CS_E2E_PROXY (an unauthenticated local relay).
 import { chromium } from "playwright-core";
+import fs from "node:fs";
+import { createHash } from "node:crypto";
 const base = process.argv[2] ?? "http://127.0.0.1:4173";
-const browser = await chromium.launch({ executablePath: process.env.CHROME ?? "/usr/bin/google-chrome", args: ["--no-sandbox"] });
+const exe = process.env.CHROME ?? (fs.existsSync("/usr/bin/google-chrome") ? "/usr/bin/google-chrome" : "/opt/meta-chromium/chrome");
+const launchArgs = ["--no-sandbox"];
+const polPath = "/var/lib/hatch-browser/rootfs-base/usr/share/hatch/chromium/webgl-allowed-domains.txt";
+if (exe.includes("meta-chromium") && fs.existsSync(polPath)) {
+  launchArgs.push(`--hatch-webgl-allowed-domains-file=${polPath}`);
+  launchArgs.push(`--hatch-webgl-allowed-domains-sha256=${createHash("sha256").update(fs.readFileSync(polPath)).digest("hex")}`);
+}
+const launchOpts = { executablePath: exe, args: launchArgs };
+if (process.env.CS_E2E_PROXY) launchOpts.proxy = { server: process.env.CS_E2E_PROXY };
+const browser = await chromium.launch(launchOpts);
 const fail = (m) => { console.error("FAIL", m); process.exitCode = 1; };
 const ok = (c, m) => (c ? console.log("ok  ", m) : fail(m));
 for (const vp of [{ width: 1440, height: 900 }, { width: 1280, height: 800 }, { width: 390, height: 844 }, { width: 375, height: 667 }]) {
@@ -16,7 +29,11 @@ for (const vp of [{ width: 1440, height: 900 }, { width: 1280, height: 800 }, { 
   ok(page.url().endsWith("/os/syscall/5/"), `${tag} ArrowRight -> /5/`);
   await page.locator(".stepnav button", { hasText: "上一步" }).click();
   ok(page.url().endsWith("/os/syscall/4/"), `${tag} prev button -> /4/`);
-  await page.locator(".steplist a").first().click();
+  if (vp.width >= 1280) {
+    await page.locator(".steplist a").first().click();
+  } else {
+    await page.locator(".step-chips .chip").first().click();
+  }
   ok(page.url().endsWith("/os/syscall/"), `${tag} step list -> step 1`);
   ok(await page.locator(".stepnav button", { hasText: "上一步" }).isHidden(), `${tag} no prev on step 1`);
   ok((await page.locator(".log tbody tr").count()) === 1, `${tag} log rows = 1 on step 1`);
@@ -28,11 +45,12 @@ for (const vp of [{ width: 1440, height: 900 }, { width: 1280, height: 800 }, { 
   ok(rsc.length === 0, `${tag} no RSC fetch while stepping ${rsc.join(",")}`);
   const sw = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   ok(sw <= 0, `${tag} no horizontal scroll (${sw})`);
-  if (vp.width < 1024) {
-    const y = await page.evaluate(() => [".canvas-wrap", ".col-explain", ".log"].map((q) => document.querySelector(q).getBoundingClientRect().top));
+  if (vp.width < 1280) {
+    const y = await page.evaluate(() => [".canvas-wrap", ".step", ".p-logbar"].map((q) => document.querySelector(q).getBoundingClientRect().top));
     ok(y[0] < y[1] && y[1] < y[2], `${tag} mobile order 画布→讲解→日志 (${y.map(Math.round)})`);
   }
-  await page.screenshot({ path: `/workspace/scratch/cs-m0-${tag}.png`, fullPage: true });
+  fs.mkdirSync("/tmp/cs-shots", { recursive: true });
+  await page.screenshot({ path: `/tmp/cs-shots/cs-m0-${tag}.png`, fullPage: true });
   ok(errors.length === 0, `${tag} no console errors ${errors.join(";")}`);
   await page.close();
 }
@@ -81,4 +99,32 @@ ok((await q.locator(".design .design-item").count()) === 3, "phase3 design block
 ok((await q.locator(".design").textContent()).includes("两将军"), "phase3 design block covers two generals");
 ok(qerr.length === 0, `phase2 pages no console errors ${qerr.join(";")}`);
 await q.close();
+
+// ---- phase 4: app-screen layout + coherence layer ----
+const w = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+const werr = []; w.on("pageerror", (e) => werr.push(e.message)); w.on("console", (m) => m.type() === "error" && werr.push(m.text()));
+await w.goto(`${base}/os/syscall/`);
+const fit = await w.evaluate(() => {
+  const r = document.querySelector(".app-screen").getBoundingClientRect();
+  return { bottom: r.bottom, ih: window.innerHeight };
+});
+ok(Math.abs(fit.bottom - fit.ih) <= 4, `phase4 app screen ends at viewport bottom (${Math.round(fit.bottom)} vs ${fit.ih})`);
+ok((await w.locator(".position-card").count()) === 1, "phase4 position card on step 1");
+ok((await w.locator(".position-card").textContent()).includes("系统调用接口"), "phase4 position names its block");
+ok((await w.locator(".p-station").textContent()).includes("第 1 站"), "phase4 station label in topbar");
+ok((await w.locator(".below .kernel-diagram").count()) === 1, "phase4 OS kernel diagram below screen");
+ok((await w.locator(".below .kernel-diagram .pano-chip.current").textContent()).includes("系统调用"), "phase4 kernel diagram highlights current topic");
+ok((await w.locator(".below .kernel-diagram .pano-gap").textContent()).includes("线程与调度"), "phase4 kernel diagram shows scheduling gap placeholder");
+ok((await w.locator(".bridge .bridge-card").count()) === 2, "phase4 bridge has prev/next cards");
+ok((await w.locator(".bridge a.bridge-title").first().getAttribute("href")).includes("/os/fork-exec/"), "phase4 bridge next links to fork-exec");
+await w.goto(`${base}/os/fork-exec/`);
+ok((await w.locator(".bridge a.bridge-title").first().getAttribute("href")).includes("/os/syscall/"), "phase4 fork-exec bridge prev links to syscall");
+await w.goto(`${base}/`);
+ok((await w.locator(".journey-step").count()) === 6, "phase4 home journey has 6 stages");
+ok((await w.locator(".subject-guide .kernel-diagram").count()) === 1, "phase4 home OS guide has kernel diagram");
+ok((await w.locator(".subject-guide").count()) === 6, "phase4 home has 6 subject guides");
+const cardHs = await w.evaluate(() => [...document.querySelectorAll(".subject .topic-card")].slice(0, 3).map((el) => Math.round(el.getBoundingClientRect().height)));
+ok(Math.max(...cardHs) - Math.min(...cardHs) <= 1, `phase4 first-row cards equal height (${cardHs})`);
+ok(werr.length === 0, `phase4 pages no console errors ${werr.join(";")}`);
+await w.close();
 await browser.close();

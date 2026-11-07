@@ -9,6 +9,7 @@ const verified = { ref: "book", locator: "p.1", claim: "c", status: "verified" a
 function topic(over: Record<string, unknown> = {}, step: Record<string, unknown> = {}) {
   return Topic.parse({
     id: "os/x", subject: "os", slug: "x", order: 1, status: "published", title: "T", summary: "S", premise: "P",
+    position: "本课位于操作系统科的系统调用接口板块，是全科第一站，讲清程序如何通过受控入口请求内核服务，为后面所有课程打底。",
     overview: [], visual: "swimlane", lanes: [{ id: "u", label: "U" }], logColumns: [{ key: "e", label: "E" }],
     reviewedBy: "Daniel", reviewedAt: "2026-11-01",
     design: [
