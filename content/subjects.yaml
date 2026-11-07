@@ -134,6 +134,9 @@ subjects:
   - name: 学习是怎么发生的
     blurb: 一次前向、一次反向：损失把责任沿着链式法则分摊回每个权重，梯度下降再把旋钮逐个拧一小格。
     topics: [ai/neural-backprop]
+  - name: 注意力与 Transformer
+    blurb: 每个词都按相关程度回头看全句：注意力让任意两个词一跳直连，也让整句话第一次能并行地训。
+    topics: [ai/attention-transformer]
 
 # 全站系统全景：一个程序的一生，各科是同一件事的不同切面。
 journey:
