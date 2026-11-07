@@ -137,6 +137,9 @@ subjects:
   - name: 注意力与 Transformer
     blurb: 每个词都按相关程度回头看全句：注意力让任意两个词一跳直连，也让整句话第一次能并行地训。
     topics: [ai/attention-transformer]
+  - name: 训练的账本
+    blurb: 参数、梯度、优化器状态、激活——显存里住着四类住户；再算一遍每 token 的计算账，看清训练为什么贵。
+    topics: [ai/training]
 
 # 全站系统全景：一个程序的一生，各科是同一件事的不同切面。
 journey:
