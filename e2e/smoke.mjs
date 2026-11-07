@@ -74,7 +74,7 @@ await q.locator(".mark-done").click();
 ok(await q.evaluate(() => localStorage.getItem("cs-done:os/syscall") === "1"), "phase2 manual mark-done writes cs-done key");
 await q.goto(`${base}/`);
 ok((await q.locator("text=数据存储").count()) >= 1 && (await q.locator("text=数学基础").count()) >= 1, "phase2 home has data + math sections");
-ok((await q.locator(".route-steps li").count()) === 7, "phase2 route has 7 stages");
+ok((await q.locator(".route-steps li").count()) === 8, "phase2 route has 8 stages (distributed added in phase9)");
 await q.goto(`${base}/dsa/binary-search/4/`);
 ok((await q.locator(".codeblock .cl.hl").count()) === 1, "phase2 code line highlight on binary search step");
 await q.locator(".stepnav .scrub").evaluate((el) => el.focus());
@@ -144,9 +144,9 @@ ok((await w.locator(".bridge a.bridge-title").first().getAttribute("href")).incl
 await w.goto(`${base}/os/fork-exec/`);
 ok((await w.locator(".bridge a.bridge-title").first().getAttribute("href")).includes("/os/syscall/"), "phase4 fork-exec bridge prev links to syscall");
 await w.goto(`${base}/`);
-ok((await w.locator(".journey-step").count()) === 6, "phase4 home journey has 6 stages");
+ok((await w.locator(".journey-step").count()) === 7, "phase4 home journey has 7 stages (distributed ring added in phase9)");
 ok((await w.locator(".subject-guide .kernel-diagram").count()) === 1, "phase4 home OS guide has kernel diagram");
-ok((await w.locator(".subject-guide").count()) === 6, "phase4 home has 6 subject guides");
+ok((await w.locator(".subject-guide").count()) === 7, "phase4 home has 7 subject guides (distributed added in phase9)");
 const cardHs = await w.evaluate(() => [...document.querySelectorAll(".subject .topic-card")].slice(0, 3).map((el) => Math.round(el.getBoundingClientRect().height)));
 ok(Math.max(...cardHs) - Math.min(...cardHs) <= 1, `phase4 first-row cards equal height (${cardHs})`);
 ok(werr.filter((e) => !(wBeacon && e.includes("ERR_CERT_AUTHORITY_INVALID"))).length === 0, `phase4 pages no console errors ${werr.join(";")}`);
@@ -209,6 +209,28 @@ ok((await x.locator(".p-station").textContent()).includes("第 7 站"), "phase8 
 ok((await x.locator(".design .design-item").count()) >= 2, "phase8 replication design block renders");
 ok((await x.locator(".bridge a.bridge-title").first().getAttribute("href")).includes("/data/locks-deadlocks/"), "phase8 replication bridge prev links to locks-deadlocks");
 ok(xerr.filter((e) => !(xBeacon && e.includes("ERR_CERT_AUTHORITY_INVALID"))).length === 0, `phase8 pages no console errors ${xerr.join(";")}`);
+
+// ---- Phase 9: distributed subject (4 lessons) ----
+for (const u of ["/distributed/why-hard/", "/distributed/cap-consistency/", "/distributed/raft-consensus/", "/distributed/time-and-transactions/"]) {
+  const rr = await x.goto(base + u);
+  ok(rr.status() === 200, `phase9 distributed topic ${u} 200`);
+}
+await x.goto(`${base}/distributed/why-hard/`);
+ok((await x.locator(".p-station").textContent()).includes("第 1 站"), "phase9 why-hard is distributed station 1");
+ok((await x.locator(".p-station").textContent()).includes("共 4 站"), "phase9 distributed path has 4 stations");
+ok((await x.locator(".design .design-item").count()) >= 2, "phase9 why-hard design block renders");
+ok((await x.locator(".bridge a.bridge-title").last().getAttribute("href")).includes("/distributed/cap-consistency/"), "phase9 why-hard bridge next links to cap-consistency");
+await x.goto(`${base}/distributed/cap-consistency/`);
+ok((await x.locator(".p-station").textContent()).includes("第 2 站"), "phase9 cap-consistency is distributed station 2");
+ok((await x.locator(".bridge a.bridge-title").first().getAttribute("href")).includes("/distributed/why-hard/"), "phase9 cap bridge prev links to why-hard");
+ok((await x.locator(".bridge a.bridge-title").last().getAttribute("href")).includes("/distributed/raft-consensus/"), "phase9 cap bridge next links to raft-consensus");
+await x.goto(`${base}/distributed/raft-consensus/`);
+ok((await x.locator(".p-station").textContent()).includes("第 3 站"), "phase9 raft-consensus is distributed station 3");
+ok((await x.locator(".bridge a.bridge-title").last().getAttribute("href")).includes("/distributed/time-and-transactions/"), "phase9 raft bridge next links to time-and-transactions");
+await x.goto(`${base}/distributed/time-and-transactions/`);
+ok((await x.locator(".p-station").textContent()).includes("第 4 站"), "phase9 time-and-transactions is distributed station 4");
+ok((await x.locator(".design .design-item").count()) >= 2, "phase9 time-and-transactions design block renders");
+ok(xerr.filter((e) => !(xBeacon && e.includes("ERR_CERT_AUTHORITY_INVALID"))).length === 0, `phase9 pages no console errors ${xerr.join(";")}`);
 await x.close();
 await w.close();
 await browser.close();
