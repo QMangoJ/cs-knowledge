@@ -314,7 +314,7 @@ details.ref-sol summary{cursor:pointer;font-weight:700}
 .logbar-caption{margin:0;padding:4px 14px 12px;font-family:var(--font-cjk);color:var(--ink-soft)}
 
 @media (min-width:1280px){
-  .app-screen{height:calc(100dvh - 49px);min-height:600px}
+  .app-screen{height:calc(100dvh - 41px);min-height:600px}
   .p-grid{flex:1;min-height:0;display:grid;gap:16px;padding:14px 0 16px;
     grid-template-columns:300px minmax(0,1fr) 384px;
     grid-template-rows:minmax(0,1fr) 142px;
