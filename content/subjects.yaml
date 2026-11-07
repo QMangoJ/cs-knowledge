@@ -107,6 +107,12 @@ subjects:
   - name: 复制：一本账，多个副本
     blurb: 把主库的变化记成一本跨机器的账，从库照着重放追赶——读扩展与容灾都从这里来。
     topics: [data/replication]
+- id: distributed
+  tagline: 分布式系统是把单机的确定性，换成多台机器共同维持的近似事实：延迟、分区与各自为政的时钟，是它永远的背景噪声。
+  blocks:
+  - name: 难在哪：部分失败的世界
+    blurb: 单机的隐含假设逐条作废：调用会迟到、同伴分不清死活、时钟各说各话——这一课先把敌人的清单摊开。
+    topics: [distributed/why-hard]
 - id: math
   tagline: 数学基础是其余各科的暗线：概率是描述不确定性的语言，缓存命中、排队延迟、模型输出，最后都要用它来度量。
   blocks:
@@ -114,7 +120,7 @@ subjects:
     blurb: 条件概率、贝叶斯与期望——判断、估算与实验读数的共同底座。
     topics: [math/probability]
 
-# 全站系统全景：一个程序的一生，六科是同一件事的六个切面。
+# 全站系统全景：一个程序的一生，各科是同一件事的不同切面。
 journey:
 - subject: dsa
   title: 写出程序
@@ -131,6 +137,9 @@ journey:
 - subject: network
   title: 与外界通信
   text: 程序很少独处：请求与响应要在不可靠的网络上，被可靠、有序、就近地送达对面。
+- subject: distributed
+  title: 走出单机
+  text: 一台机器装不下、坏不起时，程序要学会与许多台机器协作：靠消息商量出共同的事实，并接受它只能是近似的那一份。
 - subject: math
   title: 底下垫着数学
   text: 概率与期望贯穿始终：命中率、延迟分布、模型输出的可信程度，都要用它才说得清。

@@ -114,3 +114,7 @@
   title: "MySQL Reference Manual — Replication（19.2.1 复制格式、19.2.3 复制线程、19.4.10 半同步复制）"
   url: https://dev.mysql.com/doc/refman/8.4/en/replication.html
   license: "见原文"
+- id: ddia
+  title: "Designing Data-Intensive Applications, Martin Kleppmann, O'Reilly（第 8 章 分布式系统的麻烦、第 9 章 一致性与共识）"
+  url: https://dataintensive.net/
+  license: copyrighted
