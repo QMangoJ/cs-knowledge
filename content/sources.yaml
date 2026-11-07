@@ -102,3 +102,7 @@
   title: "SQLite 官方文档（File Format 文件格式与 Write-Ahead Logging）"
   url: https://sqlite.org/wal.html
   license: "见原文（Public Domain）"
+- id: mysql-optimizer-docs
+  title: "MySQL Reference Manual — Optimization（10.9.6 Optimizer Statistics 直方图统计、10.2.1 连接算法与优化器成本）"
+  url: https://dev.mysql.com/doc/refman/8.4/en/optimization.html
+  license: "见原文"

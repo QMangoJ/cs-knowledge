@@ -98,6 +98,9 @@ subjects:
   - name: 为写优化的存储
     blurb: 当写比读更重要时，把原地更新换成顺序追加加后台合并。
     topics: [data/lsm-kv]
+  - name: 查询的执行
+    blurb: SQL 只说要什么：优化器用统计信息给候选路线逐一估价，执行器再照最便宜的一条把页取齐。
+    topics: [data/query-execution]
 - id: math
   tagline: 数学基础是其余各科的暗线：概率是描述不确定性的语言，缓存命中、排队延迟、模型输出，最后都要用它来度量。
   blocks:
