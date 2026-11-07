@@ -6,567 +6,494 @@ status: published
 license: CC-BY-4.0
 title: 系统调用：程序怎样请内核帮忙
 summary: 程序不能直接碰硬件，想读写文件、上网、打印，都得通过“系统调用”这扇门请内核代办。
-premise: 以 Linux（x86-64）上一个程序往终端打印一行字为例。
-position: >-
-  本站从系统调用接口板块开场，因为 printf 最终要靠 syscall 指令和调用号才能请内核代办，任何程序都绕不开这道受控陷入的门。追踪一次 write 从 glibc 包装函数进内核再返回，你便能说清它为何比普通函数调用贵、出错时 errno 又该怎么读。
+premise: 以 Linux（x86-64）为例：一个 C 程序调用 printf，想往终端打印一行字，本课追踪这次请求进出内核的全程。
+position: 本站从系统调用接口板块开场，因为 printf 最终要靠 syscall 指令和调用号才能请内核代办，任何程序都绕不开这道受控陷入的门。追踪一次 write 从 glibc 包装函数进内核再返回，你便能说清它为何比普通函数调用贵、出错时 errno 又该怎么读。
 bridge:
-  next: >-
-    当 write 这类请求已能经调用号递进内核，下一个问题便落在 bash 身上：它靠哪些调用把敲下的 ls 变成一个独立运行的新进程？
+  next: 当 write 这类请求已能经调用号递进内核，下一个问题便落在 bash 身上：它靠哪些调用把敲下的 ls 变成一个独立运行的新进程？
 overview:
-- key: 一句话总结
-  value: 系统调用是程序主动请求内核服务的唯一受控入口（缺页、中断等也会进内核，但不是程序主动请求的）
-- key: 为什么需要
-  value: 保护硬件和其他程序，不让一个程序为所欲为
-- key: 两种模式
-  value: 用户态（权限受限）和内核态（完全权限）
-- key: 常见系统调用
-  value: read、write、openat、clone、execve、mmap
-- key: 代价
-  value: 每次进出内核都有开销，所以要尽量批量处理
-- key: 出错时
-  value: 返回 -1，原因在 errno（如 ENOENT、EACCES）
-- key: vDSO
-  value: clock_gettime 等调用通常不进内核
-- key: 系统调用表
-  value: 内核按调用号查表，找到对应的处理函数；调用号是 ABI 的一部分，不随便改
-- key: 在终端里看一看
-  value: strace -e trace=write echo hi　看到 echo 发出的 write 调用；strace -c ls　统计 ls 用了哪些系统调用
+  - key: 一句话总结
+    value: 系统调用是程序主动请求内核服务的唯一受控入口
+  - key: 为什么需要
+    value: 保护硬件和其他程序，不让一个程序为所欲为
+  - key: 两种模式
+    value: 用户态（权限受限）和内核态（完全权限）
+  - key: 常见系统调用
+    value: read、write、openat、clone、execve、mmap
+  - key: 代价
+    value: 每次进出内核都有开销，所以要尽量批量处理
+  - key: 出错时
+    value: 返回 -1，原因在 errno（如 ENOENT、EACCES）
+  - key: vDSO
+    value: clock_gettime 等调用通常不进内核
+  - key: 系统调用表
+    value: 内核按调用号查表，找到对应的处理函数；调用号是 ABI 的一部分，不随便改
 visual: swimlane
 lanes:
-- id: app
-  label: 程序
-- id: kernel
-  label: 内核
-- id: hw
-  label: 硬件
+  - id: app
+    label: 程序
+  - id: kernel
+    label: 内核
+  - id: hw
+    label: 硬件
 logColumns:
-- key: mode
-  label: 当前状态
-- key: event
-  label: 发生了什么
+  - key: mode
+    label: 当前状态
+  - key: event
+    label: 发生了什么
 steps:
-- id: need-kernel
-  title: 程序想做一件只有内核能做的事
-  tldr: 程序不能直接操作硬件，这是为了保护整台机器。
-  body: '程序想在终端上打印一行字，但它没有权限直接操作屏幕、磁盘或网卡。
+  - id: need-kernel
+    title: 程序想做一件只有内核能做的事
+    tldr: 程序不能直接操作硬件，这是为了保护整台机器。
+    body: |-
+      程序想在终端上打印一行字，但它没有权限直接操作屏幕、磁盘或网卡。如果谁都能直接碰硬件，一个出错的程序就可能写坏磁盘，或者偷看别的程序的数据——这就像网页里的 JavaScript 不能随便读你电脑上的文件，只能通过浏览器提供的接口。
 
-    如果谁都能直接碰硬件，一个出错的程序就可能写坏磁盘，或者偷看别的程序的数据。
+      还不只是防破坏：两个程序同时往同一个日志文件末尾写，各自直接操作磁盘就会算出同一个写入位置，后写的覆盖先写的；由内核代办，带 O_APPEND 的 write 会在内核里串行完成，不会互相踩。硬件上也堵死了绕路：用户程序在 Ring 3 执行碰硬件的特权指令，CPU 会直接触发异常把控制权交给内核——不是程序自觉，是它根本做不到。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: Limited Direct Execution 一章
+        claim: 用户程序不能直接执行 I/O 等受限操作
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: app
+          id: p
+          label: 程序
+          highlight: true
+        - lane: kernel
+          id: k
+          label: 内核
+        - lane: hw
+          id: h
+          label: 硬件（终端）
+      messages:
+        - id: m-need-kernel
+          from: p
+          to: h
+          label: 直接访问？不允许
+          active: true
+    log:
+      - mode: 用户态
+        event: 程序想打印文字，但无权直接操作硬件
+    points:
+      - 程序不能直接操作硬件，这是为了保护整台机器。
+  - id: syscall-door
+    title: 发起系统调用：敲响内核的门
+    tldr: 系统调用是程序主动请求内核服务的唯一受控入口。
+    body: |-
+      本课的例子是一个 C 程序：它调用 C 库函数 printf 想打印一行字。printf 本身不进内核，真正过门的是 C 库（glibc）里的 write 包装函数：它执行 x86-64 的 syscall 指令，并带上「我要哪种服务」的编号（write 是 1 号）。
 
-    这就像网页里的 JavaScript 不能随便读你电脑上的文件，只能通过浏览器提供的接口。
+      这条指令触发「陷入」：CPU 停下用户程序、把控制权交给内核。程序只能说清「我要什么」，跳到内核的哪段代码由内核事先定好——这道门开在哪、怎么开，不由程序决定。
+    derivation: original
+    sources:
+      - ref: linux-man-pages
+        locator: syscall(2)、strace(1)
+        url: https://man7.org/linux/man-pages/man2/syscall.2.html
+        claim: x86-64 Linux 通过 syscall 指令进入内核；strace 可跟踪系统调用
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: app
+          id: p
+          label: 程序
+          highlight: true
+        - lane: kernel
+          id: k
+          label: 内核
+        - lane: hw
+          id: h
+          label: 硬件（终端）
+      messages:
+        - id: m-syscall-door
+          from: p
+          to: k
+          label: 系统调用：请帮我写终端
+          active: true
+    log:
+      - mode: 用户态
+        event: 程序发起 write 系统调用
+    code:
+      lang: c
+      code: |-
+        // glibc 把系统调用号放进 rax，参数放进 rdi/rsi/rdx…，执行 syscall 指令陷入内核
+        ssize_t n = read(fd, buf, sizeof buf);  // __NR_read = 0 (x86-64)
+      note: x86-64 Linux 的约定
+  - id: trap-args
+    title: 系统调用号与参数怎么传：寄存器约定
+    tldr: 调用号放 rax，参数依次放 rdi、rsi、rdx、r10、r8、r9，最多 6 个。
+    body: |-
+      还是以 read(fd, buf, 4096) 为例：glibc 包装函数把调用号 0 放进 rax，三个参数依次放进 rdi、rsi、rdx，执行 syscall。x86-64 约定最多传 6 个参数（rdi、rsi、rdx、r10、r8、r9）——第 4 个用 r10 而不是普通函数调用约定的 rcx，因为 syscall 指令要拿 rcx 保存返回地址，这是硬件动作的直接后果。
 
+      为什么用寄存器而不是栈上传参数？陷入的瞬间，用户栈完全不可信：它可能故意指向非法地址，内核若按栈取参数，第一步就被带偏。寄存器由硬件在陷入时原样保留，是当时唯一既可信又现成的通道。返回值也走 rax：非负是结果，负数是错误码（第 8 步细说）。
+    derivation: original
+    sources:
+      - ref: linux-man-pages
+        locator: syscall(2) 的 Architecture calling conventions 部分
+        url: https://man7.org/linux/man-pages/man2/syscall.2.html
+        claim: x86-64 用 rax 传调用号、rdi/rsi/rdx/r10/r8/r9 传参数
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: app
+          id: p
+          label: 程序
+          highlight: true
+        - lane: kernel
+          id: k
+          label: 内核
+        - lane: hw
+          id: h
+          label: 硬件（终端）
+      messages:
+        - id: m-trap-args
+          from: p
+          to: k
+          label: rax 等于 0，参数在 rdi/rsi/rdx
+          active: true
+    log:
+      - mode: 用户态
+        event: 按寄存器约定摆好调用号与参数
+  - id: mode-switch
+    title: 切到内核态
+    tldr: CPU 有两种模式，陷入时从用户态切到内核态。
+    body: |-
+      CPU 用特权级记着当前是用户态还是内核态：用户态是 Ring 3，很多操作被硬件直接拦下；内核态是 Ring 0，无所不能。陷入就是把特权级从 Ring 3 升到 Ring 0 并跳进内核——这一步只能由硬件完成，程序没法把自己提权。
 
-    走一个具体的例子：两个程序同时往同一个日志文件末尾写数据。如果它们各自直接操作磁盘、各自记住文件现在多长，就会算出同一个写入位置，后写的那份把先写的覆盖掉。内核介入后，带 O_APPEND 的 write 会在内核里串行地完成定位到末尾再写入，两个程序不会互相踩。硬件层面还有一层保证：x86 把权限分成 Ring 0 到 Ring 3，用户程序在 Ring 3 执行碰硬件的特权指令时，CPU 会直接触发异常把控制权交给内核——不是内核比较勤快，是程序在硬件上根本做不到。'
-  derivation: original
-  sources:
-  - ref: ostep
-    locator: Limited Direct Execution 一章
-    claim: 用户程序不能直接执行 I/O 等受限操作
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: app
-      id: p
-      label: 程序
-      highlight: true
-    - lane: kernel
-      id: k
-      label: 内核
-    - lane: hw
-      id: h
-      label: 硬件（终端）
-    messages:
-    - id: m-need-kernel
-      from: p
-      to: h
-      label: 直接访问？不允许
-      active: true
-  log:
-  - mode: 用户态
-    event: 程序想打印文字，但无权直接操作硬件
-  points:
-  - 程序不能直接操作硬件，这是为了保护整台机器。
-- id: syscall-door
-  title: 发起系统调用：敲响内核的门
-  tldr: 系统调用是程序主动请求内核服务的唯一受控入口。
-  body: '程序调用 printf，最终由 C 库（glibc）执行 x86-64 的 syscall 指令，并带上“我要哪种服务”的编号。
+      x86-64 的 syscall 指令做的硬件动作很少：把返回地址存进 RCX、标志存进 R11、从 MSR 寄存器取出预先登记的内核入口跳过去。动作少，所以它比老式 int 0x80 快。注意模式切换不换地址空间：页表不动，内核代码本就映射在每个进程地址空间的高半区，只是用户态时被权限位挡住。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: Limited Direct Execution 一章，用户模式与内核模式
+        claim: 处理器区分用户模式和内核模式，trap 时切换到内核模式
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: app
+          id: p
+          label: 程序
+        - lane: kernel
+          id: k
+          label: 内核
+          highlight: true
+        - lane: hw
+          id: h
+          label: 硬件（终端）
+      messages:
+        - id: m-mode-switch
+          from: p
+          to: k
+          label: 切换到内核态
+          active: true
+    log:
+      - mode: 用户态 → 内核态
+        event: CPU 切换模式，内核接手
+  - id: kernel-entry
+    title: 内核入口：先保存现场，再分头处理
+    tldr: 每个进程有一块独立的内核栈，入口先把用户寄存器存好，请求才变成一次普通的内核函数调用。
+    body: |-
+      跳进内核后先不干活，先保存现场：入口代码切到这个进程专属的内核栈，把用户寄存器和返回地址存成一个结构体，之后的 C 代码就把这次请求当成一次普通函数调用来处理，出问题时也靠这份存档恢复。
 
-    这条指令触发“陷入”，把控制权交给内核。
+      为什么每个进程要一张独立的内核栈？多个进程可能同时陷在内核里，中断也可能在内核执行中途到达——现场分开存放，各自的调用链才不会互相污染。用户栈是进程自己的、内容不可信；内核栈只放内核数据，两者隔离是内核不被用户数据带偏的基本盘。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: Limited Direct Execution 一章，trap handler
+        claim: 陷入时硬件与内核协作保存用户状态，返回时恢复
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+      - ref: xv6-book
+        locator: Traps 一章
+        claim: 进入内核时保存用户寄存器到 trapframe，使用独立的内核栈
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: app
+          id: p
+          label: 程序
+        - lane: kernel
+          id: k
+          label: 内核
+          highlight: true
+        - lane: hw
+          id: h
+          label: 硬件（终端）
+      messages:
+        - id: m-kernel-entry
+          from: p
+          to: k
+          label: 切到内核栈，保存寄存器
+          active: true
+    log:
+      - mode: 内核态
+        event: 现场已保存，开始处理请求
+  - id: syscall-table
+    title: 系统调用表：按号查表分发
+    tldr: 内核以调用号为下标查函数指针表；调用号一旦发布就是 ABI，永不修改、永不复用。
+    body: |-
+      入口拿到 rax 里的调用号，做的事情很朴素：检查没越界，就以它为下标查函数指针表 sys_call_table，跳到对应处理函数——0 号是 sys_read，1 号是 sys_write，257 号是 sys_openat。
 
-    程序只能说“我要什么”，跳到内核的哪段代码由内核事先定好；用 strace 就能看到一个程序发出的全部系统调用。
+      这张表定下了一条铁律：调用号一旦发布就是 ABI，永不修改、永不复用，只能往表尾追加，否则已编译的老程序会当场失效。表里没有的号返回 ENOSYS，程序可以据此探测新调用是否被支持。另外记住：查表只是数组下标访问，几乎不花时间——系统调用的贵不在这儿（第 9 步算账）。
+    derivation: original
+    sources:
+      - ref: linux-man-pages
+        locator: syscalls(2)
+        url: https://man7.org/linux/man-pages/man2/syscalls.2.html
+        claim: Linux 系统调用列表与调用号约定，调用号属于稳定的 ABI
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: app
+          id: p
+          label: 程序
+        - lane: kernel
+          id: k
+          label: 内核
+          highlight: true
+        - lane: hw
+          id: h
+          label: 硬件（终端）
+      messages:
+        - id: m-syscall-table
+          from: k
+          to: k
+          label: 按调用号查表分发
+          active: true
+    log:
+      - mode: 内核态
+        event: 调用号 1，分发到 sys_write
+  - id: check-and-do
+    title: 内核检查参数，然后代办
+    tldr: 内核不信任程序传来的任何东西，先检查再干活。
+    body: |-
+      内核不信任程序传来的任何东西，先检查再干活——和后端从不信任前端参数是同一个道理。以 write(fd, buf, n) 为例：先用 fd 查进程的文件描述符表，确认它指向一个已打开、可写的文件；再确认 buf 那段用户内存确实属于这个进程且可读，拷贝时走专门路径，地址非法就返回 EFAULT，而不是让内核崩溃。
 
+      检查通过，内核才通过驱动把文字交给终端，中途还会把真实结果如实报回：写到一半被打断或磁盘满，write 只写成功一部分并返回那个较小的字节数，剩下的要调用者自己补——返回值不是「全成功或全失败」这么简单。
+    derivation: original
+    sources:
+      - ref: linux-man-pages
+        locator: write(2) 的 ERRORS 部分
+        url: https://man7.org/linux/man-pages/man2/write.2.html
+        claim: write 对非法文件描述符或地址返回 EBADF、EFAULT 等错误
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: app
+          id: p
+          label: 程序
+        - lane: kernel
+          id: k
+          label: 内核
+        - lane: hw
+          id: h
+          label: 硬件（终端）
+          highlight: true
+      messages:
+        - id: m-check-and-do
+          from: k
+          to: h
+          label: 输出文字
+          active: true
+    log:
+      - mode: 内核态
+        event: 检查参数，通过后驱动硬件完成输出
+  - id: errno
+    title: 返回值与 errno：失败怎么告诉程序
+    tldr: 系统调用失败时返回 -1，具体原因放在 errno 里。
+    body: |-
+      结果通过返回值交回：成功时是有意义的数（read 读到几个字节、write 写了几个），失败时 C 库包装函数统一返回 -1，具体原因另放在线程本地变量 errno 里——ENOENT 是文件不存在，EACCES 是没权限，用 perror 能把它翻成人话。
 
-    这里要分清三层：你写的 printf 是 C 库函数，它先把数据放进 stdio 缓冲区，攒够或遇到换行（输出到终端时）才调用 write 包装函数，包装函数再执行 syscall 指令。误解澄清：用 strace 看不到 write，不等于程序没输出——数据可能还躺在用户态缓冲区里，直到 fflush 或程序退出才真正发出系统调用。把输出重定向到文件时 stdio 变成全缓冲，strace 里 write 出现的位置会明显靠后，就是这个原因。'
-  derivation: original
-  sources:
-  - ref: linux-man-pages
-    locator: syscall(2)、strace(1)
-    url: https://man7.org/linux/man-pages/man2/syscall.2.html
-    claim: x86-64 Linux 通过 syscall 指令进入内核；strace 可跟踪系统调用
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: app
-      id: p
-      label: 程序
-      highlight: true
-    - lane: kernel
-      id: k
-      label: 内核
-    - lane: hw
-      id: h
-      label: 硬件（终端）
-    messages:
-    - id: m-syscall-door
-      from: p
-      to: k
-      label: 系统调用：请帮我写终端
-      active: true
-  log:
-  - mode: 用户态
-    event: 程序发起 write 系统调用
-  code:
-    lang: c
-    code: '// glibc 把系统调用号放进 rax，参数放进 rdi/rsi/rdx…，执行 syscall 指令陷入内核
+      机制上多看一层：内核内部直接用负数当错误码返回，比如 -2 就是 ENOENT；glibc 发现返回值落在 -4095 到 -1 之间，才把它取负写进 errno、再回 -1。所以 errno 只在调用已返回 -1（确认失败）之后才有意义，成功调用不会清它，拿残留值判断成败会误报。写系统级代码的习惯因此很明确：每次调用先查返回值，就像前端每次 fetch 先看 response.ok。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: Limited Direct Execution 一章
+        claim: 系统调用失败时返回 -1，具体原因放在 errno 里。
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: app
+          id: p
+          label: 程序
+          highlight: true
+        - lane: kernel
+          id: k
+          label: 内核
+        - lane: hw
+          id: h
+          label: 硬件（终端）
+      messages:
+        - id: m-errno
+          from: k
+          to: p
+          label: 返回 -1，errno = ENOENT
+          active: true
+    log:
+      - mode: 内核态
+        event: 请求不合法，返回错误码
+  - id: return-and-cost
+    title: 返回用户态，以及这一趟的代价
+    tldr: 内核带着结果切回用户态；但每次进出内核都不便宜。
+    body: |-
+      内核带结果切回用户态，程序从断点继续。这一趟不便宜：普通函数调用约几纳秒，一次系统调用约几百纳秒到 1 微秒（随 CPU 与漏洞缓解而变），贵上一到两个数量级。
 
-      ssize_t n = read(fd, buf, sizeof buf);  // __NR_read = 0 (x86-64)'
-    note: x86-64 Linux 的约定
-- id: trap-args
-  title: 系统调用号与参数怎么传：寄存器约定
-  tldr: 调用号放 rax，参数依次放 rdi、rsi、rdx、r10、r8、r9，最多 6 个。
-  body: '还是以 read（fd, buf, 4096）为完整走例：glibc 包装函数把调用号 0 放进 rax，把 fd 放进 rdi、buf 地址放进 rsi、4096 放进 rdx，然后执行 syscall。x86-64 Linux 约定最多传 6 个参数，依次用 rdi、rsi、rdx、r10、r8、r9——注意第 4 个参数用 r10 而不是普通函数调用约定的 rcx，因为 syscall 指令本身要占用 rcx 保存返回地址，这是硬件动作留下的直接后果。
+      账花在哪：陷入与返回的硬件动作、保存恢复寄存器、参数校验与数据拷贝——每一项都不大，叠起来就贵。所以工程上的应对只有一个思路：摊薄过门的固定成本。printf 先把文字攒在缓冲区、攒够才 write 一次；writev 把多段缓冲一次提交；数据库批量插入、前端合并请求，本质都是同一件事：贵的不是活，是过门的次数。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: Limited Direct Execution 一章
+        claim: 系统调用有切换开销
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+      - ref: linux-man-pages
+        locator: setvbuf(3)
+        url: https://man7.org/linux/man-pages/man3/setvbuf.3.html
+        claim: stdio 对输出进行缓冲
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: app
+          id: p
+          label: 程序
+          highlight: true
+        - lane: kernel
+          id: k
+          label: 内核
+        - lane: hw
+          id: h
+          label: 硬件（终端）
+      messages:
+        - id: m-return-and-cost
+          from: k
+          to: p
+          label: 返回结果，切回用户态
+          active: true
+    log:
+      - mode: 内核态 → 用户态
+        event: 带着结果返回，程序继续执行
+  - id: vdso
+    title: 不进内核的“系统调用”：vDSO
+    tldr: 有些只读的小请求，内核干脆把答案放到用户态，省掉一趟切换。
+    body: |-
+      有些请求每次都过门纯属浪费，典型是「现在几点」：频率极高，又不需要鉴权。Linux 的办法是把这段服务留在用户态：内核把一页自己持续更新的时间数据和一小段核准过的代码映射进每个进程（vDSO），glibc 的 clock_gettime 直接读这页数据、配合 CPU 的时间戳计数器算出当前时间，全程不陷入——像前端把不常变的数据放本地缓存，不必每次请求后端。
 
-    参数主要是整数和指针：内核不会顺着用户给的长字符串或复杂结构体一直解析，凡是指针指向的数据都要显式拷贝进内核并逐项校验。返回值也走 rax：非负数表示成功，负数表示错误码。为什么用寄存器而不是栈？因为陷入瞬间用户栈不可信——它可能故意指向非法地址，内核若按栈取参数，第一步就可能被带偏；寄存器约定则完全由硬件与 ABI 固定，没有这个攻击面。'
-  derivation: original
-  sources:
-  - ref: linux-man-pages
-    locator: syscall(2) 的 Architecture calling conventions 部分
-    url: https://man7.org/linux/man-pages/man2/syscall.2.html
-    claim: x86-64 用 rax 传调用号、rdi/rsi/rdx/r10/r8/r9 传参数
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: app
-      id: p
-      label: 程序
-      highlight: true
-    - lane: kernel
-      id: k
-      label: 内核
-    - lane: hw
-      id: h
-      label: 硬件（终端）
-    messages:
-    - id: m-trap-args
-      from: p
-      to: k
-      label: rax 等于 0，参数在 rdi/rsi/rdx
-      active: true
-  log:
-  - mode: 用户态
-    event: 按寄存器约定摆好调用号与参数
-- id: mode-switch
-  title: 切到内核态
-  tldr: CPU 有两种模式，陷入时从用户态切到内核态。
-  body: 'CPU 自己记着当前是“用户态”还是“内核态”，用户态里很多操作会被硬件直接拦下。
-
-    陷入发生时，CPU 记下程序停在哪里，切换到内核态，从内核指定的入口开始执行。
-
-    这种切换由硬件保证，程序没法自己把自己变成内核态。
-
-
-    把机制拆开看：x86-64 的 syscall 指令本身不查表、不压栈，它只做几件硬件动作——把返回地址存进 RCX、把标志寄存器存进 R11、从 MSR 里取出预先登记的内核入口地址跳过去，并把特权级升到 Ring 0；内核入口代码随即切换到该进程的内核栈，再把用户寄存器逐个保存下来。这也是它比老式 int 0x80 快的原因：硬件动作被压到最少，剩下的保存工作由内核代码按需完成。注意切换模式不等于切换地址空间：这次陷入通常不换页表，内核代码本就映射在每个进程地址空间的高半区，只是用户态时受权限位保护碰不到。'
-  derivation: original
-  sources:
-  - ref: ostep
-    locator: Limited Direct Execution 一章，用户模式与内核模式
-    claim: 处理器区分用户模式和内核模式，trap 时切换到内核模式
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: app
-      id: p
-      label: 程序
-    - lane: kernel
-      id: k
-      label: 内核
-      highlight: true
-    - lane: hw
-      id: h
-      label: 硬件（终端）
-    messages:
-    - id: m-mode-switch
-      from: p
-      to: k
-      label: 切换到内核态
-      active: true
-  log:
-  - mode: 用户态 → 内核态
-    event: CPU 切换模式，内核接手
-- id: kernel-entry
-  title: 内核入口：先保存现场，再分头处理
-  tldr: 每个进程有一块独立的内核栈，入口先把用户寄存器存好，请求才变成一次普通的内核函数调用。
-  body: '跳进内核后第一件事不是干活，而是把现场收好。入口代码切换到当前进程的内核栈（每个进程在内核里都有一块独立的栈，与用户栈分开），把用户态的寄存器、返回地址等保存成一个结构体，之后 C 代码处理时就把这次请求当成一次普通的内核函数调用。
-
-    出问题也靠这份存档兜底：如果拷贝用户数据时地址非法，内核能借事先登记的修复表把错误转成 EFAULT 返回，而不是当场崩溃。为什么每个进程要一张独立的内核栈？因为多个进程可能同时陷在内核里，各自的调用链互不干扰；同时中断也可能在内核执行中途到达，现场必须分开存放才能层层恢复。和用户态对比着记：用户栈是进程自己的、内容不可信；内核栈是内核自己的、只存内核数据，两个栈物理隔离，是内核不被用户数据污染的基本盘。'
-  derivation: original
-  sources:
-  - ref: ostep
-    locator: Limited Direct Execution 一章，trap handler
-    claim: 陷入时硬件与内核协作保存用户状态，返回时恢复
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-
-  - ref: xv6-book
-    locator: Traps 一章
-    claim: 进入内核时保存用户寄存器到 trapframe，使用独立的内核栈
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: app
-      id: p
-      label: 程序
-    - lane: kernel
-      id: k
-      label: 内核
-      highlight: true
-    - lane: hw
-      id: h
-      label: 硬件（终端）
-    messages:
-    - id: m-kernel-entry
-      from: p
-      to: k
-      label: 切到内核栈，保存寄存器
-      active: true
-  log:
-  - mode: 内核态
-    event: 现场已保存，开始处理请求
-- id: syscall-table
-  title: 系统调用表：按号查表分发
-  tldr: 内核以调用号为下标查函数指针表；调用号一旦发布就是 ABI，永不修改、永不复用。
-  body: '内核入口拿到 rax 里的调用号后，做的事情出奇地朴素：先检查它没有越界，再以它为下标去查一张函数指针表 sys_call_table，跳到对应的处理函数，比如 0 号对应 sys_read、1 号对应 sys_write、257 号对应 sys_openat。
-
-    走例：strace 里看到 openat 返回 3，就是 257 号处理函数执行后把新文件描述符交回来。两个设计后果：第一，调用号一旦发布就是 ABI 的一部分，永远不能改也不能复用，否则老二进制会当场失效，所以新调用只往表尾加；第二，表里没有的号直接返回 ENOSYS（错误码 38），程序可以据此探测内核是否支持某个新调用并做兼容回退。误解澄清：查表本身只是数组下标访问，几乎不花时间，系统调用的开销不在查表，而在切换与校验，这一点在前面的实测量级里能对上。'
-  derivation: original
-  sources:
-  - ref: linux-man-pages
-    locator: syscalls(2)
-    url: https://man7.org/linux/man-pages/man2/syscalls.2.html
-    claim: Linux 系统调用列表与调用号约定，调用号属于稳定的 ABI
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: app
-      id: p
-      label: 程序
-    - lane: kernel
-      id: k
-      label: 内核
-      highlight: true
-    - lane: hw
-      id: h
-      label: 硬件（终端）
-    messages:
-    - id: m-syscall-table
-      from: k
-      to: k
-      label: 按调用号查表分发
-      active: true
-  log:
-  - mode: 内核态
-    event: 调用号 1，分发到 sys_write
-- id: check-and-do
-  title: 内核检查参数，然后代办
-  tldr: 内核不信任程序传来的任何东西，先检查再干活。
-  body: '内核先确认请求合理：这个文件描述符你打开过吗？你给的内存地址真的属于你吗？
-
-    不合法就返回错误（比如 EBADF、EFAULT），而不是让整个系统崩溃，这和后端从不信任前端参数是同一个道理。
-
-    检查通过后，内核才通过驱动把文字交给终端。
-
-
-    检查具体查什么？以 write（fd, buf, n）为例：先用 fd 查当前进程的文件描述符表，确认它指向一个已打开且可写的文件；再确认 buf 指向的用户内存确实属于这个进程且可读，内核用专门的 copy_from_user 路径拷贝，地址非法时得到 EFAULT 而不是让内核崩溃。边界情况：写到一半被磁盘满或信号打断时，write 可能只写成功一部分并返回那个较小的字节数，这叫部分写，调用者必须循环补写剩余部分——把返回值当成要么全成功要么全失败，是常见的误解。'
-  derivation: original
-  sources:
-  - ref: linux-man-pages
-    locator: write(2) 的 ERRORS 部分
-    url: https://man7.org/linux/man-pages/man2/write.2.html
-    claim: write 对非法文件描述符或地址返回 EBADF、EFAULT 等错误
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: app
-      id: p
-      label: 程序
-    - lane: kernel
-      id: k
-      label: 内核
-    - lane: hw
-      id: h
-      label: 硬件（终端）
-      highlight: true
-    messages:
-    - id: m-check-and-do
-      from: k
-      to: h
-      label: 输出文字
-      active: true
-  log:
-  - mode: 内核态
-    event: 检查参数，通过后驱动硬件完成输出
-- id: errno
-  title: 返回值与 errno：失败怎么告诉程序
-  tldr: 系统调用失败时返回 -1，具体原因放在 errno 里。
-  body: '内核把结果当返回值交回：成功时是有意义的数（比如写了几个字节），失败时 C 库包装函数返回 -1。
-
-    具体原因记在线程本地变量 errno 里，比如 ENOENT 表示文件不存在、EACCES 表示没权限，用 perror 或 strerror 能变成人读的话。
-
-    所以写系统级代码要养成习惯：每次调用都检查返回值，就像前端每次 fetch 都要看 response.ok。
-
-
-    再补一层机制：内核内部其实直接把负的错误码当返回值，例如 -2 表示 ENOENT。glibc 的包装函数发现返回值落在 -4095 到 -1 之间时，才把它取负写进 errno 并统一返回 -1。两个常见坑：第一，errno 是线程本地变量，多线程各自一份，不会互相覆盖；第二，成功的调用不会清零 errno，所以只能在确认返回 -1（或函数文档约定的失败标志）之后读它，拿残留值判断成败会误报。被信号打断的调用则返回 EINTR，上层通常要重试。'
-  derivation: original
-  sources:
-  - ref: ostep
-    locator: Limited Direct Execution 一章
-    claim: 系统调用失败时返回 -1，具体原因放在 errno 里。
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: app
-      id: p
-      label: 程序
-      highlight: true
-    - lane: kernel
-      id: k
-      label: 内核
-    - lane: hw
-      id: h
-      label: 硬件（终端）
-    messages:
-    - id: m-errno
-      from: k
-      to: p
-      label: 返回 -1，errno = ENOENT
-      active: true
-  log:
-  - mode: 内核态
-    event: 请求不合法，返回错误码
-- id: return-and-cost
-  title: 返回用户态，以及这一趟的代价
-  tldr: 内核带着结果切回用户态；但每次进出内核都不便宜。
-  body: '内核做完后切回用户态，程序从停下的地方继续，并拿到结果（写了几个字节）。
-
-    进出内核比普通函数调用慢得多，所以 printf 会先把文字攒在缓冲区，攒够了再调用一次 write，就像前端把多个请求合并成一次。
-
-    用 strace 对比一下“逐字写”和“缓冲后写”，系统调用次数差别很明显。
-
-
-    具体数字（量级示意，随机器差异可达数倍）：一次普通函数调用约几纳秒，一次系统调用约几百纳秒到 1 微秒量级（视 CPU 与漏洞缓解措施而定）。推理服务每秒要处理成千上万个 token，日志若每 token 都 write 一次，光系统调用开销就能吃掉可观的吞吐。
-
-
-    把这一趟的账拆开：陷入与返回的硬件动作、保存和恢复寄存器、参数校验与数据拷贝、调度与锁的竞争，每一项都不大，叠起来就比函数调用贵上一到两个数量级。工程上的应对都是同一个思路——摊薄固定成本：一次 write 写 8KB 而不是逐字节写、用 writev 把多段缓冲一次提交、把多次提交合并成批处理，其本质和前端合并请求、数据库批量插入没有区别：贵的不是活本身，是过门的次数。'
-  derivation: original
-  sources:
-  - ref: ostep
-    locator: Limited Direct Execution 一章
-    claim: 系统调用有切换开销
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  - ref: linux-man-pages
-    locator: setvbuf(3)
-    url: https://man7.org/linux/man-pages/man3/setvbuf.3.html
-    claim: stdio 对输出进行缓冲
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: app
-      id: p
-      label: 程序
-      highlight: true
-    - lane: kernel
-      id: k
-      label: 内核
-    - lane: hw
-      id: h
-      label: 硬件（终端）
-    messages:
-    - id: m-return-and-cost
-      from: k
-      to: p
-      label: 返回结果，切回用户态
-      active: true
-  log:
-  - mode: 内核态 → 用户态
-    event: 带着结果返回，程序继续执行
-- id: vdso
-  title: 不进内核的“系统调用”：vDSO
-  tldr: 有些只读的小请求，内核干脆把答案放到用户态，省掉一趟切换。
-  body: '像“现在几点”这种调用非常频繁，每次都陷入内核太亏。
-
-    Linux 把一小段内核提供的代码和数据映射进每个进程（叫 vDSO），clock_gettime、gettimeofday 通常直接在用户态读出结果。
-
-    这就像前端把不常变的数据放在本地缓存，不必每次都请求后端。
-
-
-    工程注记：用 strace -c 看一个真实程序，常会发现 read/write 之外还有大量 mmap 与 futex；从经验看，程序启动慢常常不是算得慢，而是成千上万次小文件 openat/read 累积出来的（可用 strace -c 自己验证）。
-
-
-    vDSO 的机制值得看清：内核把一页不断更新的时间数据（由时钟子系统维护）和一小段只读代码映射进进程，glibc 通过启动时传入的辅助向量找到它，clock_gettime 就在用户态读这页数据、配合 CPU 的时间戳计数器算出当前时间，全程不陷入。边界：如果硬件时钟不可靠，vDSO 函数内部会自己回退成真正的系统调用。代价是这页数据对所有进程可见，所以只能放这类人人可读的只读信息，写操作和需要鉴权的操作永远走不了这条路。'
-  derivation: original
-  sources:
-  - ref: ostep
-    locator: Limited Direct Execution 一章
-    claim: 有些只读的小请求，内核干脆把答案放到用户态，省掉一趟切换。
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: app
-      id: p
-      label: 程序
-      highlight: true
-    - lane: kernel
-      id: k
-      label: 内核
-    - lane: hw
-      id: h
-      label: 硬件（终端）
-    messages:
-    - id: m-vdso
-      from: p
-      to: p
-      label: clock_gettime：用户态直接读
-      active: true
-  log:
-  - mode: 用户态
-    event: 不陷入内核也拿到时间
-- id: strace-lab
-  title: strace 实操：把系统调用看出来
-  tldr: strace 打印每次系统调用的参数与返回值；-c 给出按次数与耗时排序的统计表。
-  body: '把前面的机制落到一条命令上：strace -e trace=write echo hi，最后会出现 write（1, hi 加换行, 3）等于 3 这一行——1 是标准输出的文件描述符，3 是实际写出的字节数，等号后面是返回值。再跑 strace -f -c ls：-f 跟踪子进程，-c 不打印明细，只给统计表，按总耗时和调用次数排序，常能看到 openat、read、newfstatat 占了大头。
-
-    读 strace 的三个要点：一看返回值，等于 -1 的行后面会跟上错误名如 ENOENT；二看次数，同一个小文件被反复 openat 往往是程序在做无谓的重复工作；三看对照，把输出重定向到文件再跑一次，对比 write 出现的时机，就能亲眼看到 stdio 全缓冲的影响。注意 strace 本身会让被跟踪程序明显变慢（每次系统调用都要停下来报告），数字只能看相对量级，不能当真实性能数据。'
-  derivation: original
-  sources:
-  - ref: linux-man-pages
-    locator: strace(1)
-    claim: strace 跟踪系统调用与信号，-c 输出统计，-f 跟踪子进程
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: app
-      id: p
-      label: 程序
-      highlight: true
-    - lane: kernel
-      id: k
-      label: 内核
-    - lane: hw
-      id: h
-      label: 硬件（终端）
-    messages:
-    - id: m-strace-lab
-      from: k
-      to: p
-      label: 每次调用都向 strace 报告一行
-      active: true
-  log:
-  - mode: 观测中
-    event: write 返回 3，写出成功
+      这条旁路成立的条件很苛刻：数据必须人人可读、读取无副作用、无需鉴权——时间恰好三条全占。凡涉及写操作或权限判断的请求，永远走不了这条路，只能老实过门。
+    derivation: original
+    sources:
+      - ref: ostep
+        locator: Limited Direct Execution 一章
+        claim: 有些只读的小请求，内核干脆把答案放到用户态，省掉一趟切换。
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: app
+          id: p
+          label: 程序
+          highlight: true
+        - lane: kernel
+          id: k
+          label: 内核
+        - lane: hw
+          id: h
+          label: 硬件（终端）
+      messages:
+        - id: m-vdso
+          from: p
+          to: p
+          label: clock_gettime：用户态直接读
+          active: true
+    log:
+      - mode: 用户态
+        event: 不陷入内核也拿到时间
 level: 基础
-minutes: 27
+minutes: 16
 prereq: []
 objectives:
-- 说清用户态/内核态为什么要隔离
-- 跟踪一次 read 系统调用的完整路径
-- 解释系统调用为什么比普通函数调用贵
+  - 说清用户态/内核态为什么要隔离
+  - 跟踪一次 read 系统调用的完整路径
+  - 解释系统调用为什么比普通函数调用贵
 aiLink: LLM 应用里每次读模型文件、收发网络请求、写日志都经系统调用进入内核；推理服务调优常看 strace 与 syscall 次数，批量与异步 I/O 的价值之一就是减少陷入内核的次数——看懂 syscall 才看得懂这些开销从哪来。
 design:
-- mechanism: 受控陷入：用户态只有从内核预先登记的唯一入口才能进入内核态，特权级切换完全由硬件把守，任何程序既无路可绕、也无从伪造这道门
-  problem: 根本约束是硬件特权近乎二值：能直接碰硬件的代码就能绕过一切检查，操作系统无法靠约定让用户程序自律，因为出错或恶意的程序根本不会遵守约定；同时 CPU 又必须全速执行用户代码，不可能每条指令都由软件审查一遍。
-  choice: 只保留 syscall 这类预先登记的入口：硬件保证用户态只能从内核指定的入口进入，跳到别处会被拦下。替代方案如让程序直接调用内核函数的地址，会让入口处的校验无从下手；如把每条 I/O 指令都用软件模拟，性能又完全不可接受。受控陷入是唯一同时满足隔离与速度的形状。
-  tradeoff: 换来强隔离，代价是每次请求都要付模式切换、保存现场与参数校验的固定开销，由所有调用者按次承担；内核因此必须把批量、异步与 vDSO 这些摊薄手段做成生态，否则高频小请求会被固定成本压垮，生态的复杂度是这份隔离的长期账单。
-  root: 底层是特权级与地址翻译的硬件强制性：权限检查由 CPU 在执行指令与访问内存时强制执行，不依赖被检查者的配合。软件策略可以千变万化，但隔离的根基只能建在硬件不讲情面的这一点上——软件无法凭空制造出它自己不具备的强制力。
-- mechanism: 系统调用号加寄存器传参：一份由整数编号与硬件寄存器构成的极简契约，几十年只准追加、不准修改，撑起全部二进制兼容
-  problem: 内核与无数独立编译的程序之间需要一份几十年稳定的契约：程序不知道内核内部函数的地址，内核也不信任程序给的任何指针与栈内容，而且这份契约必须小到能在一次硬件陷入中完整传递，没有第二次握手的机会。
-  choice: 用整数调用号加寄存器参数：号是稳定的名字，寄存器内容由硬件在陷入瞬间原样保留。替代方案如按字符串名字查找既慢又引入解析攻击面；如把参数放在用户栈上，栈指针本身不可信，内核取参数的第一步就可能在恶意地址上出错。寄存器约定把可信面压到了最小。
-  tradeoff: 代价是参数个数被寄存器数量封顶（x86-64 为 6 个），复杂参数只能传指针再由内核拷贝校验，编程也更别扭；换来的是契约极简且老二进制在新内核上照常运行。另一面是为兼容性付的永久税：已发布的调用号永远不能修改或回收。
-  root: 根源是二进制兼容的不可逆性：已经发布的二进制无法召回重编，ABI 一旦被依赖就近乎一条物理定律，只能追加不能修订。寄存器传参则利用了一个硬件事实：陷入时寄存器不经过内存地被完整保留，它是当时唯一既可信又免费的参数通道。
-- mechanism: vDSO：把读时钟这类无副作用、无需鉴权的只读请求整段留在用户态执行，用一页共享只读数据换掉整趟陷入与校验的成本
-  problem: 读当前时间这类请求频率极高、数据又人人可读，每次都付完整的陷入与校验成本纯属浪费；但把时间数据直接交给程序读，又必须保证它时刻准确，且不能让程序借这条通道摸到任何其他内核数据，通道的宽度必须恰好等于数据本身。
-  choice: 内核只映射一页自己维护的只读数据加一小段核准过的代码进每个进程，用户态读它并配合 CPU 时间戳算出结果。替代方案如开放读硬件时钟的特权指令，不同机器时钟语义不一且破坏隔离；如让程序本地缓存时间，精度与单调性又都保证不了。vDSO 是把通道收窄到一页只读数据的折中。
-  tradeoff: 换来零陷入的读取速度，牺牲的是这条路只能服务极少数无副作用、无需鉴权的只读请求，且内核多了一份必须与真实时钟严格同步的数据要维护，硬件时钟不可靠时还要能回退到真系统调用，这份同步与回退逻辑由内核长期承担。
-  root: 根源在于这类信息的特殊性质：它不依赖调用者身份、不改变任何系统状态、公开给所有人也不减损安全性。凡是同时满足这三条的请求，隔离带来的收益为零，此时再付隔离的成本就成了纯粹的浪费，绕行才在原理上成立。
+  - mechanism: 受控陷入：进入内核态只有内核预先登记的这一道门，特权级切换由硬件把守，程序既绕不过去，也伪造不了。
+    problem: 硬件特权近乎二值：能直接碰硬件的代码就能绕过一切检查，而出错或恶意的程序不会遵守任何约定；CPU 又必须全速跑用户代码，不可能每条指令都软件审查一遍。
+    choice: 只留 syscall 这类预登记入口，硬件保证用户态只能从这里进。让程序直接调用内核函数地址，入口校验无从下手；把每条 I/O 指令用软件模拟，性能不可接受。受控陷入是唯一同时满足隔离与速度的形状。
+    tradeoff: 代价是每次请求都要付模式切换、保存现场与参数校验的固定开销，按次由所有调用者承担；内核只好再把批量、异步、vDSO 这些摊薄手段做成生态——这份复杂度是隔离的长期账单。
+    root: 隔离的根基只能是硬件的强制力：权限检查由 CPU 在执行指令、访问内存时强制执行，不看被检查者的脸色。软件无法凭空制造自己不具备的强制力。
+  - mechanism: 调用号加寄存器传参：一份由整数编号与硬件寄存器构成的极简契约，几十年只追加不修改，撑起全部二进制兼容。
+    problem: 内核与无数独立编译的程序需要一份几十年稳定的契约：程序不知道内核函数的地址，内核不信任程序给的指针与栈，而契约必须在一次陷入中完整传完，没有第二次握手。
+    choice: 整数调用号是稳定的名字，寄存器内容由硬件在陷入瞬间原样保留。按字符串名查找既慢又引入解析攻击面；参数放用户栈上，栈指针本身不可信，内核取参第一步就可能踩恶意地址。寄存器把可信面压到最小。
+    tradeoff: 参数个数被寄存器封顶（x86-64 为 6 个），复杂参数只能传指针再由内核拷贝校验；已发布的调用号永不回收，是为兼容性付的永久税。换来的是契约极简、老二进制在新内核上照常运行。
+    root: 二进制兼容不可逆：已发布的二进制无法召回重编，ABI 一旦被依赖就近乎物理定律。而陷入时寄存器不经过内存地被完整保留，是当时唯一既可信又免费的参数通道。
+  - mechanism: vDSO：把读时钟这类无副作用、无需鉴权的只读请求整段留在用户态执行，用一页共享只读数据换掉整趟陷入与校验。
+    problem: 读时间频率极高、数据又人人可读，每次付完整陷入成本纯属浪费；但直接把数据交给程序读，又必须保证它时刻准确，且不能让程序借这条通道摸到任何其他内核数据。
+    choice: 内核只映射一页自己维护的只读数据加一小段核准过的代码。开放读硬件时钟的特权指令会破坏隔离且各机器语义不一；让程序本地缓存时间，精度与单调性都保证不了。把通道收窄到一页只读数据，是唯一过关的折中。
+    tradeoff: 只能服务极少数无副作用、无需鉴权的只读请求；内核还要长期维护这页数据与真实时钟严格同步，硬件时钟不可靠时能回退到真系统调用。
+    root: 这类信息不依赖调用者身份、不改变系统状态、公开也不减损安全——三条全占时，隔离的收益为零，再付隔离的成本就是纯粹的浪费，绕行才在原理上成立。
 quiz:
-- q: 程序为什么不能直接读文件、非要请内核帮忙？
-  options:
-  - 省电
-  - 因为硬件与资源必须由内核统一仲裁，直接访问会互相破坏
-  - 为了让代码更短
-  - 因为 CPU 不会执行读文件指令
-  answer: 1
-  explain: 文件、设备被所有进程共享，内核做权限检查与调度，避免互相踩踏。
-- q: 系统调用比普通函数调用贵的主要原因？
-  options:
-  - 要查一张更大的表
-  - 要切换特权级、保存/恢复现场并做参数校验
-  - 因为它用汇编写的
-  - 因为要等磁盘
-  answer: 1
-  explain: 模式切换与校验带来固定开销，所以工程上要批量、异步地减少调用次数。
-- q: read() 返回 -1 时，错误原因放在哪里？
-  options:
-  - 返回值里直接给原因
-  - 线程本地变量 errno
-  - 函数参数里
-  - 内核日志里
-  answer: 1
-  explain: C 库把内核返回的错误码写进线程本地的 errno，perror/strerror 据此打印。
+  - q: 程序为什么不能直接读文件、非要请内核帮忙？
+    options:
+      - 省电
+      - 因为硬件与资源必须由内核统一仲裁，直接访问会互相破坏
+      - 为了让代码更短
+      - 因为 CPU 不会执行读文件指令
+    answer: 1
+    explain: 文件、设备被所有进程共享，内核做权限检查与调度，避免互相踩踏。
+  - q: 系统调用比普通函数调用贵的主要原因？
+    options:
+      - 要查一张更大的表
+      - 要切换特权级、保存/恢复现场并做参数校验
+      - 因为它用汇编写的
+      - 因为要等磁盘
+    answer: 1
+    explain: 模式切换与校验带来固定开销，所以工程上要批量、异步地减少调用次数。
+  - q: read() 返回 -1 时，错误原因放在哪里？
+    options:
+      - 返回值里直接给原因
+      - 线程本地变量 errno
+      - 函数参数里
+      - 内核日志里
+    answer: 1
+    explain: C 库把内核返回的错误码写进线程本地的 errno，perror/strerror 据此打印。
