@@ -1,0 +1,497 @@
+id: network/grpc
+subject: network
+slug: grpc
+order: 6
+status: published
+license: CC-BY-4.0
+title: gRPC 与序列化：先签合同，再传字节
+summary: JSON 接口有体积、解析与无合同三笔账；gRPC 用 .proto 合同加 Protobuf 二进制编码，再站在 HTTP/2 上把这三笔账一次结清。
+premise: 以你每天写的 fetch 加 JSON 接口为起点，对照同一条消息在 JSON 与 Protobuf 下的字节账。
+position: 本课属于网络科新板块「接口的合同：RPC 与序列化」，是网络科的收官课：上一课 http2-quic 把 HTTP/2 的多路复用与二进制分帧讲透，本课接着看这套底座怎样被 gRPC 借去承载服务间调用，并补上此前各课都没正面处理的一层——机器之间先用什么合同约定接口、再怎样把对象压成字节。学完你能手算 varint 与 tag、说清字段号的兼容规则，并判断一个接口该用 gRPC 还是继续用 JSON。
+bridge:
+  prev: 上一课说 HTTP/2 的多路复用与二进制分帧不只是浏览器的加速器：帧与 stream 让一条连接并发跑许多请求，本课就看它怎样被 gRPC 借去当服务间通信的底座——每个 RPC 调用占一条 stream，消息装进 DATA 帧，元数据走 HEADERS 帧。
+overview:
+- key: 一句话总结
+  value: 先用 .proto 签一份带字段号的合同，再按合同把对象编码成紧凑字节，最后借 HTTP/2 的一条连接跑全部调用
+- key: 合同
+  value: IDL 先行，.proto 既定义消息也定义服务方法，protoc 据此生成各语言的 stub 与骨架代码
+- key: 编码
+  value: 线上只传字段号不传字段名，整数用 varint 变长编码，小数字只占一两个字节
+- key: 底座
+  value: 不重造传输层，直接复用 HTTP/2 的多路复用、二进制分帧与 HPACK 头压缩
+- key: 边界
+  value: 浏览器直连受限、对外接口难调试、简单场景不划算——gRPC 是服务间高频调用的最优解，不是万能药
+visual: datastate
+logColumns:
+- key: mode
+  label: 当前状态
+- key: event
+  label: 发生了什么
+level: 进阶
+minutes: 32
+prereq:
+- network/http2-quic
+- network/http-streaming
+objectives:
+- 说清 JSON over HTTP 的三笔账，并指出 gRPC 分别用哪件武器结清每一笔
+- 手算 varint(300) 与任意小字段号的 tag 字节，并算出一条小消息的 Protobuf 总字节数
+- 背出兼容规则：只许加新字段号、删字段必须 reserved、改号改类型为什么是灾难
+- 按请求与响应的条数与方向，在一元、服务端流、客户端流、双向流四种形状里选对一种
+aiLink: 模型服务之间的推理接口正是 gRPC 的典型主场：网关与推理服务之间用同一份 .proto 约定请求与逐 token 的流式响应，deadline 管住一次生成最长能跑多久，字段号兼容让模型接口能在不停服的前提下加新参数。
+design:
+- mechanism: IDL 合同先行加代码生成：接口与消息先写进一份 .proto 文件，字段的类型与号码在这份合同里一次定死，再由 protoc 为每种语言生成序列化代码、客户端 stub 与服务端骨架，两端各自实现业务、共用同一份定义。
+  problem: 没有合同时，接口只活在双方各自的代码与口头约定里：字段改名、类型漂移没有任何一处能在编译期被拦下，只能等线上数据解析失败才暴露，且每多一种语言的客户端就要多手写一遍拼请求与解响应的胶水代码。
+  choice: 把合同变成唯一的事实来源并让机器执行它：改接口先改 .proto，生成代码随之更新，类型对不上的调用在编译期就报错；跨语言互调也不再逐语言手写协议细节，生成器把这份重复劳动收走。
+  tradeoff: 代价是多了一道工序与一份要长期治理的资产：每次改接口都要改合同、重新生成、协调两端发版节奏，小接口上这套流程比直接写 JSON 重得多，合同本身若无人评审同样会长成新的混乱源。
+  root: 根源在接口的本质：接口是两台机器之间的协议，协议需要一个双方都能机器校验的单一定义；把定义从代码里抽出来先行确立，等于把运行时才暴露的协商错误提前到编译期，这是用流程成本换错误发现时机。
+- mechanism: 字段号二进制编码：线上字节里只出现字段号与类型组成的 tag 和紧凑编码的值，字段名一个字母都不传；解码方拿同一份 .proto，按号码把字节翻译回带名字的对象。
+  problem: JSON 把键名当数据的一部分每个请求重复发送，人可读的代价是体积与解析成本随调用量线性放大；而服务间调用的读者是机器不是人，这份可读性在高频场景里纯属浪费。
+  choice: 主动拿可读性换体积与速度：号码代替名字、varint 代替文本数字，解码按 tag 直接定位与读数；可读性不消灭，而是搬回合同文件里——要读懂字节流，先去读 .proto。
+  tradeoff: 代价是排障门槛整体抬高：抓包看到的是无意义的数字字节，没有合同就解不出任何字段，日志与线上调试都必须备好合同与解码工具，临时用 curl 试接口的便利彻底消失。
+  root: 根源是信息的存放位置之争：字段名这份信息放在每条消息里是重复投递，放在合同里是一次约定、长期复用；调用越频繁、消息越小，把共享信息抽到合同里的摊薄收益越大，这正是二进制协议在服务间胜过文本协议的根本原因。
+- mechanism: 复用 HTTP/2 作底座：gRPC 不发明新传输层，每个调用映射为一条 HTTP/2 stream，消息进 DATA 帧、方法名与元数据进 HEADERS 帧，连接管理、流控、头压缩与 TLS 全部继承 HTTP/2 的现成机制。
+  problem: 若为 RPC 从零设计传输层，多路复用、拥塞与流控、加密、中间设备穿透每一件都要重做且要多年部署验证；而 RPC 真正缺的只是合同、调用语义与流式形状这一层，传输机制本身并不缺。
+  choice: 只补缺的那一层：把发明集中在 .proto 合同、四种调用形状、deadline 与状态码这些 HTTP 没有的语义上，地基直接借 HTTP/2 已被浏览器与服务器生态验证过的实现。
+  tradeoff: 代价是把地基的缺陷一并继承：HTTP/2 over TCP 的队头阻塞在 gRPC 里依然存在，一条连接丢包会连坐同连接的其他调用，且 HTTP/2 的流控窗口等参数成了 gRPC 绕不开的调参面。
+  root: 根源是分层复用的经济学：协议栈每一层的价值在于被复用的次数，自建传输层只有在现成地基的语义确实不够时才划算；gRPC 的判断是 HTTP/2 的 stream 语义恰好够用，于是把全部创新预算花在合同与调用语义上。
+quiz:
+- q: varint(300) 编码成哪两个字节？
+  options:
+  - 0x2C 0x02
+  - 0xAC 0x02
+  - 0x01 0x2C
+  - 固定占 4 字节 0x2C 0x01 0x00 0x00
+  answer: 1
+  explain: 300 的低 7 位是 44（0x2C），续读旗置 1 后是 0xAC；高位剩 2，续读旗为 0，即 0x02。低位组先发。
+- q: 字段号 2、类型为 LEN（字符串）的 tag 字节是多少？
+  options:
+  - "0x02"
+  - "0x10"
+  - "0x12"
+  - "0x22"
+  answer: 2
+  explain: tag 等于字段号左移 3 位再或上类型号：(2 左移 3) 或 2 等于 18，即 0x12；低 3 位是类型，其余位是字段号。
+- q: 下面哪种改 .proto 的做法是安全的？
+  options:
+  - 把字段 2 的类型从 string 改成 int32
+  - 删掉字段 3 后把号码 3 给一个新字段用
+  - 新增字段时用一个从没用过的新字段号
+  - 把 name 字段的号码从 2 改成 5，显得更整齐
+  answer: 2
+  explain: 加新字段必须用全新号码，旧端能按类型跳过不认识的字段、新端读旧数据取默认值；删字段要 reserved 封号，改号与改类型都会让旧数据被误解。
+- q: 客户端发一个请求、服务端陆续返回许多条结果（如逐 token 生成），该用哪种调用形状？
+  options:
+  - 一元调用，多调几次凑齐
+  - 客户端流
+  - 服务端流
+  - 双向流
+  answer: 2
+  explain: 一问多答正是服务端流：一份请求换一条响应消息流，与上一课的流式响应同构，只是流的是结构化消息。
+steps:
+- id: why
+  title: 为什么换掉 JSON：服务间调用的三笔账
+  tldr: 键名重复传、文本要逐字解析、没有合同改字段运行时才炸——JSON 的便利在高频机器调用里全变成成本。
+  body: >-
+    你每天写 fetch 加 JSON：fetch('/api/user')，后端回一串带引号和键名的文本。这套办法对浏览器很友好，调试时打开控制台就能看懂。但服务与服务之间一天要调几百万次时，JSON 的三笔账就藏不住了。第一笔是体积账：键名每个请求都要重复传，{"id":150,"name":"hi"} 里真正的数据只有 150 和 hi，键名、引号、括号占了一大半。第二笔是解析账：JSON 是文本，数字 150 在线上是字符 '1''5''0' 三个字节，接收方要逐字扫描再转成整数，字符串还要处理转义。第三笔是无合同账：没有一份双方共认的接口定义，字段改名、把数字改成字符串，都要等运行时解析出错才炸，编译期毫无提醒。调用量小、要给人看时这三笔账可以忍；调用量大、两端都是机器时，就值得换一套先签合同、再传二进制的做法——这就是本课的 gRPC 加 Protobuf。再把场景放大：网关每秒转发上万次这种小消息时，省下的每个字节和每次文本扫描都会乘以上万倍，尾延迟里全是这种不起眼的重复劳动。
+  derivation: original
+  sources:
+  - ref: grpc-docs
+    locator: Introduction to gRPC（gRPC 以 Protocol Buffers 作 IDL 与消息交换格式）
+    claim: gRPC 默认以 Protocol Buffers 同时充当接口定义语言与消息交换格式，为服务间调用提供合同与二进制编码
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-13
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 同一条小消息，JSON 的三笔账逐项列出
+    rows:
+    - label: JSON 的三笔账
+      cells:
+      - v: 体积账
+        mark: active
+        sub: 键名每请求重复传
+      - v: 解析账
+        sub: 文本逐字扫描转数字
+      - v: 无合同账
+        sub: 改字段运行时才炸
+    aux:
+    - label: 对照
+      items:
+      - 读者是人时 JSON 占优
+      - 读者是机器且高频时三笔账全放大
+  log:
+  - mode: 算账
+    event: 三笔账都随调用量线性放大
+- id: rpc-idea
+  title: RPC 的核心想法：远程调用写得像本地函数
+  tldr: stub 是代办窗口：你把参数交给它，序列化与网络都被藏起来，但失败模式不会被藏住。
+  body: >-
+    RPC 是 Remote Procedure Call 的缩写，意思是远程过程调用。它的核心想法只有一句：让调用另一台机器上的函数，写起来像调用本地函数。比如订单服务想查用户，代码里直接写 userClient.getUser(150)，看起来和普通函数调用没区别，不用手写 fetch、拼 URL、处理状态码。实现这层假象的是 stub，你可以把它想成代办窗口：.proto 合同生成出来的客户端代码就是 stub，你把参数交给它，它负责把参数序列化成字节、走网络发出去、等回包、再解码成对象返回给你；服务端也有对应的骨架代码负责反向流程。打个你熟的比方：你不用自己跑邮局寄文件，而是把材料交给代办窗口，窗口负责封装、投递和取回回执，你只管在窗口前说要办哪项业务。代价必须说清：像本地只是写法上的幻觉，失败模式完全不同。本地调用要么成功要么抛异常，远程调用还会超时、连不上、对方处理完但回包丢了——你不知道到底执行没执行。所以每个远程调用都要显式想超时与重试，不能真的当本地函数用。
+  derivation: original
+  sources:
+  - ref: grpc-docs
+    locator: Core concepts, architecture and lifecycle（Using the API：客户端 stub 与服务端实现）
+    claim: 客户端持有与服务同名方法的本地 stub 对象，调用它即由框架完成参数封装、发送与响应解码
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-13
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 一次远程调用在 stub 里经历的四站
+    rows:
+    - label: 调用链
+      cells:
+      - v: 本地写法
+        mark: active
+        sub: getUser(150)
+      - v: stub 封装
+        sub: 序列化成字节
+      - v: 网络
+        sub: 对方机器执行
+      - v: 解码返回
+        sub: 字节还原成对象
+    aux:
+    - label: 幻觉的边界
+      items:
+      - 写法像本地
+      - 失败模式是远程的
+  log:
+  - mode: 抽象
+    event: 网络被藏进 stub，超时与不确定性藏不住
+- id: serialization
+  title: 序列化是什么：把对象压成字节流
+  tldr: 同一条消息先算总账：JSON 文本 22 字节，Protobuf 只有 7 字节。
+  body: >-
+    序列化就是把内存里的对象压成一串可以发送或保存的字节；反过来把字节还原成对象，叫反序列化。内存里的对象有指针、有对齐填充，没法直接塞进网线，必须先翻译成线上的统一格式。你平时用 JSON.stringify 与 JSON.parse 做的正是同一件事，只不过格式换成了带键名的文本版。还拿 {id:150, name:"hi"} 算账，下面用脚本复核过：写成 JSON 文本 {"id":150,"name":"hi"} 是 22 字节——数一下：大括号 2 个、引号 8 个、冒号 2 个、逗号 1 个、数字与字母 5 个、键名 id 与 name 共 6 个字母，加起来正好 22。同一条消息用 Protobuf 编码只有 7 字节：id 字段占 3 字节，name 字段占 4 字节，具体每一位第五步拆开。省下的不只是流量：二进制解码是按位置直接读数字，不用像 JSON 那样逐字扫描文本、判断逗号与引号在哪里。代价是字节流里没有键名，人眼直接看不懂，必须拿着 .proto 合同才能解码——可读性被主动换成了体积与速度。
+  derivation: original
+  sources:
+  - ref: protobuf-encoding
+    locator: Encoding（Message Structure：二进制消息只用字段号作键）
+    claim: Protobuf 二进制消息以字段号为键组织记录，字段名与声明类型只能在解码端对照消息定义确定
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-13
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 同一消息两种编码的字节数对照（脚本复核）
+    rows:
+    - label: JSON 文本
+      cells:
+      - v: "{"
+        sub: 结构符
+      - v: '"id":150'
+        sub: 8 字节
+      - v: '"name":"hi"'
+        sub: 12 字节
+      - v: "}"
+        sub: 合计 22 字节
+    - label: Protobuf
+      cells:
+      - v: id 字段
+        mark: active
+        sub: 3 字节
+      - v: name 字段
+        mark: active
+        sub: 4 字节
+      - v: 合计
+        mark: found
+        sub: 7 字节
+  log:
+  - mode: 对照
+    event: 22 字节对 7 字节，差在键名与文本数字
+- id: protobuf
+  title: Protobuf：.proto 先行，字段号才是身份证
+  tldr: 合同里等号后面的数字不是默认值，而是字段在线上唯一的字段号；名字给人看，号码给机器认。
+  body: >-
+    Protobuf 是 Protocol Buffers 的简称，它的做法是 .proto 先行：先写一份文本合同，再用它生成各语言的代码。合同长这样：message User { int32 id = 1; string name = 2; }，service 再在同一份文件里声明有哪些方法、入参和返回值是什么消息；service 那一半声明方法与调用形状，本课第八步再展开，这里先把消息定义看懂。初学最容易看错的是等号后面的数字：id 后面的 1 不是默认值，也不是顺序号摆设，它是字段号，是这个字段在线上唯一的身份证。字段名 id、name 只活在代码和合同里，线上一个字母都不传；真正写进字节的只有字段号。protoc 编译器读这份合同，为每种语言生成序列化与反序列化代码和 gRPC 的 stub，两端语言可以不同，合同只有一份。这就像签合同时先把条款编号固定下来：以后对账只认条款号，不认口头叫法。字段号为什么不能乱改、删字段要怎么做，第六步专门讲；先记住：名字是给人看的，号码才是给机器认的。
+  derivation: original
+  sources:
+  - ref: grpc-docs
+    locator: Introduction to gRPC（Working with Protocol Buffers：.proto 定义与 protoc 生成代码）
+    claim: 先在 .proto 文件中定义消息结构，再用 protoc 生成各语言的数据访问与序列化代码
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-13
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 一份合同，两个字段，各自的号码
+    rows:
+    - label: message User
+      cells:
+      - v: int32 id
+        mark: active
+        sub: 字段号 1
+      - v: string name
+        mark: active
+        sub: 字段号 2
+      - v: protoc
+        sub: 生成各语言代码
+    aux:
+    - label: 认清
+      items:
+      - 等号后是字段号，不是默认值
+      - 字段名不进线上字节
+  log:
+  - mode: 合同
+    event: 一份 .proto，两端共用
+  code:
+    lang: protobuf
+    code: |-
+      syntax = "proto3";
+
+      message User {
+        int32 id = 1;     // 1 是字段号：线上只认它，不传字段名
+        string name = 2;
+      }
+
+      service UserService {
+        rpc GetUser (GetUserRequest) returns (User);
+      }
+    note: 字段号一旦投入使用就不能改、不能复用，原因见第六步
+- id: varint
+  title: varint 全程手算：300 怎样变成两个字节
+  tldr: 每字节 7 位存数、最高位当续读旗、低位组先发；tag 等于字段号左移 3 位再或上类型号。
+  body: >-
+    varint 是变长整数编码：小数字用少字节，大数字用多字节。它每字节只拿 7 位存数字，最高那 1 位当续读旗：1 表示后面还有，0 表示到此结束；而且低位的那一组先发，也就是小端序。现在手算 300。300 的二进制是 100101100，共 9 位，一字节装不下 9 位有效位加旗，必须拆：低 7 位是 0101100，也就是 44；剩下的高位是 10，也就是 2。发第一个字节：低 7 位 0101100，续读旗置 1，拼成 10101100，即 0xAC；发第二个字节：数值 2，续读旗置 0，拼成 00000010，即 0x02。所以 varint(300) 等于 0xAC 0x02，共 2 字节，脚本已复核。解码时反着来：去掉每字节最高位，把高组放回高位拼起来即可。再说 tag：tag 等于字段号左移 3 位再或上类型号，低 3 位存类型。id 是 1 号 varint 字段，tag 等于 (1 左移 3) 或 0 等于 8，即 0x08；name 是 2 号长度型字段，tag 等于 (2 左移 3) 或 2 等于 18，即 0x12。取舍也清楚：小数字省字节，负数或很大的数反而可能比固定 4 字节更亏，varint 赌的是现实里小数字占多数。
+  derivation: original
+  sources:
+  - ref: protobuf-encoding
+    locator: Encoding（Base 128 Varints 与 Message Structure 的 tag 公式）
+    claim: varint 每字节以最高位作续读位、低 7 位为载荷且低位组先行；tag 由 (字段号左移 3 位) 或上类型号构成
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-13
+  canvas:
+    kind: datastate
+    structure: array
+    caption: varint(300) 的拆分与两个 tag 的合成
+    rows:
+    - label: 300 拆 7 位组
+      cells:
+      - v: "0101100"
+        mark: active
+        sub: 低 7 位 = 44
+      - v: "10"
+        sub: 高位 = 2
+      - v: 0xAC
+        mark: found
+        sub: 旗 1 加低组
+      - v: 0x02
+        mark: found
+        sub: 旗 0 加高组
+    - label: tag 合成
+      cells:
+      - v: 0x08
+        sub: id：(1 左移 3) 或 0
+      - v: 0x12
+        sub: name：(2 左移 3) 或 2
+  log:
+  - mode: 手算
+    event: varint(300) 等于 0xAC 0x02，脚本复核一致
+  code:
+    lang: text
+    code: |-
+      消息 {id:150, name:"hi"} 的 7 字节拆解（脚本复核）：
+      id   = 08 96 01       tag 0x08 + varint(150)=0x96 0x01，共 3 字节
+      name = 12 02 68 69    tag 0x12 + 长度 0x02 + "hi"，共 4 字节
+      JSON 同内容 {"id":150,"name":"hi"} = 22 字节
+    note: 150 的 varint 与官方 Encoding 文档的示例字节 08 96 01 完全一致
+- id: compatibility
+  title: 兼容规则：只许加新号，删字段要封号
+  tldr: 新旧两端同时在线靠三条纪律：新字段用新号、删字段写 reserved、号码与类型原地改写都是灾难。
+  body: >-
+    合同会演进，兼容规则就一条主线：让新旧两端能同时在线、互不误读。只许做的事：加新字段，但必须用一个从没用过的新字段号。旧端读到不认识的字段号，靠 tag 里的类型知道该跳过多少字节，直接忽略；新端读旧数据时，新字段不在就取默认值——这保证了双向兼容：新代码能读旧数据叫向后兼容，旧代码能读新数据叫向前兼容。写法上就是一行声明，例如 reserved 2; 与 reserved "old_name";，把号和名分别封住；少写任何一个，都给未来的误复用留了口子。再看删字段：不能删完就把号回收。必须在合同里写 reserved 把删掉的字段号和字段名封存，编译器会拦住后来人复用。为什么改号和改类型是灾难？因为线上只有号码没有名字：你把 2 号从 string 改成 int32，旧端发来的字符串字节会被新端按整数硬解，轻则报错重则静默解出垃圾数据，而且双方代码都能编译通过，问题只在运行时的数据里爆。真要大改，就开新字段号、新消息或新版本接口，让旧字段自然退役，而不是原地改写历史。
+  derivation: original
+  sources:
+  - ref: protobuf-encoding
+    locator: Proto3 Language Guide（Assigning Field Numbers、Deleting Fields 与 Reserved）及 Encoding（未知字段按类型跳过）
+    claim: 字段号投入使用后不得更改或复用，删除字段必须 reserved 封存其号码与名字；解析器可按类型跳过不认识的字段
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-13
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 演进动作的红绿灯
+    rows:
+    - label: 判定
+      cells:
+      - v: 加新字段用新号
+        mark: found
+        sub: 安全
+      - v: 删字段加 reserved
+        mark: found
+        sub: 安全
+      - v: 改号
+        mark: active
+        sub: 灾难
+      - v: 改类型或复用旧号
+        mark: active
+        sub: 灾难
+    aux:
+    - label: 双向兼容
+      items:
+      - 向后：新代码读旧数据
+      - 向前：旧代码读新数据
+  log:
+  - mode: 演进
+    event: 号码是历史，只能追加不能改写
+- id: http2-base
+  title: 为什么建在 HTTP/2 上：回收上一课的底座
+  tldr: 多路复用、分帧、头压缩全是上一课的现成机制，gRPC 借来当一条连接跑所有调用的底座。
+  body: >-
+    gRPC 不自己发明传输层，它直接站在上一课的 HTTP/2 上。回收三个概念看它们怎样被借走。第一是多路复用：上一课里多条 stream 的帧交错在一条 TCP 连接上跑，在浏览器是为了一页几十个资源不排队；在 gRPC 里，一条连接同样跑所有服务调用，几十个并发请求共用一条连接，不用为每次调用新建连接重付握手账。第二是二进制分帧：HTTP/2 把报文切成带 stream 编号的 HEADERS 与 DATA 帧，gRPC 的每条消息就装在 DATA 帧里，头部走 HEADERS 帧，调用的方法名、元数据也都是头。第三是头压缩 HPACK：反复调用时方法名与元数据高度重复，压缩后只发索引。要注意边界：HTTP/2 跑在 TCP 上，上一课说的 TCP 层队头阻塞在 gRPC 里依然存在，丢包仍会连坐同一连接上的其他调用；gRPC 接受这笔代价，换来的是不用重造连接管理、流控与加密这一整层。换句话说，gRPC 是站在巨人肩膀上的那一层：它新增的是合同、stub 与调用语义，不是又一套传输协议。
+  derivation: original
+  sources:
+  - ref: grpc-docs
+    locator: FAQ（gRPC 与 HTTP/2 的关系：遵循 HTTP/2 语义并允许全双工流）
+    claim: gRPC 大体遵循 HTTP/2 之上的 HTTP 语义，并在此之上明确支持全双工流式调用
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-13
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 上一课的三个机制在本课的对应岗位
+    rows:
+    - label: HTTP/2 机制
+      cells:
+      - v: 多路复用
+        mark: active
+        sub: 一条连接跑所有调用
+      - v: 二进制分帧
+        sub: 消息进 DATA 帧
+      - v: HPACK
+        sub: 方法名与元数据只发索引
+    aux:
+    - label: 继承的代价
+      items:
+      - TCP 层队头阻塞仍在
+  log:
+  - mode: 复用
+    event: 底座借现成的，创新只花在合同与调用语义上
+- id: streaming-modes
+  title: 四种调用形状：按条数与方向选
+  tldr: 一元、服务端流、客户端流、双向流：先数请求几条、再数响应几条，形状自己就定了。
+  body: >-
+    普通函数是一问一答，但有些活天生是一问多答或多问一答，所以 gRPC 给了四种调用形状。在 .proto 里只看 stream 关键字出现在哪边就能区分。第一种一元调用：一个请求一个响应，和本地函数最像，查单个用户、提交一笔订单都用它。第二种服务端流：客户端发一个请求，服务端陆续回多条消息，比如订阅订单状态、大模型逐 token 返回——这正是上一课流式思想在 RPC 里的版本，区别是这里流的是结构化消息而不是文本块。第三种客户端流：客户端陆续发多条，服务端最后回一个汇总，比如批量上报日志、上传分片后回一个确认。第四种双向流：两边独立地随时互发，适合实时协作与音视频信令这类对话式交互。选型只问一句：数据在时间上是单发还是连发、方向是单向还是双向。形状选错，后面就要用轮询或硬拆多次一元调用来补，成本全在调用次数与延迟上。再补一个判断窍门：先数请求几条、再数响应几条，一对一、一对多、多对一、多对多，两两组合正好对应四种形状，不必死记名字。四种形状共用同一套合同与底座，区别只在消息的时间形态。
+  derivation: original
+  sources:
+  - ref: grpc-docs
+    locator: Core concepts, architecture and lifecycle（Service definition：四种服务方法）
+    claim: gRPC 定义四种方法：一元、服务端流、客户端流与双向流，单次调用内消息顺序有保证
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-13
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 四种形状就是请求条数乘响应条数
+    rows:
+    - label: 形状
+      cells:
+      - v: 一元
+        sub: 一对一
+      - v: 服务端流
+        mark: active
+        sub: 一对多
+      - v: 客户端流
+        sub: 多对一
+      - v: 双向流
+        sub: 多对多
+  log:
+  - mode: 选型
+    event: 按条数与方向选形状，不靠感觉
+  code:
+    lang: protobuf
+    code: |-
+      service Demo {
+        rpc GetUser (Req) returns (User);                  // 一元
+        rpc WatchOrders (Req) returns (stream Order);      // 服务端流
+        rpc UploadLogs (stream Log) returns (Summary);     // 客户端流
+        rpc Chat (stream Msg) returns (stream Msg);        // 双向流
+      }
+    note: stream 写在哪边，哪边就是连发的一方
+- id: deadlines
+  title: 超时与取消：deadline 沿调用链传播
+  tldr: deadline 是整条链共享的一只倒计时钟：每跳传下去的是扣掉已耗时后的余额，不是重新计时。
+  body: >-
+    分布式调用最怕一件事：上游已经放弃了，下游还在傻干。gRPC 的纪律是给每次调用设一个 deadline，也就是最晚完成时刻，而不是每一跳各自重新掐表。客户端说这次调用两秒内必须结束，网关花掉半秒调下游时，传下去的只剩一秒半；实现上传的不是绝对时刻而是扣掉已耗时后的剩余时长，这样各机器时钟不一致也不会算错。到点未完成，客户端收到 DEADLINE_EXCEEDED，服务端那一侧的调用被自动取消，状态是 CANCELLED；但要强调：框架只发取消信号，你的业务代码要主动检查取消状态、停掉已经没人要的查询与计算，否则资源照样白烧。另一半纪律是元数据与状态码：认证信息、追踪编号这类不属于业务参数的数据走 metadata，也就是随调用附带的键值对，别塞进消息体；错误则用 gRPC 的标准状态码表达类别，比如参数错、未找到、超时，不要把所有失败都包装成成功响应再在正文里写错误字符串，那样调用方没法统一处理。记住一句话：deadline 是整条链路共享的一只倒计时钟，越往下游，剩下的时间只会更少，不会重置。
+  derivation: original
+  sources:
+  - ref: grpc-docs
+    locator: Guides（Deadlines：Deadline Propagation）与 Core concepts（Deadlines/Timeouts、Metadata）
+    claim: deadline 应沿调用链传播，传播时转为扣掉已耗时的剩余时长以避开时钟偏差；到点客户端得 DEADLINE_EXCEEDED、服务端调用被取消
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-13
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 两秒预算沿链递减，而不是每跳重置
+    rows:
+    - label: 剩余预算
+      cells:
+      - v: 客户端
+        mark: active
+        sub: 2.0 秒
+      - v: 网关
+        sub: 剩 1.5 秒
+      - v: 下游服务
+        sub: 剩 0.8 秒
+      - v: 到点
+        mark: found
+        sub: 全链取消
+  log:
+  - mode: 传播
+    event: 传剩余时长，不传绝对时刻
+- id: when-not
+  title: 什么时候别用 gRPC：边界与全课回收
+  tldr: 浏览器直连、对外公开、简单场景这三种情况，JSON 往往仍是更划算的那一边。
+  body: >-
+    最后说什么时候别用 gRPC。第一，浏览器直连受限：浏览器里的 JavaScript 拿不到原生 gRPC 需要的 HTTP/2 帧与尾部状态控制，前端页面不能像后端服务那样直接调用，要经 gRPC-Web 加代理转译，而且只支持一元与服务端流，客户端流与双向流用不了——对外给浏览器的接口，老老实实用 JSON over HTTP 更顺手。第二，对外公开 API 要考虑可调试性：第三方开发者用 curl 就能试 JSON 接口，gRPC 则要先拿合同、装工具生成代码，门槛明显更高，排障时抓包看到的也是二进制。第三，简单场景别上重装备：调用量低、接口少、团队没有多语言互调需求时，JSON 的三笔账小到可以忽略，引入合同与代码生成的维护成本反而更贵。全课回收：合同先行解决无合同账，二进制加 varint 解决体积与解析账，HTTP/2 底座解决并发账，deadline 与兼容规则管住演进与失败——gRPC 不是全面更好，而是把这几笔账算清之后，在服务间高频调用这个场景里的最优解。至此网络科收官：从握手建连、流式响应、名字解析、拥塞控制、传输演进，一路走到接口合同这一层。
+  derivation: original
+  sources:
+  - ref: grpc-docs
+    locator: FAQ（Can I use it in the browser：浏览器需经独立的 gRPC-Web 项目）
+    claim: 浏览器不能直接使用原生 gRPC，需经独立的 gRPC-Web 项目衔接
+    status: verified
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-13
+  - ref: grpc-docs
+    locator: gRPC-Web 项目说明（浏览器端仅支持一元与服务端流）
+    claim: gRPC-Web 在浏览器端只支持一元与服务端流，不支持客户端流与双向流
+    status: pending
+    checkedBy: Muse 核查
+    checkedAt: 2026-11-13
+    note: 2026-11-13 打开 grpc.io 的 Web 平台页仅有快速开始入口，未在官方页正文逐字核到该限制；该细节待父代理集成时对照 grpc-web 仓库 README 复核后再标 verified
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 三种不适合的场景与全课四笔账的回收
+    rows:
+    - label: 别用 gRPC
+      cells:
+      - v: 浏览器直连
+        mark: active
+        sub: 需 gRPC-Web 加代理
+      - v: 对外公开 API
+        sub: 调试门槛高
+      - v: 简单低频接口
+        sub: JSON 足够
+    - label: 全课回收
+      cells:
+      - v: 合同先行
+        sub: 结无合同账
+      - v: varint 二进制
+        sub: 结体积与解析账
+      - v: HTTP/2 底座
+        mark: found
+        sub: 结并发账
+  log:
+  - mode: 收官
+    event: 选型先算账，账不成立就别上重装备
