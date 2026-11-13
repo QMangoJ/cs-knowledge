@@ -21,7 +21,7 @@ type NextTopic = { href: string; title: string } | null;
 
 export function Player({ topic, initialStep, nextTopic, nav }: { topic: ViewTopic; initialStep: number; nextTopic: NextTopic; nav: PlayerNav }) {
   const total = topic.steps.length;
-  const { index, playing, goTo, next, prev, toggle, speed, setSpeed } = usePlayer(topic.subject, topic.slug, total, initialStep);
+  const { index, goTo, next, prev } = usePlayer(topic.subject, topic.slug, total, initialStep);
   const step = topic.steps[index]!;
   const rows = topic.steps.slice(0, index + 1).flatMap((s, si) => s.log.map((r, ri) => ({ r, key: `${si}-${ri}`, fresh: si === index })));
   const caption = step.canvas.kind !== "swimlane" ? step.canvas.caption : undefined;
@@ -120,15 +120,9 @@ export function Player({ topic, initialStep, nextTopic, nav }: { topic: ViewTopi
             </div>
             <div className="stepnav stage-controls" role="toolbar" aria-label="步骤导航">
               <button type="button" onClick={prev} disabled={index === 0}>← {t.prev}</button>
-              <button type="button" onClick={toggle} disabled={index === total - 1}>{playing ? t.pause : t.play}</button>
               <input className="scrub" type="range" min={0} max={total - 1} value={index} aria-label={t.scrub}
                 onChange={(e) => goTo(Number(e.target.value))} />
               <span className="count">{index + 1} / {total}</span>
-              <span className="speeds" role="group" aria-label={t.speed}>
-                {(["slow", "normal", "fast"] as const).map((s) => (
-                  <button key={s} type="button" className={speed === s ? "on" : ""} aria-pressed={speed === s} onClick={() => setSpeed(s)}>{s === "slow" ? "慢" : s === "fast" ? "快" : "常速"}</button>
-                ))}
-              </span>
               {index < total - 1
                 ? <button type="button" onClick={next}>{t.next} →</button>
                 : nextTopic ? <a className="btn" href={nextTopic.href}>{t.nextTopic}：{nextTopic.title} →</a> : null}

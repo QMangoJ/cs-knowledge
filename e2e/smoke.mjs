@@ -63,6 +63,17 @@ const p = await browser.newPage();
 const r = await p.goto(`${base}/os/syscall/99/`).catch(() => null);
 ok(r ? r.status() === 404 : base.startsWith("https://"), "unknown step -> 404");
 
+// ---- no autoplay: the step player must never advance on its own ----
+const np = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+await np.goto(`${base}/os/syscall/2/`);
+const npTitle = await np.locator(".step h2").textContent();
+ok((await np.locator(".stepnav button", { hasText: "播放" }).count()) === 0 && (await np.locator(".stepnav .speeds").count()) === 0, "noautoplay: no play button / speed control in step nav");
+await np.waitForTimeout(5200);
+ok(np.url().endsWith("/os/syscall/2/") && (await np.locator(".step h2").textContent()) === npTitle, "noautoplay: step unchanged after 5.2s dwell");
+await np.locator(".stepnav button", { hasText: "下一步" }).click();
+ok(np.url().endsWith("/os/syscall/3/"), "noautoplay: manual next still works after dwell");
+await np.close();
+
 // ---- phase 2: quiz removed, manual done, new interactions ----
 const q = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 const qerr = []; q.on("pageerror", (e) => qerr.push(e.message)); q.on("console", (m) => m.type() === "error" && qerr.push(m.text()));

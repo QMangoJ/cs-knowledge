@@ -2,10 +2,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { stepPath } from "@/lib/paths";
 
-export const AUTOPLAY_MS = 4000;
-export const SPEEDS = { slow: 6500, normal: 4000, fast: 2000 } as const;
-export type SpeedKey = keyof typeof SPEEDS;
-
 /** Parse the 0-based step index from a pathname like /os/syscall/3/. */
 export function indexFromPath(pathname: string, subject: string, slug: string, total: number): number | null {
   const m = pathname.match(new RegExp(`^/${subject}/${slug}/(?:(\\d+)/?)?$`));
@@ -16,8 +12,6 @@ export function indexFromPath(pathname: string, subject: string, slug: string, t
 
 export function usePlayer(subject: string, slug: string, total: number, initial: number) {
   const [index, setIndex] = useState(initial);
-  const [playing, setPlaying] = useState(false);
-  const [speed, setSpeed] = useState<SpeedKey>("normal");
   const idxRef = useRef(index);
   useEffect(() => { idxRef.current = index; }, [index]);
 
@@ -31,7 +25,6 @@ export function usePlayer(subject: string, slug: string, total: number, initial:
 
   const next = useCallback(() => goTo(idxRef.current + 1), [goTo]);
   const prev = useCallback(() => goTo(idxRef.current - 1), [goTo]);
-  const toggle = useCallback(() => setPlaying((p) => !p), []);
 
   useEffect(() => {
     const onPop = () => {
@@ -48,19 +41,10 @@ export function usePlayer(subject: string, slug: string, total: number, initial:
       if (e.metaKey || e.ctrlKey || e.altKey || (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
       if (e.key === "ArrowRight") { e.preventDefault(); next(); }
       else if (e.key === "ArrowLeft") { e.preventDefault(); prev(); }
-      else if (e.key === " " && !(el && el.tagName === "BUTTON")) { e.preventDefault(); toggle(); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [next, prev, toggle]);
+  }, [next, prev]);
 
-  const atEnd = index >= total - 1;
-  const active = playing && !atEnd;
-  useEffect(() => {
-    if (!active) return;
-    const id = window.setTimeout(() => { if (idxRef.current >= total - 2) setPlaying(false); next(); }, SPEEDS[speed]);
-    return () => window.clearTimeout(id);
-  }, [active, index, total, next, speed]);
-
-  return { index, playing: active, goTo, next, prev, toggle, speed, setSpeed };
+  return { index, goTo, next, prev };
 }
