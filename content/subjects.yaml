@@ -41,6 +41,9 @@ subjects:
   - name: 并行硬件
     blurb: 当一个核不够用：GPU 用成千上万个线程，以吞吐换延迟。
     topics: [co/gpu-simt]
+  - name: 不止一个主人：设备与多核共享内存
+    blurb: 内存不止 CPU 一个用户：设备经总线与 DMA 自行搬运，多核同时读写还要谈妥彼此能看见什么顺序。
+    topics: [co/bus-dma, co/memory-consistency]
 - id: dsa
   tagline: 数据结构与算法决定数据怎么摆、怎么找：同一批数据，摆法不同，查找与更新的代价可以差出几个数量级。
   blocks:
@@ -65,6 +68,9 @@ subjects:
   - name: 字符串里的模式
     blurb: 在长文本里找一小段模式：先把模式本身学透，再让文本只过一遍。
     topics: [dsa/string-matching]
+  - name: 算不动的问题：复杂度的天花板
+    blurb: 有一类问题不是不够聪明就能解决：解难找、验飞快，且彼此难度相连——NP 完全性是全科的收官。
+    topics: [dsa/np-completeness]
 - id: network
   tagline: 计算机网络只讲一件事：数据怎样可靠、有序、就近地从一台机器走到另一台机器。
   blocks:
@@ -83,6 +89,9 @@ subjects:
   - name: 传输层的演进
     blurb: 队头阻塞打了三场仗，最后 QUIC 干脆把传输层搬进用户态重写。
     topics: [network/http2-quic]
+  - name: 接口的合同：RPC 与序列化
+    blurb: 服务之间怎么打交道：先把接口写成合同，再把数据压成二进制——gRPC 与 Protocol Buffers 的组合。
+    topics: [network/grpc]
 - id: data
   tagline: 数据存储回答的是落盘之后的问题：数据怎样摆，才能查得快、改得稳、崩了不丢。
   blocks:
@@ -127,7 +136,7 @@ subjects:
   blocks:
   - name: 概率的语言
     blurb: 条件概率、贝叶斯与期望——判断、估算与实验读数的共同底座。
-    topics: [math/probability]
+    topics: [math/probability, math/distributions]
 - id: ai
   tagline: 人工智能是把「写规则」换成「调旋钮」：给程序足够多的例子和一块记分牌，它自己学出那套说不清道不明的映射。
   blocks:

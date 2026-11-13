@@ -134,3 +134,58 @@
   title: "Fast Inference from Transformers via Speculative Decoding, Leviathan et al.（arXiv:2211.17192；小模型起草、大模型并行验证，输出分布不变）"
   url: https://arxiv.org/abs/2211.17192
   license: CC-BY-4.0
+- id: linux-iommu-docs
+  title: "The Linux Kernel Documentation — Intel IOMMU Support（IOVA、每设备域与 DMA 重映射）"
+  url: https://www.kernel.org/doc/html/v5.3/x86/intel-iommu.html
+  license: "GPL-2.0（见原文）"
+- id: sorin-primer
+  title: "A Primer on Memory Consistency and Cache Coherence, Daniel J. Sorin, Mark D. Hill & David A. Wood, Synthesis Lectures on Computer Architecture, Morgan & Claypool, 2011（第 2 版 2020，增补 Vijay Nagarajan）"
+  url: https://doi.org/10.2200/S00346ED1V01Y201104CAC016
+  license: "见原文"
+- id: x86-tso
+  title: "x86-TSO: A Rigorous and Usable Programmer's Model for x86 Multiprocessors, Peter Sewell, Susmit Sarkar, Scott Owens, Francesco Zappa Nardelli & Magnus O. Myreen, Communications of the ACM 53(7):89-97, 2010"
+  url: https://doi.org/10.1145/1785414.1785443
+  license: "见原文"
+- id: arm-ordering
+  title: "Arm Learn the Architecture: Memory Systems, Ordering, and Barriers Guide"
+  url: https://developer.arm.com/documentation/102336/latest/
+  license: "见原文"
+- id: jls-ch17
+  title: "The Java Language Specification, Chapter 17: Threads and Locks（§17.4 Memory Model 与 happens-before）"
+  url: https://docs.oracle.com/javase/specs/jls/se21/html/jls-17.html
+  license: "见原文"
+# P2 新增来源片段（gRPC 课）——待父代理并入 content/sources.yaml 后，checkTopic 才能解析以下 ref。
+# 核实方式（2026-11-13，Muse 核查）：browser.open 逐页打开官方原文核对，
+# 覆盖 Introduction / Core Concepts / Deadlines / FAQ 与 Protobuf Encoding / Proto3 Guide 的关键段落。
+- id: grpc-docs
+  title: "gRPC 官方文档（Introduction / Core Concepts / Deadlines / FAQ，grpc.io/docs）"
+  url: https://grpc.io/docs/
+  license: "见原文"
+- id: protobuf-encoding
+  title: "Protocol Buffers 官方编码文档（Encoding 线格式与 Proto3 Language Guide，protobuf.dev）"
+  url: https://protobuf.dev/programming-guides/encoding/
+  license: "见原文"
+# 新增来源定义（供父代理并入 content/sources.yaml 后，np-completeness 课的引用才能通过 checkTopic）
+# 核实日期：2026-11-13；核实方式见各条 note 与子代理回报
+- id: sipser
+  title: "Introduction to the Theory of Computation, Michael Sipser, 3rd ed., Cengage（第 7 章 Time Complexity：P、NP、归约、Cook-Levin、子集和与顶点覆盖）"
+  url: https://nz.cengage.com/c/introduction-to-the-theory-of-computation-3e-sipser/9781133187790/?filterBy=Higher-Education
+  license: copyrighted
+- id: garey-johnson
+  title: "Computers and Intractability: A Guide to the Theory of NP-Completeness, Michael R. Garey & David S. Johnson, W. H. Freeman, 1979（NP 完全问题目录，附录收录 300 余条）"
+  url: https://mitpressbookstore.mit.edu/book/9780716710455
+  license: copyrighted
+- id: clay-p-vs-np
+  title: "Clay Mathematics Institute: Millennium Prize Problems 与 P versus NP 问题页（Stephen Cook 撰写的官方问题陈述）"
+  url: https://www.claymath.org/millennium-problems/
+  license: "见原文"
+# 拟新增到 content/sources.yaml 的来源定义（供父代理集成时合并；本课 zh.yaml 引用了这两个 ref）
+# 核实日期：2026-11-13，核实方式：browser.search 检索 OpenStax / NIST 官方页面内容
+- id: openstax-stats
+  title: "Introductory Statistics 2e, OpenStax（Illowsky & Dean 等；第 4 章离散随机变量、第 5 章连续随机变量、第 6 章正态分布、第 7 章中心极限定理、第 8 章置信区间、第 9 章假设检验）"
+  url: https://openstax.org/books/introductory-statistics-2e/pages/4-6-poisson-distribution
+  license: "CC BY 4.0"
+- id: nist-handbook
+  title: "NIST/SEMATECH e-Handbook of Statistical Methods（第 1 章探索性数据分析与置信区间、第 7 章产品与过程比较：置信区间与假设检验）"
+  url: https://www.itl.nist.gov/div898/handbook/prc/section1/prc14.htm
+  license: "见原文"

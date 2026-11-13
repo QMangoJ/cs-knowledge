@@ -74,6 +74,26 @@ await np.locator(".stepnav button", { hasText: "下一步" }).click();
 ok(np.url().endsWith("/os/syscall/3/"), "noautoplay: manual next still works after dwell");
 await np.close();
 
+// ---- P2 new lesson: co/bus-dma (10 steps) ----
+const bd = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+await bd.goto(`${base}/co/bus-dma/`);
+ok((await bd.locator(".step h2").textContent())?.length > 0, "p2 bus-dma: step 1 renders");
+ok((await bd.locator(".step-chips .chip").count()) === 10, "p2 bus-dma: 10 step chips");
+await bd.goto(`${base}/co/bus-dma/10/`);
+ok((await bd.locator(".step h2").textContent())?.length > 0, "p2 bus-dma: step 10 renders");
+await bd.close();
+
+// ---- P2 new lessons: memory-consistency / grpc / distributions / np-completeness ----
+for (const [slugPath, steps, label] of [["co/memory-consistency", 10, "memory-consistency"], ["network/grpc", 10, "grpc"], ["math/distributions", 11, "distributions"], ["dsa/np-completeness", 11, "np-completeness"]]) {
+  const pg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await pg.goto(`${base}/${slugPath}/`);
+  ok((await pg.locator(".step h2").textContent())?.length > 0, `p2 ${label}: step 1 renders`);
+  ok((await pg.locator(".step-chips .chip").count()) === steps, `p2 ${label}: ${steps} step chips`);
+  await pg.goto(`${base}/${slugPath}/${steps}/`);
+  ok((await pg.locator(".step h2").textContent())?.length > 0, `p2 ${label}: last step renders`);
+  await pg.close();
+}
+
 // ---- phase 2: quiz removed, manual done, new interactions ----
 const q = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 const qerr = []; q.on("pageerror", (e) => qerr.push(e.message)); q.on("console", (m) => m.type() === "error" && qerr.push(m.text()));
@@ -177,7 +197,7 @@ ok((await x.locator(".bridge a.bridge-title").first().getAttribute("href")).incl
 await x.goto(`${base}/os/context-switch/`);
 ok((await x.locator(".bridge a.bridge-title").last().getAttribute("href")).includes("/os/threads-scheduling/"), "phase6 context-switch bridge next links to threads");
 await x.goto(`${base}/dsa/greedy/`);
-ok((await x.locator(".p-station").textContent()).includes("共 10 站"), "phase6 DSA path now has 10 stations");
+ok((await x.locator(".p-station").textContent()).includes("共 11 站"), "phase6 DSA path now has 11 stations (P2 np-completeness appended)");
 ok((await x.locator(".design .design-item").count()) >= 2, "phase6 greedy design block renders");
 await x.goto(`${base}/dsa/dynamic-programming/`);
 ok((await x.locator(".bridge a.bridge-title").last().getAttribute("href")).includes("/dsa/greedy/"), "phase6 dp bridge next links to greedy");
