@@ -118,3 +118,11 @@ P2（只记录，不排期）：总线与 DMA、内存一致性模型、gRPC 与
 - 引用核实（本轮）：新增来源 attention-paper（arXiv:1706.03762，摘要与第 3.1/3.2 节定位已核对：缩放点积注意力、多头、纯注意力弃循环）、adam-paper（arXiv:1412.6980，摘要与算法 1 已核对：双矩估计）、speculative-decoding（arXiv:2211.17192，摘要已核对：起草—验证与输出分布不变、T5-XXL 2–3 倍加速）；PagedAttention 沿用库内已 verified 的 vllm-pagedattention。本课全部教学数字（反向传播算例、softmax、显存账、6N、KV 尺寸）均以脚本逐项复算，与正文一致。
 - 连贯性接入：subjects.yaml 新增学科 ai（tagline + 四个板块）；首页旅程在数学之后新增收官一环「程序从数据里学」（旅程 7 环变 8 环）；首页 ROUTE 与学科区同步接入 ai。桥链完整（backprop → attention → training → inference），training 的 prereq 点名 co/gpu-simt、attention 与 distributed/time 的 aiLink 互文。position/bridge 长句全站查重仍为 0 重复（构建期硬校验）。e2e 新增 phase10 共 16 条断言，phase2 路线断言更新为 9 站、phase4 旅程/学科导览更新为 8。
 - 至此全站 47 课，学科 8 科。三阶段扩建（数据补三 + 分布式四 + 人工智能四，共 11 课）全部完成。
+
+---
+
+## 2026-11-13 第五轮：关键点瘦身全科推广 + Player 去自动播放 + P2 五课补齐
+
+- 「关键点瘦身」由 OS 科推广到其余 7 科（38 课），口径与 OS 两批一致（删同义反复/段末复读/跨步复述/枚举压缩，数字与算例零丢失为硬门），并附加「步数不变、不删步」约束：网络 22347→19022、组成 33306→30317、DSA 50948→43896、数据存储 38571→36306、分布式 18279→15247、AI 17896→15874、数学 5089→4278（正文字数）。事实密集课（数据/AI/组成）降幅天然较低，按「字数不是指标」接受。
+- Player 移除自动播放：删除 usePlayer 的自动推进定时器、播放/暂停按钮、变速组与空格切换；舞台式分步呈现与手动导航不变；e2e 新增 noautoplay 断言（停留 5.2 秒步不变）。
+- P2 五课全部补成正式课（全站 47→52 课）：co/bus-dma（总线与 DMA，10 步）、co/memory-consistency（内存一致性模型，10 步，新板块「不止一个主人：设备与多核共享内存」）、network/grpc（gRPC 与序列化，10 步，新板块「接口的合同：RPC 与序列化」）、math/distributions（概率分布与假设检验，11 步，续 probability）、dsa/np-completeness（NP 完全性直觉，11 步，新板块「算不动的问题：复杂度的天花板」）。均按「降低门槛不降深度」写作：比方先行、新概念就地解释、算例手算级且经脚本复核、design ≥2、position/bridge 全接入、引用核实标 verified（grpc 一条 gRPC-Web 限制 claim 暂标 pending）。
