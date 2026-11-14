@@ -94,6 +94,17 @@ for (const [slugPath, steps, label] of [["co/memory-consistency", 10, "memory-co
   await pg.close();
 }
 
+// ---- always-on agents lesson: ai/always-on-agents (10 steps) ----
+{
+  const pg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await pg.goto(`${base}/ai/always-on-agents/`);
+  ok((await pg.locator(".step h2").textContent())?.length > 0, "always-on-agents: step 1 renders");
+  ok((await pg.locator(".step-chips .chip").count()) === 10, "always-on-agents: 10 step chips");
+  await pg.goto(`${base}/ai/always-on-agents/10/`);
+  ok((await pg.locator(".step h2").textContent())?.length > 0, "always-on-agents: last step renders");
+  await pg.close();
+}
+
 // ---- phase 2: quiz removed, manual done, new interactions ----
 const q = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 const qerr = []; q.on("pageerror", (e) => qerr.push(e.message)); q.on("console", (m) => m.type() === "error" && qerr.push(m.text()));

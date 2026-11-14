@@ -189,3 +189,7 @@
   title: "NIST/SEMATECH e-Handbook of Statistical Methods（第 1 章探索性数据分析与置信区间、第 7 章产品与过程比较：置信区间与假设检验）"
   url: https://www.itl.nist.gov/div898/handbook/prc/section1/prc14.htm
   license: "见原文"
+- id: anthropic-always-on-agents
+  title: "Building always-on agents, William Hu, Anthropic（Claude Platform 最佳实践指南，2026-11-13 发布）"
+  url: https://claude.com/resources/articles/building-always-on-agents
+  license: "见原文"
