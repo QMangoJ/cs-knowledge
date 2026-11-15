@@ -193,3 +193,24 @@
   title: "Building always-on agents, William Hu, Anthropic（Claude Platform 最佳实践指南，2026-11-13 发布）"
   url: https://claude.com/resources/articles/building-always-on-agents
   license: "见原文"
+# 分布式进阶课新增来源（2026-11-15，Muse 逐页打开核对）
+- id: kafka-delivery-semantics
+  title: "Apache Kafka 设计文档：消息投递语义（Kafka Message Delivery Guarantees，docs.confluent.io 上的 Kafka 设计文档：三档投递语义、幂等生产者、消费者位移提交）"
+  url: https://docs.confluent.io/kafka/design/delivery-semantics.html
+  license: "见原文"
+- id: rabbitmq-dlx
+  title: "RabbitMQ 官方文档：Dead Letter Exchanges（死信的四种触发情形与死信交换机配置）"
+  url: https://www.rabbitmq.com/docs/dlx
+  license: "见原文"
+- id: aws-backoff-jitter
+  title: "AWS Architecture Blog: Exponential Backoff and Jitter, Marc Brooker（封顶指数退避、全抖动与竞争模拟）"
+  url: https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/
+  license: "见原文"
+- id: envoy-circuit-breaking
+  title: "Envoy 官方文档：Circuit Breaking（架构概览：按集群的连接/待处理/并发请求/并发重试上限与重试预算建议）"
+  url: https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/circuit_breaking
+  license: "见原文"
+- id: istio-traffic
+  title: "Istio 官方文档：Traffic Management（服务注册与发现、熔断/超时/重试的服务级配置、按百分比的金丝雀切流）"
+  url: https://istio.io/latest/docs/concepts/traffic-management/
+  license: "见原文"

@@ -1,21 +1,15 @@
 "use client";
 import { usePlayer } from "./usePlayer";
 import { Canvas } from "@/components/renderers";
-import type { ViewTopic } from "@/lib/view";
-import { t } from "@/i18n";
-import { stepPath } from "@/lib/paths";
+import type { ViewStep, ViewTopic } from "@/lib/view";
+import { t, REPO_URL } from "@/i18n";
+import { issueUrl, stepPath } from "@/lib/paths";
 import { MarkDone } from "./Quiz";
 
-export type RailBlock = {
-  name: string;
-  topics: { id: string; title: string; href: string }[];
-  gaps: { title: string; note: string }[];
-};
 export type PlayerNav = {
   blockName: string;
   station: number;
   totalStations: number;
-  blocks: RailBlock[];
 };
 type NextTopic = { href: string; title: string } | null;
 
@@ -24,7 +18,7 @@ export function Player({ topic, initialStep, nextTopic, nav }: { topic: ViewTopi
   const { index, goTo, next, prev } = usePlayer(topic.subject, topic.slug, total, initialStep);
   const step = topic.steps[index]!;
   const rows = topic.steps.slice(0, index + 1).flatMap((s, si) => s.log.map((r, ri) => ({ r, key: `${si}-${ri}`, fresh: si === index })));
-  const caption = step.canvas.kind !== "swimlane" ? step.canvas.caption : undefined;
+  const caption = step.canvas && step.canvas.kind !== "swimlane" ? step.canvas.caption : undefined;
   const subjectName = t.subjects[topic.subject];
 
   return (
@@ -54,22 +48,6 @@ export function Player({ topic, initialStep, nextTopic, nav }: { topic: ViewTopi
 
         <div className={rows.length > 0 || caption ? "p-grid" : "p-grid no-log"}>
           <aside className="p-rail">
-            <section className="rail-pano" aria-label={t.panorama}>
-              <h3>{t.panorama}</h3>
-              <p className="rail-station">{subjectName} · 第 {nav.station} / {nav.totalStations} 站 · 本课在「{nav.blockName}」板块</p>
-              <div className="rail-blocks">
-                {nav.blocks.map((b) => (
-                  <div key={b.name} className={b.name === nav.blockName ? "rail-block current-block" : "rail-block"}>
-                    <p className="rail-block-name">{b.name}</p>
-                    {b.topics.map((x) => (
-                      <a key={x.id} href={x.href} className={x.id === topic.id ? "rail-topic current" : "rail-topic"} aria-current={x.id === topic.id ? "page" : undefined}>{x.title}</a>
-                    ))}
-                    {b.gaps.map((g) => <span key={g.title} className="rail-gap" title={g.note}>{g.title}（待补）</span>)}
-                  </div>
-                ))}
-              </div>
-            </section>
-
             <nav className="steplist" aria-label={t.steps}>
               <ol>
                 {topic.steps.map((s, i) => (
@@ -112,9 +90,9 @@ export function Player({ topic, initialStep, nextTopic, nav }: { topic: ViewTopi
                 <p className="now-bar" aria-live="polite"><b>{t.nowHappening}</b>{step.log.map((r) => topic.logColumns.map((c) => r[c.key]).filter(Boolean).join(" · ")).join("；")}</p>
               )}
               <div className="stage-body">
-                <Canvas state={step.canvas} lanes={topic.lanes} />
+                {step.special ? <SpecialStage step={step} topic={topic} /> : <Canvas state={step.canvas!} lanes={topic.lanes} />}
               </div>
-              {step.canvas.registers && step.canvas.registers.length > 0 && (
+              {step.canvas?.registers && step.canvas.registers.length > 0 && (
                 <ul className="regs">{step.canvas.registers.map((r) => <li key={r.name} className={r.changed ? "changed" : ""}><code>{r.name}</code> {r.value}</li>)}</ul>
               )}
             </div>
@@ -171,6 +149,50 @@ export function Player({ topic, initialStep, nextTopic, nav }: { topic: ViewTopi
                 <dl className="kv">{step.keyFields.map((k) => <div key={k.key}><dt>{k.key}</dt><dd>{k.value}</dd></div>)}</dl>
               </details>
             )}
+            {step.special === "overview" && topic.overview.length > 0 && (
+              <dl className="kv overview-kv">{topic.overview.map((o) => <div key={o.key}><dt>{o.key}</dt><dd>{o.value}</dd></div>)}</dl>
+            )}
+            {step.special === "terminal" && topic.terminal && topic.terminal.length > 0 && (
+              <div className="term-list">
+                {topic.terminal.map((c, i) => (
+                  <div key={i} className="term-item"><code>{c.cmd}</code>{c.note && <p>{c.note}</p>}</div>
+                ))}
+              </div>
+            )}
+            {step.special === "design" && (
+              <>
+                {topic.design && topic.design.length > 0 && (
+                  <div className="design in-step-design">
+                    {topic.design.map((d) => (
+                      <div key={d.mechanism} className="design-item">
+                        <h4>{d.mechanism}</h4>
+                        <p><b>{t.dProblem}：</b>{d.problem}</p>
+                        <p><b>{t.dChoice}：</b>{d.choice}</p>
+                        <p><b>{t.dTradeoff}：</b>{d.tradeoff}</p>
+                        <p><b>{t.dRoot}：</b>{d.root}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {topic.cited.length > 0 && (
+                  <section className="sources in-step-sources" aria-label={t.sources}>
+                    <h3>{t.sources}</h3>
+                    <ol>
+                      {topic.cited.map((c, i) => (
+                        <li key={i}>
+                          <a href={c.url} target="_blank" rel="noopener noreferrer">[{i + 1}] {c.title} · {c.locator} ↗</a>
+                          <span className="src-steps">（第 {c.steps.join("、")} 步）</span>
+                          <p className="claim">{c.claim}</p>
+                        </li>
+                      ))}
+                    </ol>
+                  </section>
+                )}
+                <p className="in-step-report">
+                  <a className="report" href={issueUrl(REPO_URL, topic.id, index + 1, step.title)} target="_blank" rel="noopener noreferrer">{t.reportError} ↗</a>
+                </p>
+              </>
+            )}
           </article>
 
           {(rows.length > 0 || caption) && (
@@ -193,6 +215,35 @@ export function Player({ topic, initialStep, nextTopic, nav }: { topic: ViewTopi
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Stage panel for the synthesized steps (概况 / 终端 / 设计): no canvas, the step's
+ *  own material presented large; full text lives in the details column. */
+function SpecialStage({ step, topic }: { step: ViewStep; topic: ViewTopic }) {
+  if (step.special === "overview") {
+    return (
+      <div className="special-stage">
+        <p className="ss-kicker">{t.overview}</p>
+        <p className="ss-premise">{topic.premise}</p>
+        <ul className="ss-keys">{topic.overview.map((o) => <li key={o.key}>{o.key}</li>)}</ul>
+      </div>
+    );
+  }
+  if (step.special === "terminal") {
+    return (
+      <div className="special-stage">
+        <div className="term-window">
+          {(topic.terminal ?? []).map((c, i) => <p key={i}><code><span className="term-prompt">$ </span>{c.cmd}</code></p>)}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="special-stage">
+      <p className="ss-kicker">{t.design}</p>
+      <ol className="ss-design">{(topic.design ?? []).map((d) => <li key={d.mechanism}>{d.mechanism}</li>)}</ol>
     </div>
   );
 }

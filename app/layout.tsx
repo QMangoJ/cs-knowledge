@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import Link from "next/link";
 import "@/styles/tokens.css";
 import "@/styles/globals.css";
 import { t, SITE_URL } from "@/i18n";
+import { loadContent, pageTopics } from "@/lib/content";
+import { stepPath } from "@/lib/paths";
+import { SiteShell, type NavSubject } from "@/components/nav/SiteShell";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -13,12 +15,22 @@ export const metadata: Metadata = {
 export const viewport: Viewport = { themeColor: [{ media: "(prefers-color-scheme: dark)", color: "#0b1020" }, { color: "#fcfdfe" }] };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const { subjects } = loadContent();
+  const topics = pageTopics();
+  const nav: NavSubject[] = subjects
+    .map((s) => ({
+      id: s.id,
+      name: t.subjects[s.id as keyof typeof t.subjects] ?? s.id,
+      topics: topics
+        .filter((x) => x.subject === s.id)
+        .sort((a, b) => a.order - b.order)
+        .map((x) => ({ id: x.id, title: x.title, href: stepPath(x.subject, x.slug, 0) })),
+    }))
+    .filter((s) => s.topics.length > 0);
   return (
     <html lang="zh-CN">
       <body>
-        <header className="site-header"><Link href="/">{t.siteName}</Link><span className="hint">{t.keyboardHint}</span></header>
-        <main>{children}</main>
-        <footer className="site-footer">{t.footer}</footer>
+        <SiteShell nav={nav}>{children}</SiteShell>
         {/* Web Analytics beacon: added only after Daniel approves (needs token). */}
       </body>
     </html>

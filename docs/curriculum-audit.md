@@ -136,3 +136,15 @@ P2（只记录，不排期）：总线与 DMA、内存一致性模型、gRPC 与
 - 引用核实（本轮）：新增来源 anthropic-always-on-agents（claude.com 官方原文，标题/作者 William Hu/发布日期 2026-11-13 均已打开原文逐项核对），本课 9 条引用全部标 verified（2026-11-15）。与任务书骨架的出入：无实质出入；仅补入原文细节（会话续接规则、延后调用在 Claude Code 中由 hook 实现、发件箱「多数场景发送工具就够」）。
 - 连贯性接入：AI 路径由 4 站扩为 5 站，本课为末站（bridge.prev 回收推理课的单次调用成本账，无 next）；inference-kv-cache 同步新增 bridge.next 指向本课，并修正其 position 与末步中「全科收官」的旧措辞与收官 log（改为承接）。position/bridge 长句全站查重仍为 0 重复（构建期硬校验）。e2e 新增 always-on-agents 3 条断言（10 步 chips + 首末步渲染）。
 - 至此全站 53 课。
+
+---
+
+## 2026-11-15 第七轮：分布式进阶课 + 全站菜单 + 课程页全屏舞台化
+
+- 新增 distributed/mq-governance（10 步，正文 4,408 字，design 3 条，order 5，分布式新板块「进阶：让调用可靠」）：一条主线——同步调用的串联可用性账（0.999⁴≈99.6%，示例）→ 异步消息队列（削峰算术：速率差×时间，堆积 30,000 条/排空 30 分钟/扩容后约 3.3 分钟，示例数字经脚本验算）→ 至少一次投递 + 幂等去重 + 死信隔离 → 重试（3 层×3 次 = 27 倍放大、指数退避 + 全抖动、20% 重试预算）→ 限流（令牌桶容量 200/速率 100 的突发账、漏桶约 3.5 秒）→ 熔断降级 → 注册发现/配置中心/灰度/链路追踪。穿插 3 个标明「业务场景示意」的案例（广告审核洪峰、客服工单大促限流与多数据中心治理、广告投放重试风暴），只用公开常识层面的业务形态，数字均为自洽示例并标注。terminal 一条（kafka-consumer-groups 看 lag）。
+- 引用核实（本轮）：新增来源 5 条并逐页打开核对——kafka-delivery-semantics（Confluent 上的 Kafka 设计文档：投递语义）、rabbitmq-dlx（死信四种触发）、aws-backoff-jitter（Full Jitter 公式与竞争模拟）、envoy-circuit-breaking（/intro/arch_overview/ 路径，/other_features/ 变体为 404 已避开；最大并发重试与重试预算建议）、istio-traffic（服务注册、金丝雀百分比切流）；另复用库内 ddia 第 8/11 章。本课引用全部标 verified（2026-11-15）。
+- 连贯性接入：分布式路径 4 站扩为 5 站；time-and-transactions 新增 bridge.next 指向本课，其 position 与末步正文/log 中「收官/本科四站」措辞改为「第四段/前四站/骨架立完」（末站身份转移）。position/bridge 长句全站查重仍为 0（构建期硬校验）。
+- 全站导航菜单（新增导航层）：app/layout 改为服务端组装两级菜单数据（学科→课程，按 subjects.yaml 与 order），客户端 SiteShell 渲染：≥1200px 视口左侧固定栏（240px，自身可滚动），<1200px 改为顶栏 ☰ 按钮 + 抽屉（同内容，Esc/遮罩/跳转后关闭）；当前课按路径前缀高亮（aria-current）。菜单链接关闭 prefetch（54 个链接全量预取会污染步进期的 RSC 零请求断言且浪费带宽）。首页导览内容与播放器交互/视觉未动。
+- 课程页版式整改（Daniel 拍板）：删除 TopicBelow 整段（全景/概况/设计/终端/出处/桥接长段）与 Player 内 rail 全景，内容并入播放器合成步序——第 1 步「概况」（premise + overview 键值）、原有步、terminal 步（若有，设计步之前）、末步「为什么这样设计」（design 全文 + 紧凑出处列表，出处步号按新步序 +1；纠错链接保留在末步）。全景图只从课程页撤下，首页学科导览保留。课程页改为全屏固定舞台：shell 高度 100dvh、main 不滚动（:has(.player2) 时 overflow hidden），溢出只发生在舞台内部区域（桌面 canvas-wrap/讲解/rail 内部滚动；移动 stage-body 上限 38dvh、讲解区 flex 滚动、日志/rail 限高）。播放器三档布局由视口媒体查询改为对 .site-main 的容器查询（断点 1120px 内容宽），使行为随内容区宽度而非视口宽度切换（1440 视口 − 240 菜单 = 1200 内容宽，网格布局保持）。步序位移影响：既有步深链整体 +1（概况步插入），进度只按课存（cs-done:<topicId>）不受影响，无按步索引的持久化数据。首页卡片步数与 [step] 静态参数改走 extendedStepCount；Home ROADMAP 删除已落地的「分布式进阶」条目。
+- e2e 同步更新：主循环步号 +1（切到内核态现位于 /5/）、各课 chips 数改为扩展步数、phase4 全景/桥接断言替换为菜单断言（高亮/跨课跳转/无 .below）、phase5 改为全屏语义断言（舞台填满 main、页面不滚）、phase6–10 的桥接断言改为末步「下一主题」按钮 + 菜单可达、phase9 分布式改 5 站并新增 mq-governance 专项块、phase10 AI 站数修正为 5（always-on-agents 加入后旧断言已过期）、新增移动端抽屉块。全量 206 条断言全绿；步页 JS 182.7KB gzip ≤ 200KB 预算；单测 9/9。
+- 至此全站 54 课。

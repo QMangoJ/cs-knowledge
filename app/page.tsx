@@ -1,4 +1,5 @@
 import { loadContent } from "@/lib/content";
+import { extendedStepCount } from "@/lib/view";
 import { Home, type HomeTopic } from "@/components/home/Home";
 
 export default function Page() {
@@ -8,7 +9,7 @@ export default function Page() {
     .filter((x) => x.status !== "draft" || !prod)
     .map((x) => ({
       id: x.id, subject: x.subject, slug: x.slug, title: x.title, summary: x.summary, status: x.status,
-      steps: x.steps.length, level: x.level, minutes: x.minutes, prereq: x.prereq,
+      steps: extendedStepCount(x), level: x.level, minutes: x.minutes, prereq: x.prereq,
     }));
   return <Home topics={list} subjects={subjects} journey={journey} />;
 }

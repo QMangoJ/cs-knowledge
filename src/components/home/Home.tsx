@@ -21,7 +21,7 @@ const ROUTE: { subject: string; blurb: string }[] = [
   { subject: "ai", blurb: "最后是程序从数据里学：反向传播怎样给每个权重分摊责任，注意力与 KV 缓存又怎样决定它跑多快、多贵。" },
   { subject: "coding", blurb: "到「面试刷题」里把算法题在浏览器里真刀真枪写出来、跑测试、看复杂度。" },
 ];
-const ROADMAP = ["分布式进阶：消息队列、限流与重试、服务治理", "存储进阶：向量索引与混合检索", "AI 系统深化：推理调度、批处理与量化"];
+const ROADMAP = ["存储进阶：向量索引与混合检索", "AI 系统深化：推理调度、批处理与量化"];
 
 export function Home({ topics, subjects, journey }: { topics: HomeTopic[]; subjects: SubjectInfo[]; journey: JourneyStep[] }) {
   useProgressVersion();
