@@ -23,7 +23,7 @@ overview:
   - key: 持久化契约
     value: write() 成功 ≠ 已落盘；fsync 才是「写进稳定存储」的承诺点
   - key: 常见文件系统
-    value: ext4、XFS、APFS、NTFS，思想相通（inode/日志/写时拷贝各有取舍）
+    value: ext4、XFS、APFS、NTFS，思想相通：都要管名字到数据的映射与崩溃恢复，只是路线不同——ext4 这类靠日志先记账再改，APFS 这类靠写时拷贝不覆盖旧数据（inode/日志/写时拷贝各有取舍）
 visual: swimlane
 lanes:
   - id: app

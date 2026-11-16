@@ -191,7 +191,7 @@ steps:
     - id: m2
       from: u
       to: r
-      label: 先问 .com / 这是权威给的 IP
+      label: 逐级指路：先回 .com 的地址，最后由权威给出 IP
   log:
   - mode: 解析 1
     event: 迭代查询 根→TLD→权威
@@ -394,7 +394,7 @@ steps:
     - id: m10
       from: a
       to: r
-      label: 先选机制，再谈落点
+      label: DNS 按来源答不同边缘 IP；任播同 IP 由路由送到拓扑最近的节点
       active: true
   log:
   - mode: 对比

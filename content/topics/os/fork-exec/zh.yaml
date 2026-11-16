@@ -19,11 +19,11 @@ overview:
   - key: 为什么分两步
     value: fork 和 exec 之间，可以先布置子进程（如重定向输出）
   - key: 常见用法
-    value: shell 运行命令、管道 a | b、Node.js 的 child_process
+    value: shell 运行命令、管道 a | b 都是这套动作；Node.js 里启动子进程跑外部命令的 child_process，底层走的也是同一套
   - key: 收尾
     value: 父进程不 wait，子进程会变成僵尸进程
   - key: 进程状态
-    value: 运行（R）、睡眠（S/D）、停止（T）、僵尸（Z）
+    value: 运行（R）：正在跑或排队等 CPU；睡眠（S/D）：睡下等事件或磁盘，D 连信号都叫不醒；停止（T）：被信号暂停（如调试时）；僵尸（Z）：已退出、只等父进程来收退出码
   - key: 进程 vs 线程
     value: Linux 上都用 clone 创建：线程共享地址空间，进程各有一份
   - key: posix_spawn / vfork

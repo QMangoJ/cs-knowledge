@@ -197,7 +197,7 @@ steps:
     - label: 大而远
       cells:
       - v: 全局显存（HBM）
-      - v: 主机内存（PCIe/NVLink 之外）
+      - v: 主机内存（经 PCIe/NVLink 连接，最远）
   log:
   - mode: 层级
     event: 优化 = 让数据在片上被复用足够多次

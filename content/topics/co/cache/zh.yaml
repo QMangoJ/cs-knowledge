@@ -22,7 +22,7 @@ overview:
 - key: 局部性
   value: 时间局部性（刚用过的还会用）、空间局部性（用了这个，附近的也会用）
 - key: 类比
-  value: 浏览器 HTTP 缓存、CDN、React 的 useMemo
+  value: 浏览器把下过的资源存本地、下次直接用（HTTP 缓存），网站把热门内容推到离用户近的节点（CDN），React 把算过的结果存下来复用（useMemo）——都是把常用结果放在手边，免得每次重取重算
 - key: 映射方式
   value: 直接映射、组相联（最常用）、全相联
 - key: 替换

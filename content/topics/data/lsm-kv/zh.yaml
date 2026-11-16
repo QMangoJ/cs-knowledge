@@ -126,7 +126,7 @@ steps:
       - v: 文件 D
   log:
   - mode: 合并
-    event: compaction 是 LSM 的心脏，也是它的主要成本
+    event: 归并时新版本压过旧版本、墓碑真正丢弃；数据被反复重写，是 LSM 的主要成本
 - id: read-path
   title: 读路径：为什么要布隆过滤器
   tldr: 查一个键要从新到旧逐层找；大多数文件根本没有这个键——布隆过滤器用极小的内存先回答「肯定没有」。
@@ -354,9 +354,9 @@ steps:
     rows:
     - label: 同构体
       cells:
-      - v: RocksDB 特徵/状态
-      - v: Kafka 日志段
-      - v: 流处理状态存储
+      - v: RocksDB：特征与会话状态
+      - v: Kafka：写先追加进日志段
+      - v: 流处理状态存储：先记日志再合并视图
   log:
   - mode: 迁移
     event: 先追加、后整理——到处都是这个模式

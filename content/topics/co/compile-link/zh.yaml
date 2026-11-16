@@ -19,7 +19,7 @@ overview:
 - key: Linux 上的格式
   value: 目标文件和可执行文件都是 ELF 格式
 - key: 类比
-  value: 前端的 TypeScript 编译 + 打包（webpack/Vite）+ 浏览器加载
+  value: 前端里 TypeScript 编译成 JS ≈ 这里的编译，webpack/Vite 把多个文件打包成一个产物 ≈ 链接，浏览器把产物装进页面运行 ≈ 加载
 - key: 四个阶段
   value: 预处理（.i）→ 编译（.s）→ 汇编（.o）→ 链接（可执行文件）
 - key: 静态 vs 动态链接

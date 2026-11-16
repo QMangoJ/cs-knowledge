@@ -26,9 +26,9 @@ overview:
 - key: 堆排序
   value: 建堆 O(n) + n 次取出，共 O(n log n)，原地、不稳定
 - key: 不支持
-  value: 按值查找任意元素是 O(n)；改优先级需要额外记下标
+  value: 按值查找任意元素是 O(n)；改某个元素的优先级，要先知道它在数组里的下标，而堆没法按值快速定位，所以需要额外维护一份键到下标的记录
 - key: 最大堆
-  value: 把比较反过来即可
+  value: 把比较反过来即可：小顶堆要求父节点不大于孩子，反过来要求父节点不小于孩子，堆顶就变成最大值
 visual: datastate
 logColumns:
 - key: mode
