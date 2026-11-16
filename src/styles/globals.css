@@ -288,6 +288,11 @@ details.ref-sol summary{cursor:pointer;font-weight:700}
 .p-stage{display:flex;flex-direction:column;gap:10px;min-width:0;min-height:0}
 .stage-card{display:flex;flex-direction:column;padding:16px 18px}
 .stage-body{min-height:230px;display:flex;align-items:center;justify-content:center;min-width:0}
+/* Safe centering: auto margins centre a short visual, but resolve to 0 when the visual is
+   taller than the stage, so it overflows downward only and stays reachable by scrolling.
+   (Plain align-items:center centres the overflow too, pushing the top above the scroll
+   origin where no scroll can ever reach it.) */
+.stage-body > *{margin-top:auto;margin-bottom:auto}
 .stage-body > .swimlane{width:100%;height:auto;max-width:720px;max-height:440px}
 .stage-body > .datastate{width:100%}
 .stage-body .ds-main{display:flex;flex-direction:column;width:100%}
@@ -323,6 +328,9 @@ details.ref-sol summary{cursor:pointer;font-weight:700}
   .p-rail{grid-area:rail;overflow-y:auto;padding-right:4px;height:0;min-height:100%}
   .p-stage{grid-area:stage;min-height:0}
   .canvas-wrap{flex:1;min-height:0;overflow-y:auto}
+  /* Children keep their natural height; the wrap scrolls the whole stage instead of
+     flex-shrinking the stage body below its content (which clipped tall visuals). */
+  .canvas-wrap > *{flex:none}
   .p-details{grid-area:details;overflow-y:auto;padding-right:6px;height:0;min-height:100%}
   .p-logbar{grid-area:log}
 }
