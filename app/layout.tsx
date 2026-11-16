@@ -5,6 +5,7 @@ import { t, SITE_URL } from "@/i18n";
 import { loadContent, pageTopics } from "@/lib/content";
 import { stepPath } from "@/lib/paths";
 import { SiteShell, type NavSubject } from "@/components/nav/SiteShell";
+import { UsageTracker } from "@/components/UsageTracker";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="zh-CN">
       <body>
         <SiteShell nav={nav}>{children}</SiteShell>
+        <UsageTracker />
         {/* Web Analytics beacon: added only after Daniel approves (needs token). */}
       </body>
     </html>
