@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { stepPath } from "@/lib/paths";
+import { plainText } from "@/lib/terms";
 import { doneKey, isDone, useMounted, useProgressVersion } from "@/lib/progress";
 import { SubjectDiagram, type TopicLinks } from "@/components/coherence/Panorama";
 import type { JourneyStep, SubjectInfo } from "@/lib/schema";
@@ -84,11 +85,11 @@ export function Home({ topics, subjects, journey }: { topics: HomeTopic[]; subje
                 {list.map((x) => {
                   const done = mounted && isDone(doneKey(x.id));
                   return x.status === "coming-soon" ? (
-                    <li key={x.id} className="topic-card disabled"><h3>{x.title}</h3><p>{x.summary}</p><span className="badge">{t.comingSoon}</span></li>
+                    <li key={x.id} className="topic-card disabled"><h3>{plainText(x.title)}</h3><p>{plainText(x.summary)}</p><span className="badge">{t.comingSoon}</span></li>
                   ) : (
                     <li key={x.id} className="topic-card"><Link href={stepPath(x.subject, x.slug, 0)}>
-                      <h3>{x.title}{done && <span className="done-check" aria-label={t.done}> ✓</span>}</h3>
-                      <p className="card-summary">{x.summary}</p>
+                      <h3>{plainText(x.title)}{done && <span className="done-check" aria-label={t.done}> ✓</span>}</h3>
+                      <p className="card-summary">{plainText(x.summary)}</p>
                       <div className="card-foot">
                         <p className="card-meta">
                           <span>{x.steps} 步</span>

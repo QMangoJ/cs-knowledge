@@ -148,7 +148,7 @@ export function Player({ topic, initialStep, nextTopic, nav }: { topic: ViewTopi
             {index === 0 && (
               <header className="topic-intro">
                 <p className="eyebrow">{subjectName} · {nav.blockName} · 第 {nav.station} / {nav.totalStations} 站</p>
-                <h1>{topic.title}</h1>
+                <h1><Tx text={topic.title} terms={topic.terms} /></h1>
                 <p className="summary"><Tx text={topic.summary} terms={topic.terms} /></p>
                 {(topic.level || topic.minutes || (topic.prereq && topic.prereq.length > 0)) && (
                   <p className="topic-meta">
@@ -166,7 +166,7 @@ export function Player({ topic, initialStep, nextTopic, nav }: { topic: ViewTopi
               </header>
             )}
             <p className="eyebrow">{t.steps} {index + 1} / {total}</p>
-            <h2>{step.title}</h2>
+            <h2><Tx text={step.title} terms={topic.terms} /></h2>
             <p className="tldr"><Tx text={step.tldr} terms={topic.terms} /></p>
             <div className="body" dangerouslySetInnerHTML={{ __html: step.bodyHtml }} />
             {step.code && (
@@ -226,7 +226,7 @@ export function Player({ topic, initialStep, nextTopic, nav }: { topic: ViewTopi
                   </section>
                 )}
                 <p className="in-step-report">
-                  <a className="report" href={issueUrl(REPO_URL, topic.id, index + 1, step.title)} target="_blank" rel="noopener noreferrer">{t.reportError} ↗</a>
+                  <a className="report" href={issueUrl(REPO_URL, topic.id, index + 1, plainText(step.title))} target="_blank" rel="noopener noreferrer">{t.reportError} ↗</a>
                 </p>
               </>
             )}

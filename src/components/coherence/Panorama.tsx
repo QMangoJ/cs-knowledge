@@ -1,11 +1,12 @@
 import type { SubjectBlock, SubjectInfo } from "@/lib/schema";
+import { plainText } from "@/lib/terms";
 
 export type TopicLink = { id: string; title: string; href: string };
 export type TopicLinks = Record<string, TopicLink>;
 
 function TopicChip({ link, currentId }: { link: TopicLink; currentId?: string }) {
   const cur = link.id === currentId;
-  return <a className={cur ? "pano-chip current" : "pano-chip"} href={link.href} aria-current={cur ? "page" : undefined}>{link.title}</a>;
+  return <a className={cur ? "pano-chip current" : "pano-chip"} href={link.href} aria-current={cur ? "page" : undefined}>{plainText(link.title)}</a>;
 }
 
 function BlockBody({ block, links, currentId }: { block: SubjectBlock; links: TopicLinks; currentId?: string }) {

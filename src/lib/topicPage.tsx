@@ -15,7 +15,7 @@ export function topicMetadata(subject: string, slug: string, index: number): Met
   if (!topic) return {};
   const step = toView(topic, loadContent().sources, loadContent().glossary).steps[index];
   if (!step) return {};
-  const title = `${step.title} · ${topic.title} · ${t.siteName}`;
+  const title = `${plainText(step.title)} · ${plainText(topic.title)} · ${t.siteName}`;
   const description = plainText(step.tldr);
   return {
     title,
@@ -40,6 +40,6 @@ export function TopicPage({ subject, slug, index }: { subject: string; slug: str
   const nextT = si >= 0 && si < path.length - 1 ? path[si + 1]! : null;
   const blockName = info.blocks.find((b) => b.topics.includes(topic.id))?.name ?? "";
   const playerNav: PlayerNav = { blockName, station: si + 1, totalStations: path.length };
-  const nextTopic = nextT ? { href: stepPath(nextT.subject, nextT.slug, 0), title: nextT.title } : null;
+  const nextTopic = nextT ? { href: stepPath(nextT.subject, nextT.slug, 0), title: plainText(nextT.title) } : null;
   return <Player topic={view} initialStep={index} nextTopic={nextTopic} nav={playerNav} />;
 }

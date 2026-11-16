@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { plainText } from "@/lib/terms";
 import { t } from "@/i18n";
 
 export type NavTopic = { id: string; title: string; href: string };
@@ -61,7 +62,7 @@ export function SiteShell({ nav, children }: { nav: NavSubject[]; children: Reac
           {s.topics.map((x) => {
             const cur = isCurrent(pathname, x.href);
             return (
-              <Link key={x.id} href={x.href} prefetch={false} className={cur ? "sn-topic current" : "sn-topic"} aria-current={cur ? "page" : undefined}>{x.title}</Link>
+              <Link key={x.id} href={x.href} prefetch={false} className={cur ? "sn-topic current" : "sn-topic"} aria-current={cur ? "page" : undefined}>{plainText(x.title)}</Link>
             );
           })}
         </div>
