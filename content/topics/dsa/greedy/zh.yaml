@@ -120,16 +120,13 @@ steps:
     rows:
     - label: 某个最优解
       cells:
-      - v: a3
-        sub: 0-6 先办
+      - v: a2
+        sub: 3-5 先办
+        mark: active
       - v: a4
         sub: 5-7
-        mark: muted
       - v: a5
         sub: 8-9
-      - v: 冲突
-        sub: a3 与 a4 重叠
-        mark: active
     - label: 换第一步后
       cells:
       - v: a1

@@ -851,7 +851,7 @@ steps:
         x: 82
         y: 6
         mark: done
-        note: 8 与 18
+        note: 8 与 15
       edges:
       - from: A
         to: B
