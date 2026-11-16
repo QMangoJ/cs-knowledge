@@ -6,7 +6,7 @@
   --accent:#1a73e8; --active:#2459d6; --ok:#0a9f6a; --warn:#e0a100; --info:#0f8f9c; --kernel:#6d55d8; --neutral:#8a98b3;
   --font-mono:"JetBrains Mono","Iosevka",ui-monospace,SFMono-Regular,Menlo,monospace;
   --font-cjk:"PingFang SC","Hiragino Sans GB","Microsoft YaHei UI","Noto Sans SC","Source Han Sans SC",sans-serif;
-  --fs-xs:11px; --fs-sm:12px; --fs-md:13.5px; --fs-lg:15px; --fs-xl:18px; --lh:1.6;
+  --fs-xs:11px; --fs-sm:12px; --fs-md:13.5px; --fs-lg:15px; --fs-xl:20px; --lh:1.6;
   --sp-1:4px; --sp-2:6px; --sp-3:10px; --sp-4:12px; --sp-5:16px; --sp-6:24px;
   --ctl-h:34px; --radius:2px; --radius-lg:8px;
   --col-left:360px; --col-right:300px; --col-left-xl:440px; --col-right-xl:330px;

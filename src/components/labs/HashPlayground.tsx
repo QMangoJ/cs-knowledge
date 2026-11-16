@@ -27,12 +27,13 @@ export default function HashPlayground({ state }: LabProps) {
     return () => clearTimeout(id);
   }, [playing, idx, finished]);
   const reset = (k: number[]) => { setKeys(k); setIdx(0); setPlaying(false); };
+  const customKeys = text.split(/[,，\s]+/).filter(Boolean).map(Number).filter((n) => Number.isFinite(n)).slice(0, 12);
   return (
     <div className="lab-hash">
       <div className="lab-row" role="group" aria-label="预置键集">
         {PRESETS.map((p) => <button key={p.name} onClick={() => reset(p.keys)} aria-pressed={keys === p.keys}>{p.name}</button>)}
         <input value={text} onChange={(e) => setText(e.target.value)} placeholder="自定义：如 4,12,20" aria-label="自定义键集" style={{ width: 130 }} />
-        <button onClick={() => { const ks = text.split(/[,，\s]+/).map(Number).filter((n) => Number.isFinite(n)).slice(0, 12); if (ks.length) reset(ks); }}>插入这组</button>
+        <button onClick={() => { if (customKeys.length) reset(customKeys); }} disabled={customKeys.length === 0}>插入这组</button>
       </div>
       <div className="bs-cells" style={{ marginTop: 26 }}>
         {cur.slots.map((v, i) => (

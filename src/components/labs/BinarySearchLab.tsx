@@ -46,7 +46,7 @@ export default function BinarySearchLab({ state }: LabProps) {
       <div className="lab-row" role="group" aria-label="预置目标">
         {presets.map((tgt) => <button key={tgt} onClick={() => reset(tgt)} aria-pressed={target === tgt}>找 {tgt}</button>)}
         <input value={text} onChange={(e) => setText(e.target.value)} placeholder="自定义目标" aria-label="自定义目标" style={{ width: 110 }} />
-        <button onClick={() => { const n = Number(text); if (Number.isFinite(n) && text.trim()) reset(n); }}>查找</button>
+        <button onClick={() => { const n = Number(text); if (Number.isFinite(n) && text.trim()) reset(n); }} disabled={!text.trim() || !Number.isFinite(Number(text))}>查找</button>
       </div>
       <div className="bs-cells" style={{ marginTop: 26 }}>
         {arr.map((v, i) => (

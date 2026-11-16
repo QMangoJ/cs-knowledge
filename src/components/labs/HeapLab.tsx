@@ -25,12 +25,13 @@ export default function HeapLab({ state }: LabProps) {
     return () => clearTimeout(id);
   }, [playing, idx, finished]);
   const reset = (v: number[]) => { setValues(v); setIdx(0); setPlaying(false); };
+  const customValues = text.split(/[,，\s]+/).filter(Boolean).map(Number).filter((n) => Number.isFinite(n)).slice(0, 10);
   return (
     <div className="lab-heap">
       <div className="lab-row" role="group" aria-label="预置数组">
         {PRESETS.map((p) => <button key={p.name} onClick={() => reset(p.values)} aria-pressed={values === p.values}>{p.name}</button>)}
         <input value={text} onChange={(e) => setText(e.target.value)} placeholder="自定义：如 5,2,8" aria-label="自定义数组" style={{ width: 120 }} />
-        <button onClick={() => { const vs = text.split(/[,，\s]+/).map(Number).filter((n) => Number.isFinite(n)).slice(0, 10); if (vs.length) reset(vs); }}>建堆</button>
+        <button onClick={() => { if (customValues.length) reset(customValues); }} disabled={customValues.length === 0}>建堆</button>
       </div>
       <div className="bs-cells" style={{ marginTop: 26 }}>
         {cur.heap.length === 0 ? <div className="bs-cell muted">（空）<small>heap</small></div> : cur.heap.map((v, i) => (

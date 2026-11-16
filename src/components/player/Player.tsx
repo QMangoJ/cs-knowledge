@@ -140,7 +140,7 @@ export function Player({ topic, initialStep, nextTopic, nav }: { topic: ViewTopi
               <span className="count">{index + 1} / {total}</span>
               {index < total - 1
                 ? <button type="button" onClick={next}>{t.next} →</button>
-                : nextTopic ? <a className="btn" href={nextTopic.href}>{t.nextTopic}：{nextTopic.title} →</a> : null}
+                : nextTopic ? <a className="btn" href={nextTopic.href}>{t.nextTopic}：{nextTopic.title} →</a> : <button type="button" disabled>{t.next} →</button>}
             </div>
           </section>
 

@@ -45,7 +45,7 @@ export default function BitEditor({ state }: LabProps) {
       )}
       <div className="lab-row">
         <input value={text} onChange={(e) => setText(e.target.value)} placeholder={mode === "float32" ? "输入小数，如 0.1" : "输入整数，如 -1"} aria-label="输入数值" />
-        <button onClick={apply}>写入</button>
+        <button onClick={apply} disabled={mode === "float32" ? !text.trim() || Number.isNaN(Number(text)) : !/^[+-]?\d+$/.test(text.trim())}>写入</button>
         {overflow && <span className="lab-warn">超出 {width} 位范围，已截断</span>}
       </div>
       <Cases state={state} />

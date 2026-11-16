@@ -77,7 +77,7 @@ export function SiteShell({ nav, children }: { nav: NavSubject[]; children: Reac
     <div className="shell">
       <header className="site-header">
         <div className="header-left">
-          <button type="button" className="nav-toggle" aria-expanded={open} aria-label="打开课程菜单" onClick={() => setOpen((v) => !v)}>☰</button>
+          <button type="button" className="nav-toggle" aria-expanded={open} aria-label={open ? "关闭课程菜单" : "打开课程菜单"} onClick={() => setOpen((v) => !v)}>☰</button>
           <Link href="/">{t.siteName}</Link>
         </div>
         <span className="hint">{t.keyboardHint}</span>
