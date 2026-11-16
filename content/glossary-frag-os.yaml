@@ -1,0 +1,21 @@
+- term: ASID
+  full: Address Space Identifier（地址空间标识）
+  explain: 给每个进程的 TLB 翻译条目打上的进程编号，切换进程时不用清空 TLB，不同进程的翻译可以同时留在里面，x86 上同类机制叫 PCID。
+- term: Belady 最优
+  full: Belady's Optimal Page Replacement（Belady 最优页面置换）
+  explain: 理论上的最优置换策略：每次换出将来最久才会被再次用到的那一页。它需要预知未来，现实中做不到，只用作比较其他置换算法好坏的标尺。
+- term: cgroup
+  full: control group（控制组）
+  explain: 把一组进程圈在一起、统一限制和统计它们能用的 CPU、内存等资源的机制，容器靠它做资源隔离，内存上限也是在这里给单个服务设定的。
+- term: MGLRU
+  full: Multi-Generational LRU（多代最近最少使用页面回收算法）
+  explain: Linux 新版的页面回收算法，按页面的年龄分代组织队列，优先回收最老一代里最久没有被访问的页，比传统的单队列近似更能分清冷页和热页。
+- term: O_APPEND
+  full: O_APPEND（打开文件时的追加标志）
+  explain: 打开文件时带上这个标志，每次 write 都自动把数据写到文件末尾，多个进程同时往同一个文件追加时由内核串行完成，不会互相覆盖。
+- term: O_CLOEXEC
+  full: O_CLOEXEC（打开文件时的 exec 自动关闭标志）
+  explain: 打开文件时带上这个标志，进程执行 exec 换成新程序时这个描述符会被自动关掉，避免新程序莫名占着父进程的文件或端口。
+- term: O_DSYNC
+  full: O_DSYNC（打开文件时的数据同步标志）
+  explain: 带上这个标志打开文件后，每次 write 都要等数据真正写到稳定存储才返回，省去每次写后再调用一次 fsync，代价是每次写都要付落盘的等待。
