@@ -43,9 +43,11 @@ export function Home({ topics, subjects, journey }: { topics: HomeTopic[]; subje
           {journey.map((j, i) => (
             <li key={j.subject} className="journey-step">
               {i > 0 && <span className="journey-arrow" aria-hidden="true">→</span>}
-              <b>{t.subjects[j.subject]}</b>
-              <span className="journey-title">{j.title}</span>
-              <p>{j.text}</p>
+              <Link href={`#subject-${j.subject}`}>
+                <b>{t.subjects[j.subject]}</b>
+                <span className="journey-title">{j.title}</span>
+                <p>{j.text}</p>
+              </Link>
             </li>
           ))}
         </ol>
@@ -69,7 +71,7 @@ export function Home({ topics, subjects, journey }: { topics: HomeTopic[]; subje
         const list = topics.filter((x) => x.subject === s);
         const info = infoOf(s);
         return (
-          <section key={s} className="subject">
+          <section key={s} id={`subject-${s}`} className="subject">
             <h2>{t.subjects[s]}</h2>
             {info && (
               <div className="subject-guide">

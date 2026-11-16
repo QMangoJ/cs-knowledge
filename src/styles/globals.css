@@ -21,6 +21,7 @@ code{font-family:var(--font-mono)}
 /* home */
 .home{max-width:1100px;margin:0 auto;padding:var(--sp-6) var(--sp-5)}
 .subject{margin-top:var(--sp-6)}
+section.subject[id]{scroll-margin-top:var(--sp-4)}
 .cards{list-style:none;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:var(--sp-4)}
 .topic-card{border:1px solid var(--line-mid);border-radius:var(--radius);background:var(--panel);transition:border-color var(--dur-fast)}
 .topic-card a{display:block;padding:var(--sp-4);text-decoration:none;color:inherit}
@@ -369,7 +370,10 @@ details.ref-sol summary{cursor:pointer;font-weight:700}
 /* ================= home: journey + subject guides + equal cards ================= */
 .journey{margin-top:var(--sp-5)}
 .journey-flow{list-style:none;display:flex;flex-wrap:wrap;gap:12px;padding:0;margin:14px 0 0}
-.journey-step{position:relative;flex:1 1 155px;border:1px solid var(--line-soft);border-radius:var(--radius-lg);padding:10px 12px;min-width:0}
+.journey-step{position:relative;flex:1 1 155px;border:1px solid var(--line-soft);border-radius:var(--radius-lg);min-width:0;transition:border-color var(--dur-fast)}
+.journey-step a{display:block;height:100%;padding:10px 12px;text-decoration:none;color:inherit;border-radius:inherit;cursor:pointer}
+.journey-step:hover{border-color:var(--active)}
+.journey-step a:focus-visible{outline:2px solid var(--active);outline-offset:-2px}
 .journey-step b{color:var(--active);display:block;font-size:var(--fs-xs);letter-spacing:.03em}
 .journey-title{font-weight:700;color:var(--ink-strong);font-family:var(--font-cjk)}
 .journey-step p{margin:6px 0 0;font-size:var(--fs-xs);color:var(--ink-soft);font-family:var(--font-cjk);line-height:1.65}
