@@ -1,0 +1,41 @@
+# 组成原理（co）学科新增术语：课文里首次出现时没有行内展开的专有名词，点击 [[词]] 弹出本表解释。
+# 加载器（src/lib/content.ts）会自动把本文件与 glossary.yaml 合并。
+- term: 翻译单元
+  full: Translation Unit（翻译单元）
+  explain: 一个源文件连同它包含的全部头文件展开之后形成的整体，编译器一次编译的对象就是一个翻译单元。
+- term: 公共块
+  full: Common Block（公共块）
+  explain: 传统链接规则下，多个文件里同名的未初始化全局变量会被合并成同一块存储，而不是报重复定义错误。
+- term: 缺页异常
+  full: Page Fault（缺页异常）
+  explain: 程序访问的页面还不在内存里时硬件触发的异常，内核借这个机会把页面装入内存，再让程序从原处继续。
+- term: 寄存器重命名
+  full: Register Renaming（寄存器重命名）
+  explain: 硬件给每次写寄存器的结果分配一个新的物理寄存器，让复用同一个寄存器名字的指令不再互相等待。
+- term: 地址消歧
+  full: Memory Disambiguation（地址消歧）
+  explain: 乱序执行时判断一条读和前面还没完成的写是不是同一个地址：不是就可以提前读，是就必须等那笔写完成。
+- term: 条件传送
+  full: Conditional Move（条件传送指令）
+  explain: 按条件决定要不要把一个值送进目标寄存器的指令，用它可以把简单的分支改写成不跳转的直线代码。
+- term: 叶函数
+  full: Leaf Function（叶函数）
+  explain: 内部不再调用任何其他函数的函数，因为不用再往下调用，它需要保存和恢复的东西可以省到最少。
+- term: 算术强度
+  full: Arithmetic Intensity（算术强度）
+  explain: 每从内存搬运 1 字节数据能做多少次运算，比值越高越容易先撞上算力上限，越低越容易先被带宽卡住。
+- term: CUDA Graph
+  full: CUDA Graph（把一串核函数录成一张图再整体提交）
+  explain: 把一串要依次执行的核函数和数据拷贝预先录成一张图，之后一次提交整张图，省掉逐个启动的固定开销。
+- term: roofline
+  full: Roofline Model（屋顶线模型）
+  explain: 一张按算术强度对照峰值算力与峰值带宽的图，先看程序的算术强度落在哪一段，就知道它先撞上算力上限还是带宽上限。
+- term: 区间运算
+  full: Interval Arithmetic（区间运算）
+  explain: 不算单个值，改算一个保证包含真值的上下界区间，每一步用定向舍入保住边界，最后的结果一定把真值框在里面。
+- term: release
+  full: Release Semantics（释放语义）
+  explain: 带这种语义的写保证，它之前的所有写，对随后读到这个值的其他线程都可见，常用来在数据写好之后发布标志。
+- term: acquire
+  full: Acquire Semantics（获取语义）
+  explain: 带这种语义的读保证，读到对方发布的值之后，对方在发布之前写的数据也都能看见，常用来读取标志并取用数据。
