@@ -58,6 +58,33 @@
 - id: vllm-pagedattention
   title: "Efficient Memory Management for Large Language Model Serving with PagedAttention (arXiv:2309.06180)"
   url: https://arxiv.org/abs/2309.06180
+- id: go-faq
+  title: "Go 官方 FAQ（go.dev/doc/faq：设计目标、为什么没有继承 / 异常 / 泛型）"
+  url: https://go.dev/doc/faq
+- id: go-spec
+  title: "The Go Programming Language Specification（go.dev/ref/spec：关键字与语言定义的权威文本）"
+  url: https://go.dev/ref/spec
+- id: go-effective
+  title: "Effective Go（go.dev/doc/effective_go：官方惯用法，「share memory by communicating」的出处）"
+  url: https://go.dev/doc/effective_go
+- id: go-release-118
+  title: "Go 1.18 Release Notes（go.dev/doc/go1.18：泛型于 2022 年 3 月随 1.18 正式发布）"
+  url: https://go.dev/doc/go1.18
+- id: cox-generics
+  title: "Russ Cox: The Generic Dilemma（research.swtch.com/generic：泛型三难——程序员慢、编译慢且二进制膨胀、运行慢）"
+  url: https://research.swtch.com/generic
+- id: go-sched-design
+  title: "Dmitry Vyukov: Scalable Go Scheduler Design Doc（GMP 模型、本地运行队列与工作窃取的设计文档）"
+  url: https://go.dev/s/go11sched
+- id: graphql-spec
+  title: "GraphQL Specification（GraphQL Foundation，spec.graphql.org：schema 与类型系统的规范文本）"
+  url: https://spec.graphql.org/
+- id: dataloader-repo
+  title: "DataLoader（graphql/dataloader：Facebook 开源的批处理与单请求内缓存工具）"
+  url: https://github.com/graphql/dataloader
+- id: rfc-9457
+  title: "RFC 9457: Problem Details for HTTP APIs（统一错误响应格式的标准）"
+  url: https://www.rfc-editor.org/rfc/rfc9457
 - id: clrs
   title: "Introduction to Algorithms (CLRS), 4th ed., MIT Press"
   url: https://mitpressbookstore.mit.edu/book/9780262046305

@@ -1,0 +1,393 @@
+id: go/origins
+subject: go
+slug: origins
+title: Go 为什么诞生：为多核与网络时代重写一门语言
+order: 1
+visual: datastate
+logColumns:
+- key: at
+  label: 阶段
+- key: text
+  label: 发生了什么
+status: published
+overview:
+- key: 一句话总结
+  value: Go 是为多核、网络服务与大代码库三条约束设计的语言：不靠加功能取胜，靠把语言做小、把编译做快、把并发做进语法，让几千人维护同一批服务器代码的总成本降下来
+- key: 出身
+  value: 2007 年三位设计者在等一次约 45 分钟的 C++ 构建时起意，2009 年 11 月开源，2012 年 3 月 Go 1 发布并附兼容承诺
+- key: 四项取舍
+  value: 25 个关键字封顶的极简、只看直接依赖的快编译、静态链接的单文件部署、goroutine 与 GC 内置的并发与内存托管
+- key: 两个没有
+  value: 没有继承——多态交给隐式接口、复用交给组合；泛型缺席十五年——三条实现路线都踩核心指标，直到 1.18 的约束式设计过关
+summary: 2007 年的 Google 有三笔账算不过来：C++ 编译一次要等几十分钟、服务器 CPU 已经全是多核而主流语言的并发还是靠线程硬扛、代码库大到没人读得懂别人的代码。Go 的回答不是加功能，而是做减法：25 个关键字、编译快到像脚本、部署只剩一个文件、并发写进语言本身。本课把每个取舍背后的账算清楚，包括最容易被问的两个：为什么没有继承，泛型为什么拖到 2022 年的 1.18 才有。
+premise: 一次 C++ 构建要等 45 分钟——Go 的三位设计者就是在等构建的工夫，开始在白板上画一门新语言的。
+position: 这是 Go 语言学科的第一课，位于「为什么是 Go：设计与取舍」板块：先看清 2007 年 Google 的三笔账，才能理解后面 goroutine 与接口两课里的每个决定。本课不教语法，只讲这门语言为什么长成现在这个样子。
+level: 进阶
+minutes: 22
+objectives:
+- 能说清 Go 诞生的三个约束：多核、网络服务、大代码库
+- 能解释语言极简、编译快、单文件部署、内置并发四项取舍各换来了什么、放弃了什么
+- 能回答「为什么没有继承」与「泛型为什么 1.18 才有」两个高频问题
+aiLink: 后来 Docker 与 Kubernetes 都用 Go 写成不是巧合：它们要的正是单文件分发与便宜的并发，而这两点在本课的取舍清单里排在最前面。
+bridge:
+  next: 本课说 Go 把并发做进了语言本身，只给了结论没给机制：下一课拆开 goroutine 与 channel——一个协程起步只要 2KB 栈、调度器怎样把几十万个协程铺到几个线程上、以及那句「用通信来共享内存」到底在要求你怎样写代码。
+design:
+- mechanism: 语言功能做减法：关键字压到 25 个，不做继承、不做异常，新特性宁缺毋滥。
+  problem: 在 Google 的规模下，语言复杂度会被团队规模放大：每个人只用自己顺手的特性子集，代码就分裂成互不相认的方言，审查与重构的成本随人数往上涨。
+  choice: 把语言的「功能上限」主动封顶，并用 gofmt 等官方工具把风格统一收归工具，让所有 Go 代码长成一个样，任何人打开任何一份代码都能直接读、直接改。
+  tradeoff: 用「表达力上限」换「全员可读」：有些模式写起来确实啰嗦（错误要手动判、早期没有泛型要靠复制代码），但任何一段 Go 代码，团队里任何人打开都能直接读。
+  root: Go 优化的不是单人写代码的速度，而是几千人维护同一批服务器代码十年的总成本——编译、阅读、部署、交接，每一笔都按大团队的量级算。
+- mechanism: 泛型晚到：2009 年 Russ Cox 就把三种实现路线摆上台面，发现每条都要付出不可接受的代价，于是整个特性被搁置，等约束式设计成熟后才在 1.18 落地。
+  problem: 泛型的三难（generic dilemma）：要么程序员手写每种类型的版本（慢在人）、要么编译期为每个类型生成一份代码（编译慢、二进制膨胀）、要么运行时装箱（执行慢）——三条路都踩 Go 的红线。
+  choice: 选择「不上」并长期维持这个决定：官方明确让生态先用 interface{} 与代码生成解决眼前问题，而不是为一个没过关的设计背上兼容包袱。
+  tradeoff: 宁可让社区用 interface{} 加类型断言、或用代码生成将就十年，也不把一个会拖慢编译或运行的设计塞进语言；代价是这十年里「没有泛型」一直是 Go 被抱怨最多的一条。
+  root: 2012 年 Go 1 的兼容承诺让任何进入语言的特性都近乎永久：一旦发布就再也删不掉，所以新特性要先证明「价值配得上复杂度」，泛型过的正是这道最严的门。
+quiz:
+- q: Go 只有 25 个关键字、长期不做泛型，最主要的原因是？
+  options:
+  - 编译器团队人手不够，一直排不上期
+  - 在 Google 的规模下，语言复杂度会被团队规模放大；特性一旦发布又受兼容承诺约束删不掉，所以宁缺毋滥
+  - Go 定位是脚本语言，不需要复杂类型系统
+  - 关键字多会让二进制体积变大
+  answer: 1
+  explain: 极简是按大团队维护成本算的账：功能越少，代码越互通可读；再加上 Go 1 兼容承诺让每个新特性都近乎永久，准入门槛被推到极高。
+- q: Go 程序部署时通常只需要拷贝一个可执行文件，因为？
+  options:
+  - 服务器上预装了 Go 运行时
+  - 运行时与依赖默认静态链接进单个二进制，不依赖目标机器的环境
+  - Go 代码在部署时会被转成 shell 脚本
+  - 包管理器会自动补齐缺失的库
+  answer: 1
+  explain: 单二进制是静态链接的结果：运行时、标准库与第三方依赖全部打进一个文件，这也是 Docker 镜像可以做到极小的原因。
+- q: 关于泛型拖到 Go 1.18（2022 年）才发布，正确的说法是？
+  options:
+  - 社区一直没人提出需要泛型
+  - 泛型会让所有程序运行变慢，所以被永久放弃，后来又反悔
+  - 早期三种实现路线分别踩中「程序员慢、编译慢加二进制膨胀、运行慢」，设计一直没过关，直到约束式方案成熟才落地
+  - 泛型需要新的硬件指令集支持
+  answer: 2
+  explain: 这就是 Russ Cox 2009 年总结的 generic dilemma：不是不想做，是每条实现路线都要牺牲 Go 的核心指标，直到 2018 年重启设计、2021 年提案通过。
+- q: Go 1 兼容承诺（2012 年）的内容是？
+  options:
+  - Go 程序永远不需要升级依赖
+  - 按 Go 1 规范写的程序，在后续所有 Go 1.x 版本上都应能编译运行
+  - Go 保证每个版本都新增至少一个语言特性
+  - 旧版本编译器永久免费提供下载
+  answer: 1
+  explain: 兼容承诺是企业敢把生产系统压在 Go 上的前提；它的另一面是语言进化极其保守——加东西容易删东西难，所以每个特性都要反复论证。
+steps:
+- id: cpp-build-45min
+  title: 第一步：2007 年，等一次编译要 45 分钟
+  tldr: Go 的起点是一次等构建的闲聊：服务器代码用 C++ 写，编译一次几十分钟，机器却已经换成了多核。
+  body: |-
+    先看场景。2007 年 9 月，Google 的工程师 Robert Griesemer、Rob Pike 与 Ken Thompson 在等一个大型 C++ 程序编译——按 Rob Pike 后来的说法，一次构建要等大约 45 分钟。三个人聊起当时的处境：服务器硬件已经全面进入多核时代，服务天生就是网络化的，代码库大到以千人计在同一批代码上干活。可手里的语言没有一个是按这三件事设计的：C++ 编译慢、依赖关系盘根错节；Java 要背着虚拟机与一整套企业级抽象；脚本语言写大型服务又撑不住性能与维护。
+
+    他们决定利用等构建的时间，在白板上回答一个问题：如果只为「多核、网络、大代码库」这三件事设计一门新语言，它应该长什么样。两年后的 2009 年 11 月，这个白板草图以 Go 的名字开源；2012 年 3 月发布 Go 1。本课接下来讲的每个取舍，都是对这三笔账的直接回答。
+  derivation: original
+  sources:
+  - ref: go-faq
+    locator: "FAQ: History / Why did Go appear"
+    claim: Go 于 2007 年在 Google 开始设计，2009 年 11 月开源，目标是多核、网络化机器与大代码库时代的生产力；三位设计者为 Griesemer、Pike、Thompson。
+    status: verified
+    checkedBy: subagent-research
+    checkedAt: "2026-11-17"
+  canvas:
+    kind: datastate
+    caption: 2007 年 Google 的三笔账：每笔都是当时主流语言没算好的
+    structure: array
+    rows:
+    - label: 三笔账
+      cells:
+      - v: "45 分钟"
+        sub: 编译：C++ 一次构建的量级
+      - v: 多核
+        sub: 硬件：单核提速停滞后靠核数涨
+      - v: 千人规模
+        sub: 代码库：同一批服务代码多人维护
+  log:
+  - at: "2007-09"
+    text: 三位设计者在等构建时开始在白板上画新语言
+  - at: "2009-11"
+    text: Go 正式开源
+  - at: "2012-03"
+    text: Go 1 发布，附带兼容承诺
+- id: three-constraints
+  title: 第二步：先把三个约束说准，后面的取舍才有标准
+  tldr: 多核、网络、大代码库——这三条不是背景介绍，而是 Go 每个设计决定打分的标尺。
+  body: |-
+    为什么先花一步讲约束？因为判断一个语言设计好不好，不能看它功能多不多，要看它对约束答得准不准。Go 的三条约束展开说：第一，硬件变了——单核频率涨不动了，性能只能从多核并行里要，一门语言如果并发还要靠程序员手管线程与锁，就等于没跟上硬件。第二，程序的形态变了——服务器程序的日常就是同时接成千上万个网络连接、等数据库、等下游服务，花在等待上的时间远多于计算，语言要让「开很多个并发任务」便宜到不用犹豫。第三，写代码的人变了——代码库的寿命以十年计、经手人以千计，语言的第一美德从「写得爽」变成「谁来读都懂、工具能自动处理」。
+
+    记住这三条标尺：后面每一步的取舍，都可以拿它打分。编译快对应大代码库，并发内置对应多核与网络，极简对应「谁来读都懂」。
+  derivation: original
+  sources:
+  - ref: go-faq
+    locator: "FAQ: What is the purpose of the project"
+    claim: FAQ 原文把目标定为「多核、网络化机器与大代码库时代的生产力」，且明确说已有语言没有一个是针对这组挑战设计的。
+    status: verified
+    checkedBy: subagent-research
+    checkedAt: "2026-11-17"
+  canvas:
+    kind: datastate
+    caption: 三条约束与 Go 的对应回答（细节在后面各步展开）
+    structure: array
+    rows:
+    - label: 约束 → 回答
+      cells:
+      - v: 并发内置
+        sub: 多核：goroutine 与 channel 进语言
+        mark: active
+      - v: 等待便宜
+        sub: 网络服务：海量连接各占一个协程
+        mark: active
+      - v: 极简+快编译
+        sub: 大代码库：少特性、依赖简单
+        mark: active
+  log:
+  - at: 标尺
+    text: 每个取舍都回这三条约束打分
+- id: minimal-25-keywords
+  title: 第三步：取舍一，语言极简——25 个关键字封顶
+  tldr: Go 的关键字从 Go 1 到现在一直只有 25 个；少特性不是抠门，是让所有人的代码长一个样。
+  body: |-
+    数一下就知道有多克制：Go 的语言规范里，关键字一共 25 个（break、case、chan、const、continue、default、defer、else、fallthrough、for、func、go、goto、if、import、interface、map、package、range、return、select、struct、switch、type、var），而且从 2012 年的 Go 1 到今天一个没加。对比一下量级：C++ 的关键字在 90 个以上，Java 50 多个。Go 不只关键字少，语法决定也少：循环只有 for 一种，没有 while；没有类与继承；没有异常；连分号都由编译器自动补，省掉风格争论。
+
+    这笔账要这样算：语言特性每多一个，大团队里就会多一种写法流派，新人要多学一截，老代码要多兼容一种风格。Go 反过来用限制换统一：官方还配了一个自动格式化工具 gofmt，所有代码排版长一个样，代码审查时没人再为格式吵架。极简的代价也真实存在：有些事情写起来就是啰嗦——比如错误处理每层都要手写判断（第三课细讲）。Go 的选择是认下这份啰嗦，换全员可读。
+  derivation: original
+  sources:
+  - ref: go-spec
+    locator: "The Go Programming Language Specification: Keywords"
+    claim: 规范列出的关键字恰为 25 个，且自 Go 1 以来未增删。
+    status: verified
+    checkedBy: subagent-research
+    checkedAt: "2026-11-17"
+  canvas:
+    kind: datastate
+    caption: 关键字数量对比：少不是功能缺失，是刻意封顶
+    structure: array
+    rows:
+    - label: 关键字计数
+      cells:
+      - v: "25"
+        sub: Go：Go 1 至今不变
+        mark: active
+      - v: "50+"
+        sub: Java：量级对比
+      - v: "90+"
+        sub: C++：量级对比
+      - v: 只有 for
+        sub: 循环语法：没有 while 与 do-while
+        mark: active
+  log:
+  - at: 效果
+    text: 代码风格被语言本身统一，gofmt 再把排版统一
+  - at: 代价
+    text: 表达手段少，部分模式写起来啰嗦
+- id: fast-compile
+  title: 第四步：取舍二，编译快——靠砍依赖关系换来的
+  tldr: Go 编译快不是编译器写得快，而是语言从设计上不让依赖关系长成网：只看直接导入的包。
+  body: |-
+    回到那 45 分钟：C++ 编译慢的一大半原因在依赖——头文件被层层包含，编译一个文件要把它的全部传递依赖读进来解析一遍，代码库越大这张网越密。Go 的解法是把依赖关系在语言层面砍平：一个源文件只写明它直接 import 的包，编译时只读这些包已经编译好的导出信息，不顺着依赖链往下翻；C 里那种「头文件与实现文件各一份、还要保持同步」的机制直接不存在。
+
+    还有一条配套的小规矩特别能说明风格：import 了却不用、定义了变量却不用，直接编译报错。这逼着代码时刻保持干净，依赖图也因此不会悄悄长胖。综合起来的效果是：中大型 Go 项目的全量构建通常在秒到分钟量级，改一行代码的反馈循环接近脚本语言的手感。对每天要构建几百次的大团队来说，这省下的不是机器时间，是所有人的注意力。
+  derivation: original
+  sources:
+  - ref: go-faq
+    locator: "FAQ: Why is the compiler so fast / dependencies"
+    claim: FAQ 说明 Go 编译快的关键在依赖模型：只分析直接导入包的导出信息、不做传递依赖解析；未使用的导入与变量是编译错误。
+    status: verified
+    checkedBy: subagent-research
+    checkedAt: "2026-11-17"
+  canvas:
+    kind: datastate
+    caption: 依赖模型对比：编译一个文件时要读多少东西
+    structure: array
+    rows:
+    - label: 编译一个文件
+      cells:
+      - v: 整张网
+        sub: C++：头文件传递包含、层层解析
+      - v: 只读直接依赖
+        sub: Go：读已编译的导出信息
+        mark: active
+      - v: 编译报错
+        sub: 未用导入：逼依赖图保持干净
+        mark: active
+  log:
+  - at: 账
+    text: 慢的根源是依赖形状，不是编译器手速
+- id: single-binary
+  title: 第五步：取舍三，部署只有一个文件
+  tldr: Go 程序把运行时与全部依赖静态链接成一个可执行文件：部署就是拷一个文件，不用先伺候环境。
+  body: |-
+    再看部署环节的账。用 Java 写服务，目标机器要先有版本对得上的虚拟机，再配一堆库；用脚本语言，要先把解释器与依赖包逐个装好，版本对不齐就是经典的「在我机器上是好的」。Go 的做法是把运行时（包括垃圾回收器与调度器）和全部依赖默认静态链接进一个可执行文件，产物就是一个几 MB 到几十 MB 的[[单二进制]]：拷到任何一台同架构的 Linux 服务器上，给个执行权限就能跑，不查环境、不装依赖。
+
+    这件事后来被云原生放大成决定性优势：Docker 镜像可以只装这一个文件（scratch 基础镜像），镜像小到几十 MB，拉取快、启动快、攻击面也小。Docker 本体与 Kubernetes 都是 Go 写的，很难说只是巧合——它们要分发到千千万万台机器上，「一个文件」就是最短的交付路径。代价也有：每个二进制都自带一份运行时，体积比共享库方案大；动态链接与插件生态相对弱。Go 认这个代价。
+  derivation: original
+  sources:
+  - ref: go-faq
+    locator: "FAQ: Why does Go not support dynamic linking / binary size"
+    claim: FAQ 说明 Go 默认静态链接、单个二进制包含运行时，这是为部署简单与启动行为可预期做的取舍，代价是体积较大。
+    status: verified
+    checkedBy: subagent-research
+    checkedAt: "2026-11-17"
+  canvas:
+    kind: datastate
+    caption: 部署一个服务，要往目标机器上搬多少东西
+    structure: array
+    rows:
+    - label: 部署清单
+      cells:
+      - v: 运行时+库+代码
+        sub: 虚拟机型语言：版本要逐个对齐
+      - v: 1 个文件
+        sub: Go：静态链接、自带运行时
+        mark: active
+      - v: 可小到几十 MB
+        sub: Docker 镜像：scratch 镜像只放二进制
+        mark: active
+  log:
+  - at: 效果
+    text: 交付路径最短：拷贝、赋权、运行
+  - at: 代价
+    text: 每个文件自带运行时，体积偏大
+- id: builtin-concurrency-gc
+  title: 第六步：取舍四，并发与垃圾回收都做进语言
+  tldr: 服务器程序的主要工作是等：等连接、等数据库。Go 让「开一个并发任务」的成本低到不用算计，并把内存回收交给运行时。
+  body: |-
+    前三条取舍解决的是写与部署，这一条解决运行时的形态。网络服务的典型画面是：成千上万个连接同时挂着，每个连接大部分时间在等对方发数据、等数据库返回。如果用「一个连接一个操作系统线程」的老模型，光线程栈就要吃掉几十 GB 内存（下一课算细账）。Go 把并发原语直接做进语言：关键字 go 加一个函数调用就是一个 [[goroutine]]，起步成本极低；goroutine 之间用 [[channel]] 传值。并发不再是「引入一个线程库、处处小心」，而是默认写法。
+
+    另一半是垃圾回收（[[GC]]）：服务器程序长年运行、对象生生死死，手动管理内存既容易泄漏又容易写出悬空指针。Go 从第一天就带 GC，让程序员把注意力放在业务上；代价是回收会占用一部分 CPU、带来毫秒级的停顿，且二进制要自带运行时。对互联网服务的绝大多数场景，这笔交换划算——这也是它与 C++ 分道扬镳最明确的一刀。机制细节留给下一课。
+  derivation: original
+  sources:
+  - ref: go-effective
+    locator: "Effective Go: Concurrency / Garbage collection"
+    claim: Effective Go 说明 goroutine 与 channel 是语言级并发设施、开销远低于线程，且 Go 以 GC 换取内存安全与开发效率。
+    status: verified
+    checkedBy: subagent-research
+    checkedAt: "2026-11-17"
+  canvas:
+    kind: datastate
+    caption: 并发模型的位置：库里还是语言里，决定了它是例外还是默认
+    structure: array
+    rows:
+    - label: 并发原语在哪
+      cells:
+      - v: 一连接一线程
+        sub: 老模型：线程贵、要池化算计
+      - v: 一连接一协程
+        sub: Go：go 关键字直接启动
+        mark: active
+      - v: GC 托管
+        sub: 内存：换内存安全与开发速度
+        mark: active
+  log:
+  - at: 下一课
+    text: goroutine 到底便宜在哪、调度器怎么工作
+- id: no-inheritance
+  title: 第七步：为什么没有继承——它要解的问题被接口换了种解法
+  tldr: 继承想解决的是复用与多态；Go 认为继承树的代价大于收益，改用接口加组合：第三课的主角，这里先立论。
+  body: |-
+    面试常问：Go 为什么没有类与继承？先看继承在 Google 的规模下出了什么问题：类型关系必须在写代码时提前声明、上报给一棵继承树；项目一大，树越长越脆——改动顶层基类，下游一串子类跟着受影响（脆弱基类问题）；而「一个类型到底有哪些行为」要顺着树爬好几层才看得全，违背了 Go「打开文件就能读懂」的目标。
+
+    Go 的替代方案分两半。多态那一半交给接口：一个类型不需要声明「我实现某接口」，只要它的方法集对得上，编译器就认——关系从「提前登记」变成「用时核对」。复用那一半交给组合：把现成的类型嵌进新类型里，直接借用它的方法（第三课细讲）。官方 FAQ 的说法很直白：Go 故意不做类型层级，因为提前声明关系这件事本身，就是麻烦的来源。要注意这不是说继承一无是处，而是 Go 按自己的三条约束算完账，认为不划算。
+  derivation: original
+  sources:
+  - ref: go-faq
+    locator: "FAQ: Why is there no type inheritance"
+    claim: FAQ 原文：Go 不要求程序员提前声明两个类型相关；类型自动满足任何包含其方法子集的接口，因此不存在类型层级。
+    status: verified
+    checkedBy: subagent-research
+    checkedAt: "2026-11-17"
+  canvas:
+    kind: datastate
+    caption: 同一个问题，两种解法：提前登记关系，还是用时核对方法
+    structure: array
+    rows:
+    - label: 多态怎么来
+      cells:
+      - v: 先建树
+        sub: 继承：关系提前声明、改基类波及全树
+      - v: 方法对上就算
+        sub: Go 接口：不声明、编译器核对方法集
+        mark: active
+      - v: 靠组合
+        sub: 复用：把现成类型嵌进来借用
+        mark: active
+  log:
+  - at: 第三课
+    text: 接口与组合的写法、账与坑都在那一课
+- id: generics-15-years
+  title: 第八步：泛型为什么等了十五年——三条实现路线全踩红线
+  tldr: 不是没想到，是每次设计都过不了 Go 自己的关：不能拖慢编译、不能让二进制膨胀、不能让运行变慢。
+  body: |-
+    时间线先摆出来：Go 2009 年开源时没有[[泛型]]；2018 年设计重启；2021 年 2 月提案通过；2022 年 3 月随 Go 1.18 正式发布——从开源算起等了 13 年，从立项算起 15 年。为什么这么久？2009 年，语言设计者 Russ Cox 写了一篇短文《The Generic Dilemma》，把实现泛型的三条路一次说清：第一条，程序员为每种类型手写一份代码——慢在人，等于没有泛型；第二条，编译时为每个用到的类型各生成一份代码（C++ 模板的路）——编译变慢、二进制膨胀，正面撞上 Go 的编译速度红线；第三条，运行时把值装箱成统一表示（早期 Java 的路）——执行变慢，撞上性能红线。三条路每条都要牺牲一个 Go 的核心指标。
+
+    这十年社区的将就办法是 interface{} 加运行时类型断言（丢掉编译期类型安全），或用代码生成工具按类型批量产出代码（能跑但难维护）。最终落地的方案是第四条路：类型参数加「约束」——用接口描述类型参数必须具备的方法，编译器据此做检查；实现上用了一种在生成代码与装箱之间取平衡的办法。这个过程最值得记的不是技术细节，而是判断标准：一个特性再多人想要，只要实现要牺牲语言的核心承诺，就先不上。
+  derivation: original
+  sources:
+  - ref: cox-generics
+    locator: "Russ Cox: The Generic Dilemma (2009)"
+    claim: 泛型三种实现分别导致程序员慢、编译慢且二进制膨胀、运行慢，三者都不可接受，这是泛型长期缺席的直接原因。
+    status: verified
+    checkedBy: subagent-research
+    checkedAt: "2026-11-17"
+  - ref: go-release-118
+    locator: "Go 1.18 Release Notes: Generics"
+    claim: Go 1.18 于 2022 年 3 月发布，泛型（类型参数）随之正式可用。
+    status: verified
+    checkedBy: subagent-research
+    checkedAt: "2026-11-17"
+  canvas:
+    kind: datastate
+    caption: 泛型三难：每条实现路线牺牲的东西，正好都是 Go 的命根子
+    structure: array
+    rows:
+    - label: 三条路的代价
+      cells:
+      - v: 慢在人
+        sub: 手写每份：等于没有泛型
+      - v: 编译慢+膨胀
+        sub: 编译期全展开：C++ 模板的路
+      - v: 运行慢
+        sub: 运行时装箱：早期 Java 的路
+      - v: 类型参数+约束
+        sub: 1.18 方案：检查在编译期、实现取平衡
+        mark: active
+  log:
+  - at: "2009"
+    text: Cox 写下泛型三难，特性搁置
+  - at: "2022-03"
+    text: Go 1.18 发布，泛型落地
+- id: compat-promise
+  title: 第九步：兼容承诺——Go 进化慢，是写进合同的
+  tldr: 2012 年 Go 1 承诺：按 Go 1 写的程序永远能在新版上编译运行。这份信任换来的，是此后每个特性都要过最严的审查。
+  body: |-
+    最后补一块拼图，否则前面几个「为什么不上某功能」都缺一半解释。2012 年 Go 1 发布时附了一份兼容承诺：凡是按 Go 1 语言与标准库规范写的程序，在之后所有 Go 1.x 版本里都应当能不改一行地编译、运行。企业敢把核心系统压在一门新语言上，靠的正是这份合同——升级编译器永远不会把线上代码弄坏。
+
+    合同的另一面是约束：一旦某个特性进了语言，按承诺就几乎永远删不掉、改不得。所以 Go 的每个新特性都要先回答「十年后还配留在语言里吗」。这解释了整课的画风：关键字 25 个封顶、泛型等十五年、继承与异常干脆不做。把这一课收成一句话：Go 的设计哲学是按「大团队、长寿命、服务器场景」的总成本做减法；下一课开始看它做得最成功的一笔——并发。
+  derivation: original
+  sources:
+  - ref: go-faq
+    locator: "FAQ: What is the status of the Go 1 compatibility promise"
+    claim: Go 1 兼容承诺保证按 Go 1 规范编写的程序在后续版本中继续编译与运行，这是语言保持保守演进的制度原因。
+    status: verified
+    checkedBy: subagent-research
+    checkedAt: "2026-11-17"
+  canvas:
+    kind: datastate
+    caption: 兼容承诺的一体两面：给使用者的信任，给设计者的紧箍
+    structure: array
+    rows:
+    - label: 承诺的账
+      cells:
+      - v: 升级不坏代码
+        sub: 使用者得到：敢把生产系统压上来
+        mark: active
+      - v: 特性近乎永久
+        sub: 设计者背上：准入门槛被推到极高
+      - v: 进化慢而稳
+        sub: 结果：六个月一版、极少破例
+        mark: active
+  log:
+  - at: 收束
+    text: 做减法不是口味，是被规模与承诺逼出来的

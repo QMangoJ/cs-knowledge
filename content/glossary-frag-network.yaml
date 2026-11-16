@@ -1,4 +1,28 @@
 # 网络学科审计新增词条（待并入 glossary.yaml）：正文以 [[词]] 标记引用本表。
+- term: REST
+  full: REST（Representational State Transfer，表述性状态转移）
+  explain: 一种 HTTP API 的设计风格：把系统里的一切建模成「资源」，用名词 URL 定位资源（/orders/123），用 HTTP 方法表达动作（GET 查、POST 建、PUT 改、DELETE 删），用状态码表达结果。
+- term: GraphQL
+  full: GraphQL（Facebook 2012 年内部起步、2015 年开源的 API 查询语言）
+  explain: 客户端用一份查询声明「我要哪几个字段、哪几层关联」，服务器照单返回：一个端点解决取多了与取不够两种病，代价是缓存、限流与 N+1 都要自己重新处理。
+- term: schema
+  full: schema（模式 / 合同）
+  explain: 对数据形状的正式描述：有哪些类型、哪些字段、字段是什么类型。GraphQL 里 schema 是先写好的合同，前后端照着它各自开发、自动校验。
+- term: DataLoader
+  full: DataLoader（批处理加载器）
+  explain: Facebook 开源的小工具：把一次请求里散落的许多个「按 id 查一条」攒成一次「按 id 列表批量查」，并在单次请求内缓存结果，专门对治 GraphQL 解析器逐条查库的 N+1。
+- term: N+1
+  full: N+1 问题
+  explain: 先查出一个列表（1 次），再对列表里每条记录各补查一次关联数据（N 次），总查询数随数据量线性膨胀；列表越大越慢，且代码里看不出来。
+- term: 游标分页
+  full: 游标分页（cursor / keyset pagination）
+  explain: 分页时不用页码，而用「上一页最后一条的排序键」当书签，下一页从书签之后接着读：翻到多深成本都一样，新数据插进来也不会让已翻过的页错位。
+- term: over-fetching
+  full: over-fetching（取多了）
+  explain: 接口返回的字段比页面实际用的多：多余数据白白占用带宽与解析时间，移动端弱网下尤其明显；是 GraphQL 诞生要治的第一个病。
+- term: under-fetching
+  full: under-fetching（取不够）
+  explain: 一个接口给的数据不够拼出一个页面，客户端只能再发第二个、第三个请求逐个补齐：请求数与时延随关联层数涨；是 GraphQL 诞生要治的第二个病。
 - term: bufferbloat
   full: Bufferbloat（缓冲膨胀）
   explain: 路由器队列过长时出现的现象：包还没丢，却要在队列里排很久，时延先暴涨。发送窗口远大于带宽时延积时，多出的数据就堵在队列里。

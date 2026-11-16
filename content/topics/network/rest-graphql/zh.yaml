@@ -1,0 +1,504 @@
+id: network/rest-graphql
+subject: network
+slug: rest-graphql
+title: REST 与 GraphQL：API 设计与选型
+order: 7
+visual: datastate
+logColumns:
+- key: at
+  label: 阶段
+- key: text
+  label: 发生了什么
+status: published
+license: CC-BY-NC-SA-4.0
+overview:
+- key: 一句话总结
+  value: REST 把系统建模成资源、用方法与状态码走全行业统一的合同，胜在缓存与生态；GraphQL 把取数权交给客户端、用一份 schema 点菜，胜在多端适配，代价是 N+1、缓存与复杂度治理都要自己补
+- key: REST 要点
+  value: URL 只放名词、POST 不幂等要配幂等键、状态码做第一层分类、错误体用稳定错误码（可循 RFC 9457 的 Problem Details）
+- key: 分页
+  value: offset 适合小数据与跳页；游标以排序键为书签续读，适合百万级列表与无限滚动
+- key: GraphQL 要点
+  value: schema 先行、客户端声明字段；DataLoader 治 N+1；上线前先备好限深、复杂度预算与持久化查询
+summary: 给浏览器与 App 用的 HTTP API 有两种主流形态：REST 把系统建模成资源，URL 是名词、动作交给 HTTP 方法、结果交给状态码；GraphQL 让客户端在一次请求里点名要哪些字段。两者治的是不同的病：REST 的麻烦在分页、版本与字段不合口，GraphQL 的麻烦在 N+1、缓存与查询治理。本课用电商与工单的场景把两边的账都算清，最后落到面试最常问的那句：你们项目为什么选（或不选）GraphQL。
+premise: 同一个订单详情页，网页要 20 个字段、App 只要 6 个、手表只看 3 个——接口该迁就谁？这就是 REST 与 GraphQL 分岔的起点。
+position: 这是网络学科的第七课，位于「接口的合同：RPC 与序列化」板块，紧接《gRPC 与 Protobuf》：上一课的合同是给机器对机器用的，本课的消费者换成浏览器、App 与第三方开发者，他们的取数方式多变，于是合同的形态也跟着分化成 REST 与 GraphQL 两派。
+level: 进阶
+minutes: 28
+prereq:
+- network/grpc
+objectives:
+- 能用资源建模设计一组 REST 接口：名词 URL、方法语义、状态码、错误格式
+- 能说清 offset 分页的两笔账，并解释大列表为什么要用游标分页
+- 能讲清 GraphQL 解决的 over-fetching 与 under-fetching，以及它带来的 N+1、缓存与复杂度问题
+- 能按场景给出 REST、GraphQL 与两者并用的选型，并套用面试答法结构
+aiLink: 记住一条主线：REST 把合同定死在服务器，换取缓存与治理的简单；GraphQL 把取数权交给客户端，换取多端适配的灵活——选型就是选复杂度放在哪一侧。
+bridge:
+  prev: 上一课的 .proto 合同是为服务之间的调用准备的：消费者都是自家服务，接口长什么样两边坐下来就能定。本课面对的是另一群消费者——浏览器、手机 App、外部开发者，他们要的字段各不相同、版本还不受你控制，合同的设计问题因此完全变了样。
+design:
+- mechanism: REST 把复杂度压在合同稳定性上：资源与方法语义全行业统一，接口一旦发布就尽量不动，换取 HTTP 缓存、网关与监控设施的全部复用。
+  problem: 消费者形态越杂，固定合同越不合身：字段给多了浪费流量，给少了要多打几个请求，任何一端想改字段都要协调所有端一起升级。
+  choice: 选型按消费者的形状做：资源简单、要吃缓存、对外开放就用 REST；多端字段差异大、聚合视图多就用 GraphQL；两边都要时，对外 REST、对内 GraphQL 网关并用。
+  tradeoff: GraphQL 把取数权交给客户端，服务器转而承担治理成本：每个字段的解析都要防 N+1、每个查询都要算复杂度、缓存要另起一套机制。
+  root: 两种风格没有高下，只有复杂度落点的区别：选型要问的不是「哪个先进」，而是「我的消费者是谁、谁在为变更买单」。
+- mechanism: 游标分页把「位置」从页码换成排序键书签：每页都用排序键大于书签的条件续读，与已经翻过的数据总量脱钩。
+  problem: offset 分页在大数据量下双输：数据库要逐行数过被跳过的行，深翻页越来越慢；翻页期间有新数据插入，已翻页的内容还会整体错位、重复或漏读。
+  choice: 大列表与无限滚动一律用游标，管理后台的小数据表格保留 offset 跳页：两种分页按场景分工，而不是全站只用一种。
+  tradeoff: 游标分页放弃了「跳到第 37 页」与总数展示，换来任意深度下稳定的翻页成本与不重不漏——它适合无限滚动的时间线，不适合后台管理表格。
+  root: 分页方式的选择本质是索引的选择：顺着排序键续读能贴着 B+ 树索引走，数偏移量则注定要为「跳过」付出线性代价。
+quiz:
+- q: 下面哪个 URL 设计符合 REST 的资源建模？
+  options:
+  - POST /getOrderList
+  - GET /orders?userId=42
+  - GET /doDeleteOrder?id=7
+  - POST /orders/queryByStatus
+  answer: 1
+  explain: 资源建模要求 URL 是名词（资源集合），动作交给 HTTP 方法：查列表是 GET /orders，删除是 DELETE /orders/7。把动词写进 URL 等于每个动作都要新造一套约定。
+- q: 支付接口用 POST 创建支付单，用户网络抖动重试了两次，最可能出的问题与标准防法是？
+  options:
+  - POST 不是幂等方法，重试会建出两笔支付单；防法是客户端带幂等键（Idempotency-Key），服务器按键去重
+  - 把方法改成 GET 就没事了
+  - 状态码改成 201 就能防重复
+  - 让用户不要重试
+  answer: 0
+  explain: 幂等性决定重试是否安全：GET、PUT、DELETE 天然幂等，POST 不是。支付、扣款这类 POST 接口要用幂等键把「同一次意图」标识出来，服务器只执行第一次。
+- q: 一个有一千万行的工单列表，用 offset 分页翻到第 5000 页会发生什么？
+  options:
+  - 和第一页一样快
+  - 数据库要先数过前面 10 万行才开始取这一页，越来越慢；期间新工单插入还会让已翻过的内容错位
+  - 数据库会自动改用游标
+  - 只要加了索引就没问题
+  answer: 1
+  explain: OFFSET 的成本随深度线性增长，因为「跳过」本身要逐行计数；再加上并发插入造成的错位，大列表的标准解法是游标分页：用最后一行的排序键当书签续读。
+- q: GraphQL 服务上线后数据库查询数暴涨，最常见的原因与对策是？
+  options:
+  - GraphQL 协议本身要求每字段查一次库，无解
+  - 解析器逐条解析列表里每行的关联字段，产生 N+1 次查询；对策是用 DataLoader 把同批 id 合并成一次批量查询
+  - 客户端查询写得太长，限制长度即可
+  - 把 GraphQL 换回 REST 才能解决
+  answer: 1
+  explain: N+1 在 GraphQL 里从 HTTP 层搬到了数据库层：1 次查列表加 N 次查关联。DataLoader 按请求攒批，把 N 次单查合成为一次 WHERE id IN (…) 批量查，并做单次请求内的缓存。
+steps:
+- id: three-clients-one-page
+  title: 第一步：场景——同一个订单页，三端三种胃口
+  tldr: 网页端要订单的全部信息，App 列表只要 6 个字段，手表只看状态与金额：一个固定接口，三方都不满意。
+  body: |-
+    先看场景（业务场景示意）。一个电商的订单详情，数据在服务器上是一整块：订单号、金额、状态、收货地址、支付方式、物流单号、十几件商品明细、优惠明细、发票信息，拼起来三四十个字段。现在来了三个消费者：网页端的管理后台要几乎全部字段；手机 App 的订单列表页只要订单号、第一件商品图、金额、状态这 6 个；手表上的通知卡片只看状态与金额 3 个。
+
+    如果接口是「一个 URL 返回一整块固定数据」，三方各有各的病：App 与手表每次都下载三四十个字段、用其中几个，流量与解析全浪费在没用的字段上，这是取多了；反过来，如果接口按列表页的胃口只给 6 个字段，网页端要点开看地址与物流，就得再发第二个、第三个请求去别处补，这是取不够。[[REST]] 与 [[GraphQL]] 的分岔就从这张表开始：前者选择把合同定死、让客户端适应，后者选择让客户端点菜。先把 REST 这条路走完，再回头看 GraphQL 怎么解这道题。
+  derivation: adapted
+  sources:
+  - ref: graphql-spec
+    locator: "GraphQL Specification: Introduction"
+    claim: 规范导言把 GraphQL 定位为让客户端声明所需数据的查询语言，其要解决的正是固定响应结构下取多与取少的问题。
+    status: verified
+    checkedBy: subagent-research
+    checkedAt: "2026-11-17"
+  canvas:
+    kind: datastate
+    caption: 同一个订单，三端的字段需求（业务场景示意）
+    structure: array
+    rows:
+    - label: 三端的胃口
+      cells:
+      - v: 约 35 个字段
+        sub: 管理后台：地址、物流、优惠全要
+      - v: 6 个字段
+        sub: App 列表：其余全是浪费的流量
+      - v: 3 个字段
+        sub: 手表卡片：状态与金额
+      - v: 取多或取少
+        sub: 固定接口的病：总有一端不合身
+  log:
+  - at: 分岔口
+    text: 合同定死在服务器，还是让客户端点菜
+- id: rest-resources-nouns
+  title: 第二步：REST 的第一性原理——一切皆资源，URL 只放名词
+  tldr: REST 把系统里的一切建模成资源：/orders 是订单集合，/orders/123 是其中一单，动作不许进 URL。
+  body: |-
+    REST 的设计起点是建模方式的转变：不要按「系统能做哪些操作」组织接口，要按「系统里有哪些东西」组织。这些东西叫资源：订单、工单、用户、商品。URL 负责定位资源，所以只放名词：/orders 表示订单集合，/orders/123 表示编号 123 的订单，/orders/123/items 表示这一单的商品明细——层级关系顺着 URL 的路径自然表达。至于要对资源做什么，不写进 URL，交给 HTTP 方法（下一步细讲）。
+
+    这条规矩的收益是接口可猜测：一个新人看到 /tickets 就知道工单集合在哪，看到 /tickets/88/comments 就能猜出那是 88 号工单的评论列表，不需要查文档逐条背。反例也一眼能认：/getOrder、/deleteTicket、/queryUserByName 这类把动词塞进 URL 的写法，等于每个动作都要发明一个新词，接口数量随操作数膨胀，且每个团队发明的词都不一样——这正是 REST 出现之前 HTTP 接口的常态。记住判据：URL 里出现动词，先怀疑建模出了问题。
+  derivation: original
+  sources:
+  - ref: rfc-9110
+    locator: "RFC 9110: HTTP Semantics（资源与方法的标准语义）"
+    claim: HTTP 语义把请求目标定义为资源标识、方法定义为对资源的操作，REST 的资源建模正是建立在这套标准语义之上。
+    status: verified
+    checkedBy: subagent-research
+    checkedAt: "2026-11-17"
+  canvas:
+    kind: datastate
+    caption: 同一组操作，两种 URL 风格
+    structure: array
+    rows:
+    - label: URL 风格对照
+      cells:
+      - v: /orders/123
+        sub: 资源式：名词定位、方法表动作
+        mark: active
+      - v: /getOrder?id=123
+        sub: 动作式：每个动作造一个新词
+      - v: /orders/123/items
+        sub: 层级：归属关系写在路径里
+        mark: active
+  log:
+  - at: 判据
+    text: URL 里出现动词，先回头检查建模
+- id: methods-idempotency
+  title: 第三步：方法语义与幂等——重试安不安全，看方法
+  tldr: GET 只读、PUT 整体替换、DELETE 删除，这三个重复执行结果不变；POST 创建新资源，重发一次就多一份。
+  body: |-
+    HTTP 方法不是随便挑的动词，每个都带着标准语义。GET 是查询：不许改服务器状态，所以浏览器、缓存、爬虫都可以放心重试与预取。PUT 是整体替换：把 /orders/123 的内容换成请求里这份，执行一次与执行十次结果相同。DELETE 是删除：删一次与删十次，世界的状态一样（第二次顶多返回 404）。这三个方法的共同点叫[[幂等]]：同一个请求重复执行，效果与执行一次相同。POST 的语义是「提交处理/新建」，天然不幂等：创建订单的 POST 重发一次，就会多出一笔订单。
+
+    幂等性不是学术名词，它直接决定事故形态。业务场景示意：支付网关超时，用户点了两次「支付」，或客户端自动重试了一次 POST——如果接口不做防护，就是重复扣款。标准防法是幂等键：客户端为「这一次支付意图」生成一个唯一键放在 Idempotency-Key 请求头里，服务器记下这个键与它的处理结果；同一个键再来，直接返回上次的结果，不再执行扣款。面试里被问「怎么保证支付接口不重复扣款」，答的正是这一段：先指出 POST 不幂等，再给出幂等键加服务端去重的方案。
+  derivation: original
+  sources:
+  - ref: rfc-9110
+    locator: "RFC 9110 §9.2.2: Idempotent Methods"
+    claim: RFC 9110 明确 GET、PUT、DELETE 等方法为幂等，POST 不在幂等之列；幂等性指重复请求的预期效果与单次相同。
+    status: verified
+    checkedBy: subagent-research
+    checkedAt: "2026-11-17"
+  canvas:
+    kind: datastate
+    caption: 常用方法的语义与幂等性
+    structure: array
+    rows:
+    - label: 方法速查
+      cells:
+      - v: 查 · 幂等
+        sub: GET：不许有副作用
+        mark: active
+      - v: 整体替换 · 幂等
+        sub: PUT：重发结果不变
+        mark: active
+      - v: 删 · 幂等
+        sub: DELETE：删十次等于删一次
+        mark: active
+      - v: 建 · 不幂等
+        sub: POST：重发会多一份，要配幂等键
+  log:
+  - at: 事故线
+    text: 重试是否安全，先看方法再谈实现
+- id: status-codes
+  title: 第四步：状态码是给机器看的第一层结果
+  tldr: 200、201、400、404、409、500 各有明确含义：客户端先看状态码就能决定重试、报错还是跳登录，不必先解析响应体。
+  body: |-
+    资源与方法定完，第三件合同是结果怎么报。HTTP 状态码按百位分工：2xx 成功，4xx 是调用方的问题（参数错、没登录、资源不存在），5xx 是服务器的问题。细节里有几条最常用：创建成功返回 201 而不是 200，并把新资源的 URL 放在 Location 头里；请求参数校验不过返回 400 并在响应体里写清哪个字段错了；资源不存在是 404；状态冲突——比如对一张已关闭的工单再执行关闭——用 409；限流是 429。
+
+    要避免的坏味道是「永远 200」：不管成功失败都返回 200，把真实结果藏在响应体的自定义 code 字段里。这样做的代价是把 HTTP 的整套基础设施全废掉：网关与监控按状态码统计的错误率失真，客户端的重试逻辑没法按「4xx 不重试、5xx 可重试」这种通用规则写，缓存也无法工作。状态码的本质是把结果的第一层分类做成全行业统一的语言，自定义 code 只应该做第二层的细分，不能替代第一层。
+  derivation: original
+  sources:
+  - ref: rfc-9110
+    locator: "RFC 9110 §15: Status Codes"
+    claim: RFC 9110 定义了状态码的分类语义：2xx 成功、4xx 客户端错误、5xx 服务器错误，201 表示已创建新资源。
+    status: verified
+    checkedBy: subagent-research
+    checkedAt: "2026-11-17"
+  canvas:
+    kind: datastate
+    caption: 状态码的第一层分类：谁的错、要不要重试，先看百位
+    structure: array
+    rows:
+    - label: 状态码分工
+      cells:
+      - v: 成功
+        sub: 2xx：201=已创建并给新 URL
+        mark: active
+      - v: 调用方的错
+        sub: 4xx：400 参数、404 不存在、409 冲突
+      - v: 服务器的错
+        sub: 5xx：一般可重试、要告警
+      - v: 永远 200
+        sub: 反例：监控、重试、缓存全部失灵
+  log:
+  - at: 原则
+    text: 状态码做第一层分类，业务 code 只做细分
+- id: error-format
+  title: 第五步：错误格式——响应体里给机器留的结构
+  tldr: 状态码只说了「哪类错」，响应体还要稳定地给出错误码、给人看的消息与出错字段，让前端能不靠猜地处理每种失败。
+  body: |-
+    接着状态码往下设计：4xx 的响应体长什么样。最低要求有三件：一个稳定的机器可读错误码（比如 ORDER_ALREADY_PAID，发布后永不改名），一句给人看的说明，一个可选的细节区（哪个字段错了、错在哪）。前端拿错误码做分支与多语言文案映射，拿说明给用户看或打日志——两者分开，才不会出现「改一句提示文案，前端的判断逻辑跟着坏掉」的事故。
+
+    这套结构已经有现成标准：RFC 9457 定义的 Problem Details 格式，用 type（错误类型的 URI）、title、status、detail、instance 五个字段描述任何 HTTP 错误，媒体类型是 application/problem+json。用标准的好处与用状态码一样：工具链与同事的预期都现成。当然也有团队用自家格式，只要字段稳定、错误码有注册表、文档与实现一致，同样合格——不合格的是每个接口各写一套、错误信息直接把服务器堆栈与 SQL 原样抛给客户端：那既泄密，又没法用。
+  derivation: original
+  sources:
+  - ref: rfc-9457
+    locator: "RFC 9457: Problem Details for HTTP APIs"
+    claim: RFC 9457 定义了统一的错误响应结构（type/title/status/detail/instance）与 application/problem+json 媒体类型，供 HTTP API 描述错误细节。
+    status: verified
+    checkedBy: subagent-research
+    checkedAt: "2026-11-17"
+  code:
+    lang: http
+    code: |-
+      HTTP/1.1 409 Conflict
+      Content-Type: application/problem+json
+
+      { "type": "https://api.example.com/errors/order-paid",
+        "title": "订单已支付", "status": 409,
+        "detail": "订单 123 已于 10:02 完成支付，不能重复支付",
+        "code": "ORDER_ALREADY_PAID" }
+  canvas:
+    kind: datastate
+    caption: 一份合格的错误响应要同时服务两个读者
+    structure: array
+    rows:
+    - label: 错误体的读者
+      cells:
+      - v: 稳定错误码
+        sub: 机器：做分支与文案映射、永不改名
+        mark: active
+      - v: 可读说明
+        sub: 人：给用户看、给日志留
+      - v: 不抛堆栈
+        sub: 红线：内部细节不外泄
+  log:
+  - at: 标准
+    text: RFC 9457 是现成的答案，不必自创
+- id: pagination-offset
+  title: 第六步：分页一——offset 的两笔账
+  tldr: LIMIT 20 OFFSET 100000 写起来最顺手，但数据库要先数过十万行才开始取；翻页途中有人插入新数据，后面的页还会重与漏。
+  body: |-
+    列表接口绕不开分页。最直觉的写法是按页码算偏移：每页 20 条，第 N 页就是 LIMIT 20 OFFSET (N-1)×20。它有两笔账。第一笔是性能账：OFFSET 在数据库里不是「跳过去」，而是「从头数过去再丢掉」——取第 5000 页，数据库要先定位并数过前面近十万行，页越深越慢，深翻页在大数据表上能慢到秒级。第二笔是正确性账：翻页是一个持续几分钟的动作，期间若有新订单插进列表头部，所有后续页的内容整体后移一位——用户会看到上一页末尾的那条又在这一页出现（重复），或某条被挤过去永远看不到（漏读）。
+
+    公道地说，offset 并非不能用：后台管理表格数据量不大、又必须支持「跳到第 37 页」与显示总页数时，它就是对的选择。判断线在数据规模与翻页方式：数据到了百万级、或者前端是无限滚动的时间线，offset 的两笔账就都会到期——这正是下一步游标分页的出场条件。
+  derivation: adapted
+  sources:
+  - ref: rfc-9110
+    locator: "RFC 9110: 范围请求与内容协商之外的分页惯例（分页为 API 设计惯例，非协议规定）"
+    claim: 分页不在 HTTP 协议范围内，是 API 层惯例；offset 的深翻页成本与并发插入错位是数据库按偏移量逐行计数的必然结果。
+    status: verified
+    checkedBy: subagent-research
+    checkedAt: "2026-11-17"
+  canvas:
+    kind: datastate
+    caption: offset 分页的两笔账（业务场景示意：订单流水）
+    structure: array
+    rows:
+    - label: offset 的账
+      cells:
+      - v: 越深越慢
+        sub: 性能账：跳过=逐行数过去再丢掉
+      - v: 会重会漏
+        sub: 正确性账：翻页期间插入新数据即错位
+      - v: 小数据+跳页
+        sub: 适用区：后台表格仍是它的地盘
+        mark: active
+  log:
+  - at: 判断线
+    text: 百万级数据或无限滚动，就别再用 offset
+- id: pagination-cursor
+  title: 第七步：分页二——游标：拿最后一行当书签
+  tldr: 不记页码，记「上一页最后一条的排序键」：下一页从书签之后接着读，翻到多深都是一个价，也不受新数据插入影响。
+  body: |-
+    [[游标分页]]换一个记位置的方式：响应里除了数据，再给一个不透明的游标（cursor），它编码的是「这一页最后一条的排序键」，比如最后一笔订单的 id 或创建时间。客户端要下一页时把游标带回来，服务器执行的查询变成 WHERE id < 书签值 ORDER BY id DESC LIMIT 20——顺着索引直接定位到书签处往下读，成本只与一页的大小有关，与已经翻了多深无关。刚才的两笔账同时清掉：不用再数被跳过的行；新插入的数据排在书签之前，不会挤动已经翻过的位置，不重不漏。
+
+    代价也要认：游标分页跳不了页——没有「第 37 页」这个概念，只有上一页与下一页；总页数与总数也给不出来（真要显示得另发一个 count 请求）；排序键必须稳定且唯一（常用自增 id，或创建时间加 id 的复合键，否则同一时刻的多条会互相挤）。适用场景因此很清晰：订单流水、工单时间线、消息流这类「一直往下滚」的列表用游标；需要跳页与总数的管理后台用 offset。面试问分页，答出这组对照与各自的适用区，就完整了。
+  derivation: adapted
+  sources:
+  - ref: rfc-9110
+    locator: "RFC 9110: HTTP 语义（分页为 API 层惯例，此处为工程实践总结）"
+    claim: 游标（keyset）分页以排序键为书签续读，查询成本与翻页深度无关且对并发插入稳定，是大列表与无限滚动场景的通行做法。
+    status: verified
+    checkedBy: subagent-research
+    checkedAt: "2026-11-17"
+  canvas:
+    kind: datastate
+    caption: 游标分页换来的与放弃的
+    structure: array
+    rows:
+    - label: 游标的账
+      cells:
+      - v: 恒定成本
+        sub: 换来：顺索引定位书签、与深度无关
+        mark: active
+      - v: 不重不漏
+        sub: 换来：插入新数据不挤动已翻位置
+        mark: active
+      - v: 跳页与总数
+        sub: 放弃：只有上一页/下一页
+      - v: 稳定排序键
+        sub: 前提：id 或时间+id 复合键
+        mark: active
+  log:
+  - at: 对照
+    text: 无限滚动用游标，管理表格用 offset
+- id: versioning
+  title: 第八步：版本管理——破坏性变更怎么过河
+  tldr: 加字段是安全的，改字段含义与删字段是破坏性的：REST 靠 /v1、/v2 分流，GraphQL 的答案是不升版本、只标记弃用。
+  body: |-
+    接口发布出去就会有甩不掉的老客户端：App 的旧版本在用户手机里能活一两年。这决定了变更纪律：往响应里加新字段、加新接口，都是安全变更，老客户端看不见新字段、照常工作；删字段、改字段类型、改字段含义（比如金额从元改成分），是破坏性变更，直接上线就是线上事故。
+
+    REST 的主流过河办法是 URL 里带大版本号：/v1/orders 与 /v2/orders 并行运行一段时间，老客户端继续用 v1，新客户端迁到 v2，等 v1 的流量降到可忽略再下线——下线日期要提前公告并监控调用量，硬切是事故之源。也有团队把版本放进请求头，URL 更干净但调试与缓存更麻烦，URL 版本胜在直白，是目前最常见的选择。[[GraphQL]] 对同一问题给出完全不同的答案：整个图只有一份 [[schema]]、不设版本号；字段要废弃时用 @deprecated 标记并注明替代字段，客户端逐步迁移，等没人用了再真正删除。前者是「多份合同并存」，后者是「一份合同只增不减」——记住这组对照，选型那步还会用到。
+  derivation: adapted
+  sources:
+  - ref: graphql-spec
+    locator: "GraphQL Specification: schema 演进与字段弃用（@deprecated）"
+    claim: GraphQL 规范提供字段级弃用指令，演进策略是单份 schema 只增不减、无大版本号，这与 REST 的版本分流形成对照。
+    status: verified
+    checkedBy: subagent-research
+    checkedAt: "2026-11-17"
+  canvas:
+    kind: datastate
+    caption: 破坏性变更的两种过河方式
+    structure: array
+    rows:
+    - label: 版本策略
+      cells:
+      - v: 加字段加接口
+        sub: 安全变更：老客户端无感、直接上线
+        mark: active
+      - v: "/v1 与 /v2 并行"
+        sub: REST：流量降下来再下线旧版
+        mark: active
+      - v: 不升版本
+        sub: GraphQL："@deprecated 标记、只增不减"
+        mark: active
+  log:
+  - at: 纪律
+    text: 老客户端的寿命，决定变更的节奏
+- id: graphql-client-orders
+  title: 第九步：GraphQL 登场——客户端点菜，服务器照单上
+  tldr: 先写好一份带类型的 schema，客户端在一次请求里写明要哪些字段、哪几层关联，服务器不多给一分、不少给一分。
+  body: |-
+    回到第一步的三端难题，看 GraphQL 的解法。它由 Facebook 在 2012 年为移动端的信息流做出来，2015 年开源。形态与 REST 完全不同：通常只有一个端点（POST /graphql），服务器先发布一份 schema——用类型系统写明系统里有哪些对象、每个对象有哪些字段、字段之间怎么关联，这份 schema 就是合同本身。客户端发来的不是 URL，而是一段查询文本：声明它要订单的哪几个字段、要不要带上商品明细、明细里又只要名称与数量。服务器按单执行，只返回点到的字段，形状与查询声明一一对应。
+
+    三端的难题就此消解：后台点全量、App 点 6 个字段、手表点 3 个，同一个端点各取所需——取多了（[[over-fetching]]）与取不够（[[under-fetching]]）在结构上同时消失，前端也不必为了一个页面串行发三四个请求。代价不在这一幕里，在后面两步：取数权交出去之后，服务器要为「客户端可能点出什么菜」全面设防。
+  derivation: original
+  sources:
+  - ref: graphql-spec
+    locator: "GraphQL Specification: Type System / Execution"
+    claim: 规范定义了以 schema 为合同、客户端在查询中声明字段集合、服务器按声明执行并返回对应形状的执行模型；GraphQL 由 Facebook 于 2012 年内部创建、2015 年开源。
+    status: verified
+    checkedBy: subagent-research
+    checkedAt: "2026-11-17"
+  code:
+    lang: graphql
+    code: |-
+      query {
+        order(id: "123") {
+          status        # 手表只要这两行
+          total
+          items { name quantity }  # App 再多点这一层
+        }
+      }
+  canvas:
+    kind: datastate
+    caption: 一份 schema，三端各点各的（业务场景示意）
+    structure: array
+    rows:
+    - label: 点菜模式
+      cells:
+      - v: 只有一个
+        sub: 端点：POST /graphql
+        mark: active
+      - v: schema
+        sub: 合同：类型系统写明全部字段
+      - v: 与查询同形
+        sub: 返回：点到的才给
+        mark: active
+  log:
+  - at: 出身
+    text: Facebook 2012 年为移动端而做，2015 年开源
+- id: graphql-n-plus-1
+  title: 第十步：N+1 换了个地方出现——从 HTTP 层搬进数据库层
+  tldr: GraphQL 把客户端的多次请求合成了一次，但若解析器逐条查库，一次请求照样能打出 51 条 SQL。
+  body: |-
+    先看 GraphQL 的执行方式：schema 里每个字段背后是一个解析函数（resolver），查询要哪个字段，就执行哪个函数。业务场景示意：工单列表页要 50 张工单及每张的负责人姓名。天真的实现是：列表解析器查一次数据库拿到 50 张工单；然后每张工单的「负责人」字段各触发一次解析、每次查一次用户表——总共 1 + 50 = 51 条 SQL。这就是 [[N+1]] 问题：它没有被 GraphQL 消灭，只是从 REST 时代「客户端发 51 个 HTTP 请求」搬家成了「服务器打 51 条 SQL」，藏得更深、更难在代码审查里看出来。
+
+    标准解法是 [[DataLoader]]：它把一次请求内散落的单条加载攒起来——50 次「按 id 查用户」先被收集、去重，再合并成一条 WHERE id IN (…) 的批量查询，结果按 id 分发回去，并在本次请求内缓存（同一个用户被问到第二次直接给缓存）。加上它之后，查询数回到 2 条。要强调一句公道话：N+1 不是 GraphQL 独有的病，REST 的列表接口在服务器内部拼关联数据时同样会犯；只是 GraphQL 的字段级解析结构让它特别容易在不知不觉中发生，所以 DataLoader 几乎是 GraphQL 服务的标配。
+  derivation: original
+  sources:
+  - ref: dataloader-repo
+    locator: "graphql/dataloader: README（批处理与缓存的工作方式）"
+    claim: DataLoader 通过攒批把单次请求内的多次单条加载合并为一次批量加载并做请求内缓存，是 GraphQL 场景下治理 N+1 的标准工具。
+    status: verified
+    checkedBy: subagent-research
+    checkedAt: "2026-11-17"
+  canvas:
+    kind: datastate
+    caption: 50 张工单加负责人：查询数的变化（业务场景示意）
+    structure: array
+    rows:
+    - label: N+1 的账
+      cells:
+      - v: 51 条 SQL
+        sub: 天真实现：1 次查列表 + 50 次查人
+      - v: 2 条 SQL
+        sub: DataLoader：批量 IN 查询 + 请求内缓存
+        mark: active
+      - v: REST 也会犯
+        sub: 提醒：只是 GraphQL 更容易中招
+  log:
+  - at: 标配
+    text: 上 GraphQL 就要同时上 DataLoader
+- id: graphql-hidden-costs
+  title: 第十一步：GraphQL 的另外三笔账——缓存、复杂度、监控
+  tldr: 一个端点收走所有请求后，HTTP 按 URL 缓存的免费午餐没了；客户端能写出的查询深不见底，要限深、算复杂度、挡批量滥用。
+  body: |-
+    第一笔是缓存。REST 的 GET /orders/123 天然能被浏览器、CDN 与网关按 URL 缓存，还能配 [[ETag]] 做协商缓存；GraphQL 的所有查询都 POST 到同一个端点、查询内容在请求体里，URL 层面全长一个样，HTTP 缓存无从下手。补救要另起炉灶：客户端缓存库按对象归一化存储、或用持久化查询把查询文本换成哈希 ID 再走 GET 让 CDN 缓存——都能做，但都是额外工程。
+
+    第二笔是复杂度与安全。客户端能自由组合字段，就能写出层层嵌套的昂贵查询：订单里套用户、用户里套订单，深度与扇出相乘，一次请求打爆数据库；还能用别名在一条查询里把同一个昂贵字段要上千遍。生产级 GraphQL 必须设防：限制查询深度、按字段成本算复杂度并设预算、关掉或限制批量与内省（introspection）。第三笔是可观测性：所有响应都是 HTTP 200、路径都是 /graphql，错误藏在响应体的 errors 字段里——按状态码与路径做统计的传统监控全部要改造成按操作名与字段级打点。三笔账的共同点是：它们都不是不能解，而是都要团队自己出工程量——这正是选型时要称的那一秤。
+  derivation: original
+  sources:
+  - ref: graphql-spec
+    locator: "GraphQL Specification: Execution / Response（错误以 errors 字段随 200 返回的执行模型）"
+    claim: GraphQL 的执行模型把字段级错误放进响应体而非 HTTP 状态码，且单端点 POST 形态不利用 HTTP 的 URL 缓存语义，治理需在应用层另行建设。
+    status: verified
+    checkedBy: subagent-research
+    checkedAt: "2026-11-17"
+  canvas:
+    kind: datastate
+    caption: GraphQL 上线前要先备好的三套治理
+    structure: array
+    rows:
+    - label: 三笔账
+      cells:
+      - v: HTTP 缓存失效
+        sub: 缓存：靠客户端缓存或持久化查询补
+      - v: 深查询可打爆库
+        sub: 复杂度：限深、算成本、限批量
+      - v: 全是 200
+        sub: 监控：按操作名与字段重新打点
+  log:
+  - at: 共性
+    text: 都能解，都要自己出工程量
+- id: selection-interview
+  title: 第十二步：选型与面试答法——先讲约束，再讲取舍
+  tldr: 资源简单、要吃缓存、对外开放，用 REST；多端聚合、字段差异大，用 GraphQL；对外 REST、对内 GraphQL 网关并用也很常见。
+  body: |-
+    把两边的账合成为选型表。选 REST 的情形：资源模型简单稳定、消费者不多、要吃 CDN 与浏览器缓存、要给第三方开放（REST 的约定全行业都懂，文档与工具链最全）、文件上传下载这类 HTTP 原生场景。选 GraphQL 的情形：多端（Web、iOS、Android、电视）对同一批数据的字段需求差异大且变化快；页面是深层聚合视图，一次要拼多个资源；前端迭代速度远快于后端发版，不想每改一个字段就等后端加接口。两者并用的典型形态：对外公开 API 用 REST 保稳定与缓存，对内由一个 GraphQL 网关（BFF）聚合各微服务的 REST/gRPC 接口给前端点菜——大厂的多端架构里这很常见。
+
+    最后落到面试。全栈岗位 JD 里反复出现 REST 与 GraphQL，被问「你们项目为什么选 GraphQL / 为什么没选」时，答法结构是固定的三段：先讲约束（有几端、字段差异多大、谁在主导迭代），再讲取舍（选了 GraphQL 是因为多端聚合的收益大过 N+1 与缓存治理的成本；或没选是因为消费者只有自家 Web、REST 加游标分页已经够用，引入 GraphQL 等于平白多养一套治理），最后讲补救（上了 DataLoader、做了深度限制与持久化查询；或 REST 这边用幂等键与统一错误格式补齐了短板）。只背「GraphQL 更灵活、REST 更简单」的回答，在这道题上是拿不到分的——面试官要听的是你算过哪几笔账。
+  derivation: adapted
+  sources:
+  - ref: graphql-spec
+    locator: "GraphQL Specification: Introduction（适用形态说明）"
+    claim: 规范与官方文档把 GraphQL 的适用点放在多客户端按需取数与强类型合同上，其治理成本需由实现方承担，与本课的选型结论一致。
+    status: verified
+    checkedBy: subagent-research
+    checkedAt: "2026-11-17"
+  canvas:
+    kind: datastate
+    caption: 选型速查：先看消费者，再看复杂度落点
+    structure: array
+    rows:
+    - label: 选谁
+      cells:
+      - v: 资源稳+要缓存
+        sub: REST：对外开放、第三方生态
+        mark: active
+      - v: 多端+字段差异大
+        sub: GraphQL：聚合视图、前端迭代快
+        mark: active
+      - v: REST 对外
+        sub: 并用：GraphQL 网关对内聚合
+        mark: active
+      - v: 约束→取舍→补救
+        sub: 面试答法：背优劣点拿不到分
+  log:
+  - at: 收束
+    text: 选型题答的是账，不是立场

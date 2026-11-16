@@ -1,0 +1,438 @@
+id: go/interfaces-composition
+subject: go
+slug: interfaces-composition
+title: 接口与组合：没有继承的类型系统
+order: 3
+visual: datastate
+logColumns:
+- key: at
+  label: 阶段
+- key: text
+  label: 发生了什么
+status: published
+license: CC-BY-NC-SA-4.0
+overview:
+- key: 一句话总结
+  value: Go 用隐式接口管多态、用嵌入组合管复用、用 error 显式返回管失败：三者共享同一条原则——关系不提前登记、控制流不暗中跳转、错误不隐身传递
+- key: 隐式实现
+  value: 方法集对上即算实现、编译期核对；接口因此可以由使用方定义，只写自己真正需要的那一两个方法
+- key: 小接口
+  value: io.Reader 只有一个方法却无处不在：接口要求越少，能满足它的类型越多，它能出现的组合也就越多
+- key: error 的账
+  value: 显式返回换来失败路径全程可见，代价是样板重复与上下文易丢，靠 %w 逐层包装与 errors.Is/As 补齐
+summary: Go 没有类、没有继承、没有 implements 关键字：一个类型只要方法齐了，就自动算实现了某个接口。复用靠把现成类型嵌进结构体里「拼」出来，错误处理则把 error 当成普通返回值，一层一层显式交代。本课讲清隐式实现为什么让接口可以由使用方定义、小接口为什么更值钱、组合与继承差在哪，以及显式 error 的收益与那份著名的啰嗦各是什么。
+premise: 在 Go 里，一个类型不需要向任何人报备：它把方法凑齐的那一刻，就已经「是」那个接口了。
+position: 这是 Go 学科的第三课，位于「类型系统：接口与组合」板块，接续前两课的设计哲学与并发：语言做减法删掉了继承，空出来的多态与复用就由本课的隐式接口与嵌入组合来补；error 的显式返回则是同一套「把控制流写在明处」哲学的最后一块。
+level: 进阶
+minutes: 24
+prereq:
+- go/origins
+objectives:
+- 能解释隐式实现与 implements 声明的区别，以及「接口由使用方定义」为什么成立
+- 能说清小接口原则：为什么 io.Reader 只有一个方法反而更强
+- 能区分组合（嵌入）与继承在多态、复用与耦合上的差别
+- 能完整回答「Go 为什么不用异常」：理由、代价与社区的补救办法
+aiLink: 把三课连起来看：接口、组合与 error 返回共享同一条设计线——关系不提前登记、行为不暗中跳转、错误不隐身传递，一切都写在读代码时能直接看见的地方。
+bridge:
+  prev: 前两课讲了 Go 的取舍清单与并发机制，本课处理取舍清单里最显眼的两个「没有」：没有继承、没有异常。它们不是缺失，而是被接口、组合与显式 error 返回这三件东西成套替代了——先看替代方案，再评判这笔交换划不划算。
+design:
+- mechanism: 隐式接口：类型与接口的关系不靠声明，靠编译器核对方法集；接口可以由使用方在自己的包里定义，哪怕实现类型来自第三方、早已写死。
+  problem: 声明式实现把关系登记在实现方：想让一个现成类型满足一个新接口，必须回去改它的源码或套一层适配器；类型关系图随着项目长大越来越难动。
+  choice: 关系随用随定：使用方只声明自己需要的那一两个方法，编译器在赋值处核对；复用则交给嵌入组合，方法靠拼装借来，不靠继承树授予。
+  tradeoff: 隐式实现的代价是关系不可见：看类型定义看不出它实现了哪些接口，要靠工具或编译报错来确认；方法名撞车时还可能「无意中」实现某个接口。
+  root: Go 把「类型之间是什么关系」的决定权从写类型的人手里，挪给了用类型的人：关系随用随定，代码库的演化方向就从自上而下登记，变成自下而上组合。
+- mechanism: error 显式返回：函数把错误与结果并列返回，调用方必须在紧邻的位置判断处理，控制流没有任何隐藏的跳转。
+  problem: 异常机制下，错误可以从任意深的调用里抛出、穿过所有中间层：读一段代码时看不出它会往外抛什么，普通错误也容易被当成异常一并抛出，让控制流变成迷宫。
+  choice: 日常错误一律走返回值、就近处理；只给「程序逻辑已崩」的局面保留 panic 通道，并约定在库的边界用 recover 把 panic 转回 error，业务错误永远不许搭异常的便车。
+  tradeoff: 显式返回的代价是啰嗦：if err != nil 在真实项目里出现成百上千次，还要靠 fmt.Errorf 逐层包装才能保住出错位置的上下文。
+  root: Go 的判断是：对长年运行的服务器程序，「每个错误都在出错点附近被看见、被决定」比「代码看起来短」更重要——错误处理是程序的主要逻辑之一，不该藏起来。
+quiz:
+- q: Go 里一个类型「实现了某接口」的判定方式是？
+  options:
+  - 类型声明里写 implements 接口名
+  - 在接口注册表里登记一次
+  - 编译器核对方法集：接口要求的方法它全有，就算实现，不需要任何声明
+  - 运行时第一次调用时才动态判定，且没有编译检查
+  answer: 2
+  explain: 这是编译期检查的鸭子类型：不需要声明、不需要继承，但类型安全由编译器保证，方法缺一个就编不过。
+- q: 「接口应该由使用方定义」在 Go 里能成立，靠的是？
+  options:
+  - 反射可以在运行时给类型加方法
+  - 隐式实现：使用方在自己包里写一个小接口，现成类型的方法对得上就直接能用，不必改它的源码
+  - 所有类型默认继承同一个基类
+  - 接口定义会自动生成适配代码
+  answer: 1
+  explain: 因为实现关系是「用时核对」而非「提前登记」，消费方可以只声明自己真正需要的那一两个方法，把依赖压到最小。
+- q: io.Reader 只有一个方法 Read，却能成为整个 Go 生态的通用接口，原因是？
+  options:
+  - 方法少意味着实现它几乎没成本，文件、网络、内存缓冲都能满足；接口越小，能塞进来的类型越多，组合空间越大
+  - 它是语言内置的特殊类型，有编译器优化
+  - 所有数据都必须先转成字节才能处理
+  - 它的方法名最短
+  answer: 0
+  explain: 小接口原则：要求越少，满足者越多。Rob Pike 的说法是「接口越大，抽象越弱」——大接口把实现者绑死在很少的场景里。
+- q: Go 官方 FAQ 对不用异常（try-catch）的核心理由是？
+  options:
+  - 异常实现起来太难，编译器团队没排期
+  - 异常会让二进制体积变大
+  - 把错误耦合到控制流结构上会诱导程序员把普通错误也当异常抛出，控制流变得 convoluted（纠缠不清）；普通错误应作为普通值处理
+  - 异常与垃圾回收不兼容
+  answer: 2
+  explain: Go 不是完全没有非常规控制流：panic/recover 留给真正无法恢复的局面；日常错误——文件不存在、网络超时——是程序的正常输入，必须显式处理。
+steps:
+- id: swap-payment-scenario
+  title: 第一步：场景——换支付渠道，订单代码一行不改
+  tldr: 电商系统要把支付从 A 渠道换成 B 渠道：订单模块只认一个「能收款」的方法，谁来实现它，订单模块不关心。
+  body: |-
+    先看一个业务场景示意。电商的订单服务在结账时要调支付，它真正需要的只是一个动作：「对这笔订单收这么多钱，告诉我成没成。」今天接的是渠道 A 的 SDK，明天要换渠道 B，后天可能还要加一个内部的积分支付。如果订单代码里写死了渠道 A 的类型，每换一次就要动一次核心结账逻辑，风险极高。
+
+    Go 的常规解法是：订单模块自己定义一个只有一个方法的接口——就叫它收款能力，需要一个 Charge(订单号, 金额) 方法；渠道 A 的客户端、渠道 B 的客户端、测试用的假支付，谁凑齐了这个方法，谁就能被订单模块使用。换渠道时改的是「把谁传进来」这一行配置，订单逻辑纹丝不动。注意这段关系里最不寻常的一点：渠道 B 的 SDK 是第三方写的，它从没听说过你这个接口，更没声明过要实现它——它只是碰巧有这个方法。下面几步就拆这个「碰巧」为什么成立、为什么重要。
+  derivation: adapted
+  sources:
+  - ref: go-faq
+    locator: "FAQ: Why does Go not have type inheritance / interfaces"
+    claim: FAQ 说明 Go 的接口靠方法集匹配自动满足，实现方无需声明，这使得接口可以由使用方按需定义、套在任意现成类型上。
+    status: verified
+    checkedBy: subagent-research
+    checkedAt: "2026-11-17"
+  canvas:
+    kind: datastate
+    caption: 订单模块只依赖一个方法（业务场景示意）
+    structure: array
+    rows:
+    - label: 依赖关系
+      cells:
+      - v: 只认 Charge
+        sub: 订单模块：接口由使用方定义
+        mark: active
+      - v: 有此方法
+        sub: 渠道 A 客户端：直接可用
+        mark: active
+      - v: 也有此方法
+        sub: 渠道 B 的 SDK：第三方、从未声明
+        mark: active
+      - v: 测试替身
+        sub: 假支付：同样凑齐一个方法
+  log:
+  - at: 关键点
+    text: 接口写在使用方的地盘上，不在实现方的声明里
+- id: implicit-satisfaction
+  title: 第二步：隐式实现——方法集对上，编译器就认
+  tldr: 没有 implements、没有登记表：编译器只核对一件事——接口要的方法，这个类型是不是都有。
+  body: |-
+    对照一下 Java 的写法就清楚差别在哪：Java 里一个类要实现接口，必须在类声明里写明 implements 某接口，关系是提前登记、全网可见的。登记制的问题在规模：你想让一个别人写的、已经发布的类满足你今天新定的接口，做不到——只能再包一层适配器，或者去改它的源码。
+
+    Go 把核对时机与地点都换了：关系不在任何地方登记，编译器在「把某个类型的值赋给接口变量」的那一刻，检查它的方法集是否覆盖接口的全部方法，覆盖了就通过。这就是所谓的[[鸭子类型]]，但与 Python 那种运行时才发现方法不存在的动态版本不同：Go 的核对发生在编译期，方法缺一个、签名差一点，程序根本编不过。于是「事后定义接口、套住既有类型」成为日常操作：标准库里大量小接口都是这样套在用户类型上的。这也是 Go 代码里接口常常只有一两个方法的原因——接口是使用方按需裁剪的，自然裁得越小越好用，第四步细讲。
+  derivation: original
+  sources:
+  - ref: go-faq
+    locator: "FAQ: Why is there no type inheritance"
+    claim: FAQ 原文：类型自动满足任何包含其方法子集的接口，无需提前声明关系，因此不存在类型层级；核对由编译器按方法集完成。
+    status: verified
+    checkedBy: subagent-research
+    checkedAt: "2026-11-17"
+  canvas:
+    kind: datastate
+    caption: 两种判定关系的方式：提前登记，还是用时核对
+    structure: array
+    rows:
+    - label: 关系怎么成立
+      cells:
+      - v: 写 implements
+        sub: 声明式：关系登记在实现方
+      - v: 核对方法集
+        sub: Go：赋值那一刻编译器检查
+        mark: active
+      - v: 编译期
+        sub: 安全网：方法缺失直接编不过
+        mark: active
+  log:
+  - at: 对比
+    text: Python 的鸭子类型是运行时核对，Go 的是编译时核对
+- id: consumer-defined-interfaces
+  title: 第三步：接口由使用方定义——依赖的方向反过来了
+  tldr: 传统分层里接口跟着实现方走；Go 的惯例是接口写在调用方的包里，只写自己真用到的那几个方法。
+  body: |-
+    隐式实现带出一个重要的工程惯例：接口应该定义在使用它的包里，而不是提供实现的包里。原因接着第二步就能推出来：既然关系是用时核对的，使用方完全可以只声明自己需要的那部分——订单模块只需要 Charge，就只写 Charge，哪怕渠道 SDK 里还有退款、对账、查余额等十个方法，也与订单模块无关。这样依赖被压到最小：实现方日后加方法、改内部，完全碰不到使用方。
+
+    这条惯例还有个常被引用的配套说法：接受接口、返回具体类型（accept interfaces, return structs）。函数参数用接口，调用方就能传任何满足条件的实现进来；返回值用具体类型，调用方能拿到它的全部方法，不被接口裁剪。两条合起来，就是 Go 代码里接口总是又小又贴身的根本原因——它们不是为「描述一个东西的全貌」设计的，而是为「表达我这处调用到底需要什么」设计的。
+  derivation: original
+  sources:
+  - ref: go-effective
+    locator: "Effective Go: Interfaces and methods"
+    claim: Effective Go 示范了接口应按使用方的需要定义、保持小而贴身；接口的价值在于描述行为需求而非类型的全貌。
+    status: verified
+    checkedBy: subagent-research
+    checkedAt: "2026-11-17"
+  canvas:
+    kind: datastate
+    caption: 接口放哪儿，决定了谁迁就谁
+    structure: array
+    rows:
+    - label: 接口的位置
+      cells:
+      - v: 大而全
+        sub: 跟着实现方：使用方被迫依赖整包
+      - v: 只写所需
+        sub: 跟着使用方：依赖被裁到最小
+        mark: active
+      - v: 收接口返结构体
+        sub: 函数签名：入口宽、出口实
+        mark: active
+  log:
+  - at: 惯例
+    text: 接口是调用方的需求单，不是实现方的说明书
+- id: small-interfaces-io-reader
+  title: 第四步：小接口原则——io.Reader 只有一个方法
+  tldr: 标准库最出名的接口只有一个方法：要求越少，能满足它的类型越多，它能出现的地方也就越多。
+  body: |-
+    把标准库翻出来看证据。io.Reader 是 Go 里最有分量的接口之一，它的全部要求只有一个方法：Read(p []byte) (n int, err error)——往给定的字节切片里填数据，返回填了多少与有没有出错。文件能满足它，网络连接能满足它，内存里的字节缓冲、解压流、解密流都能满足它。于是任何「消费一串字节」的函数只要收一个 io.Reader，就自动能处理所有这些来源；处理链还能层层套：文件外面包一层解压、再包一层解密，每层都是 Reader，消费方无感。
+
+    Rob Pike 有句被反复引用的话：「接口越大，抽象越弱」（The bigger the interface, the weaker the abstraction）。道理就是上面的账：接口每多要求一个方法，能满足它的类型就少一批，它能复用的场景就窄一圈。Go 标准库的风格因此是一串单方法接口——Reader、Writer、Stringer、error 本身——再按需要把小接口[[组合]]成稍大的（io.ReadWriter 就是 Reader 加 Writer 两个小接口拼的）。设计自己项目的接口时，这是最可直接抄的一条：先想想能不能只要一个方法。
+  derivation: original
+  sources:
+  - ref: go-effective
+    locator: "Effective Go: Interfaces / io.Reader"
+    claim: Effective Go 与标准库 io 包显示 Reader 仅含单个 Read 方法，文件、连接、缓冲与各类包装流都满足它，小接口由此获得最大组合空间。
+    status: verified
+    checkedBy: subagent-research
+    checkedAt: "2026-11-17"
+  code:
+    lang: go
+    code: |-
+      type Reader interface {
+          Read(p []byte) (n int, err error)
+      }
+  canvas:
+    kind: datastate
+    caption: 一个方法换来的满足者名单（部分）
+    structure: array
+    rows:
+    - label: 谁满足 io.Reader
+      cells:
+      - v: os.File
+        sub: 文件：磁盘数据
+      - v: net.Conn
+        sub: 网络连接：远端数据
+      - v: 包装 Reader
+        sub: 解压/解密流：层层套娃、消费方无感
+        mark: active
+      - v: 只需 1 个方法
+        sub: 共同点：要求少、满足者多
+        mark: active
+  log:
+  - at: 原则
+    text: 接口越大，抽象越弱——Pike
+- id: composition-embedding
+  title: 第五步：组合——把现成类型嵌进来，方法就借到了
+  tldr: 复用不用继承树：结构体里写一行嵌入的类型名，它的方法与字段就像自己的的一样被「提升」上来。
+  body: |-
+    接口管多态，复用这半边天靠[[组合]]，Go 里叫嵌入（embedding）。写法极简：定义新结构体时，只写类型名、不写字段名地放进一个现成类型，新类型就自动获得它的方法与字段，对外可以直接调用，就像自己的一样。下面这段代码里，订单服务嵌了一个日志器，于是订单服务直接有了 Log 方法——没有继承声明，没有父类构造，日志器还是一个可以独立替换、独立测试的普通类型。
+
+    与继承的差别要说准：嵌入得到的是「方法提升」，不是「is-a 关系」。订单服务不会因此变成一个日志器，不能把订单服务当作日志器传给别人（除非靠接口按方法集匹配——那是第二步的机制）。这恰恰是 Go 想要的：复用与多态被拆成两件独立的事，复用靠拼装、多态靠接口，谁也不假装谁。外层类型还可以定义同名方法遮蔽内层的，行为以离你最近的一层为准，查找规则简单可预测。
+  derivation: original
+  sources:
+  - ref: go-effective
+    locator: "Effective Go: Embedding"
+    claim: Effective Go 说明嵌入使内层类型的方法集提升到外层，这是 Go 实现复用的方式；它不构成类型层级，外层可重定义同名方法。
+    status: verified
+    checkedBy: subagent-research
+    checkedAt: "2026-11-17"
+  code:
+    lang: go
+    code: |-
+      type Logger struct{ /* … */ }
+      func (l *Logger) Log(msg string) { /* … */ }
+
+      type OrderService struct {
+          *Logger // 嵌入：只写类型名，不写字段名
+      }
+      // svc.Log("…") 直接可用——方法被提升到了外层
+  canvas:
+    kind: datastate
+    caption: 嵌入发生了什么、没发生什么
+    structure: array
+    rows:
+    - label: 嵌入的账
+      cells:
+      - v: 方法与字段
+        sub: 得到：内层的直接借用
+        mark: active
+      - v: is-a 关系
+        sub: 没得到：外层不是内层的子类
+      - v: 同名取外层
+        sub: 遮蔽：最近一层说了算
+        mark: active
+  log:
+  - at: 分工
+    text: 复用靠组合、多态靠接口，两件事拆开
+- id: composition-vs-inheritance
+  title: 第六步：组合与继承，差的到底是什么
+  tldr: 继承是「先有分类树，再往格子里放类型」；组合是「先有零件，用时拼」——差别落在耦合出现的位置。
+  body: |-
+    把两种复用方式摆在一起打分。继承的耦合出现在设计期：类型关系在写代码时就钉死成一棵树，子类默认背上父类的全部行为，父类改一处，整棵子树都要回归测试（脆弱基类）；想给一个类型换个分类维度——比如既按形状又按颜色分——单继承的树立刻不够用。组合的耦合出现在装配期：类型之间没有登记在案的亲缘，拼装关系写在结构体定义里，一眼可见；想换零件，改嵌入的那一行即可，零件本身可以独立演化。
+
+    也要给继承留一句公道话：当一类东西确实构成稳定的「is-a」分类、且行为需要按层级统一覆盖改写时（比如 UI 控件树），继承的表达更直接，Go 的嵌入加接口写同样的东西会多几行样板。Go 的判断不是「继承永远错」，而是按它自己的场景算账：服务器后端代码里，分类树大多不稳定、拼装需求天天有，于是把默认值设成了组合。做技术选型答辩时，能说出「继承在什么场景仍然更好」，比只背「组合优于继承」的口号可信得多。
+  derivation: adapted
+  sources:
+  - ref: go-faq
+    locator: "FAQ: Why is there no type inheritance"
+    claim: FAQ 的立场是类型层级带来的提前声明与耦合不符合 Go 的目标，接口加组合是给出的替代路径。
+    status: verified
+    checkedBy: subagent-research
+    checkedAt: "2026-11-17"
+  canvas:
+    kind: datastate
+    caption: 两种复用方式的打分（定性对比）
+    structure: array
+    rows:
+    - label: 组合 vs 继承
+      cells:
+      - v: 设计期 vs 装配期
+        sub: 耦合位置：树钉死 vs 拼装可见
+        mark: active
+      - v: 继承波及全树
+        sub: 改基类的影响：组合只动装配处
+      - v: 稳定的 is-a 树
+        sub: 继承更强处：如 UI 控件层级
+  log:
+  - at: 态度
+    text: 默认组合，但说得出继承赢在哪
+- id: error-as-value
+  title: 第七步：error 是普通值——错误不许隐身
+  tldr: Go 函数把结果与错误并排返回：调用方在下一行就必须表态，处理、包装上报、还是明确忽略。
+  body: |-
+    从这一步起讲 Go 最有争议的设计。先看它长什么样：可能失败的函数，返回值里多带一个 error；调用方拿到后立刻判断，err 不是 nil 就走处理分支，是 nil 才继续用结果。error 本身只是一个内置的小接口——只有一个 Error() string 方法，任何类型凑齐这个方法都能当错误用。整个机制没有任何特殊语法：错误就是个普通值，和订单号、金额一样在返回值里明码传递。
+
+    这种写法换来的东西很具体：读任何一段 Go 代码，它的失败路径全部写在明面上——哪一步可能失败、失败了往哪走，顺着代码读就能看全，不需要知道「这段代码可能抛出哪些异常」这种藏在别的文件里的知识。审查代码时，漏处理一个 error 是肉眼可查的（编译器也会对「把返回值整个丢掉」皱眉，静态检查工具更是会直接报错）。代价同样具体，就是下一两步要算的啰嗦账。
+  derivation: original
+  sources:
+  - ref: go-faq
+    locator: "FAQ: Why does Go not have exceptions"
+    claim: FAQ 说明 Go 把错误设计为普通返回值（error 接口），要求在调用点显式处理，使控制流与失败路径保持可见。
+    status: verified
+    checkedBy: subagent-research
+    checkedAt: "2026-11-17"
+  code:
+    lang: go
+    code: |-
+      order, err := store.LoadOrder(id)
+      if err != nil {
+          return fmt.Errorf("加载订单 %d: %w", id, err)
+      }
+      // 到这里，order 一定可用，err 一定为空
+  canvas:
+    kind: datastate
+    caption: 显式返回的控制流形状：失败路径与成功路径并排写着
+    structure: array
+    rows:
+    - label: 错误的传递方式
+      cells:
+      - v: 结果+error
+        sub: 返回：并排放在返回值里
+        mark: active
+      - v: 当场表态
+        sub: 调用方：处理、包装或忽略都要写出来
+        mark: active
+      - v: 单方法接口
+        sub: error 本质：Error() string
+  log:
+  - at: 收益
+    text: 失败路径在代码里全程可见
+- id: why-no-exceptions
+  title: 第八步：为什么不用异常——官方的理由与 panic 的位置
+  tldr: FAQ 的原话是：把错误处理耦合进异常控制流，会诱导人把日常错误也当异常抛出，代码越写越纠缠。
+  body: |-
+    官方 FAQ 对这个问题的回答值得细读。它说：Go 团队试过异常式的设计，但每种方案都给语言与运行时增加可观的复杂度；更关键的是，把错误处理与 try-catch 这类控制结构耦合起来，结果往往是代码变得纠缠不清（convoluted），而且它在事实上鼓励程序员把很普通的错误——文件不存在、参数不对——也标记成「异常」抛出去。异常的语义本该是「意料之外」，一旦日常错误全走这条路，调用方就再也分不清哪些失败是正常业务、哪些是真出事了，中间层也不得不层层围着 catch 猜。
+
+    Go 的划分是：日常错误全部走 error 返回值，逼它们在出错点附近被处理；真正「程序已经不知道怎么继续」的局面——比如索引越界这种逻辑错误——保留 panic，它会让当前 goroutine 的调用栈逐层回退执行 defer，最后若没人 recover 就终止进程；recover 只建议用在库的边界上，把 panic 拦下来转成 error 还给调用方。一句话：异常通道只留给程序错误，不给业务错误——这是它与 Java/C# 异常哲学最根本的分界。
+  derivation: original
+  sources:
+  - ref: go-faq
+    locator: "FAQ: Why does Go not have exceptions"
+    claim: FAQ 原文：异常式设计显著增加复杂度，且把错误耦合到 try-catch 控制流会使代码纠缠、并鼓励把普通错误标记为异常；Go 以多返回值处理错误，panic 留给真正的异常局面。
+    status: verified
+    checkedBy: subagent-research
+    checkedAt: "2026-11-17"
+  canvas:
+    kind: datastate
+    caption: 两类失败，两种通道：分界线划在「是不是日常」
+    structure: array
+    rows:
+    - label: 失败的分流
+      cells:
+      - v: error 返回
+        sub: 日常错误：文件不存在、网络超时、参数错
+        mark: active
+      - v: panic
+        sub: 程序错误：索引越界等逻辑已崩的局面
+      - v: recover 转 error
+        sub: 库的边界：别把 panic 漏给调用方
+  log:
+  - at: 分界
+    text: 业务错误是正常输入，程序错误才是异常
+- id: error-cost-wrapping
+  title: 第九步：代价要认——啰嗦、丢上下文，与社区的补救
+  tldr: if err != nil 写一千遍是真啰嗦，裸返回错误丢上下文是真丢人：Go 的补救是逐层包装，而不是改掉显式本身。
+  body: |-
+    批评要同样具体。第一笔：重复——真实项目里 if err != nil 的出现频率高到成了 Go 的标志性吐槽，样板代码挤占了业务逻辑的版面。第二笔更实质：错误一层层往上返回时，如果每层只是裸着 return err，到了顶层只剩一句「文件不存在」，不知道是哪一步、处理哪条数据时出的事——上下文在传递中丢光，线上排查无从下手。
+
+    Go 的补救没有动「显式」这个根，而是在传递方式上加工具：fmt.Errorf 用 %w 动词把下层错误包进一句带本层上下文的话里（第七步代码里就是这么写的），形成一条可追溯的错误链；排查时用 errors.Is 判断链里有没有某个目标错误、errors.As 取出某一层的具体类型。约定再补一层纪律：错误要么被处理掉、要么被包装后上报，二选一写清楚，禁止「记个日志又继续往上抛」式的重复处理。把账算总：Go 用啰嗦换可见性，再用包装工具把可见性做完整——面试被问到这题时，先讲理由、再认代价、最后给补救，这三段就是完整的答案结构。
+  derivation: original
+  sources:
+  - ref: go-effective
+    locator: "Effective Go: Errors / error wrapping 惯例"
+    claim: 官方惯例要求错误在向上传递时用 fmt.Errorf 与 %w 添加本层上下文，并用 errors.Is/As 在链上判定，显式处理与可追溯性兼得。
+    status: verified
+    checkedBy: subagent-research
+    checkedAt: "2026-11-17"
+  canvas:
+    kind: datastate
+    caption: 显式 error 的两笔代价与对应补救
+    structure: array
+    rows:
+    - label: 代价与补救
+      cells:
+      - v: 样板重复
+        sub: 代价一：if err != nil 高频出现
+      - v: 上下文丢失
+        sub: 代价二：裸返回只剩底层一句
+      - v: "%w 逐层包装"
+        sub: 补救：错误链 + Is/As 判定
+        mark: active
+  log:
+  - at: 纪律
+    text: 处理掉，或者包装上报——不许含糊地穿过
+- id: interview-recap
+  title: 第十步：收束——「Go 为什么没有继承和异常」怎么答
+  tldr: 把这一课压成面试可用的回答：不是缺功能，是同一套哲学下的成套替代——接口管多态、组合管复用、error 管失败。
+  body: |-
+    用一个问题收束本课，也是全栈与后端面试里最容易被追问的一题：Go 为什么没有继承、没有异常？完整的答法分三层。第一层给立场：这不是实现不了，而是按「关系不提前登记、控制流不暗中跳转」的原则主动删掉的——继承要求提前把类型关系钉进一棵树，异常让失败路径从代码里隐身，两者都与 Go 服务于大团队长寿命代码的目标冲突。第二层给替代：多态由隐式接口承担，接口由使用方定义、越小越值钱；复用由嵌入组合承担，拼装关系写在明处；失败由 error 显式返回承担，出错点附近必须表态。第三层认代价：接口关系不可见要靠工具确认，error 啰嗦要靠包装纪律补上下文——能把代价说清，这个回答才算完整。
+
+    至此 Go 学科的三课走完：第一课的设计哲学是总纲，第二课的并发是最成功的兑现，本课的类型系统是最能体现「做减法」的样本。学完之后再回头看第一课那句「按大团队的总成本做减法」，应该能自己举出三个例子了。
+  derivation: adapted
+  sources:
+  - ref: go-faq
+    locator: "FAQ: Design principles 相关条目汇总"
+    claim: FAQ 中关于继承、异常与接口的条目共同构成同一立场：以隐式接口、组合与显式错误替代类型层级与异常控制流。
+    status: verified
+    checkedBy: subagent-research
+    checkedAt: "2026-11-17"
+  canvas:
+    kind: datastate
+    caption: 本课答法的三层结构
+    structure: array
+    rows:
+    - label: 回答框架
+      cells:
+      - v: 主动删
+        sub: 立场：与大团队长寿命目标冲突
+        mark: active
+      - v: 接口+组合+error
+        sub: 替代：多态、复用、失败各有归属
+        mark: active
+      - v: 要认账
+        sub: 代价：不可见与啰嗦及补救
+  log:
+  - at: 收束
+    text: 三课一条线：一切关系与控制流都写在明处

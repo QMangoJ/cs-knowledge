@@ -91,7 +91,7 @@ subjects:
     topics: [network/http2-quic]
   - name: 接口的合同：RPC 与序列化
     blurb: 服务之间怎么打交道：先把接口写成合同，再把数据压成二进制——gRPC 与 Protocol Buffers 的组合。
-    topics: [network/grpc]
+    topics: [network/grpc, network/rest-graphql]
 - id: data
   tagline: 数据存储回答的是落盘之后的问题：数据怎样摆，才能查得快、改得稳、崩了不丢。
   blocks:
@@ -158,6 +158,19 @@ subjects:
   - name: 从模型到常驻系统：Agent 的外围架构
     blurb: 模型只负责一次推理：让它无人值守地长期在岗，要靠收件箱、计时器、记忆、权限与发件箱这套事件驱动的外围。
     topics: [ai/always-on-agents]
+
+- id: go
+  tagline: Go 是为多核、网络与大代码库时代重写的一门后端语言：把语言做小、把并发做进语法、把部署做成一个文件。
+  blocks:
+  - name: 为什么是 Go：设计与取舍
+    blurb: 从 Google 2007 年的处境出发：编译慢、多核用不上、语言越长越复杂——Go 的每个取舍都是对这三笔账的回答。
+    topics: [go/origins]
+  - name: 并发：goroutine 与 channel
+    blurb: 并发不靠库而靠语言本身：轻量协程、管道传值、调度器在底下把成千上万个协程铺到少数线程上。
+    topics: [go/goroutine-channel]
+  - name: 类型系统：接口与组合
+    blurb: 没有继承、没有类：类型靠方法集自动对上接口，复用靠把现成类型嵌进来，错误靠显式返回一层层交代。
+    topics: [go/interfaces-composition]
 
 # 全站系统全景：一个程序的一生，各科是同一件事的不同切面。
 journey:

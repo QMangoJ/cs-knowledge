@@ -1,0 +1,31 @@
+# Go 学科词条：正文以 [[词]] 标记引用本表。
+- term: goroutine
+  full: goroutine（Go 的轻量协程）
+  explain: 由 Go 运行时调度的轻量执行流：起步栈只有 2KB、按需长大，一个进程里可以同时跑几十万个；用 go 关键字启动一个函数就是开一个 goroutine。
+- term: channel
+  full: channel（通道）
+  explain: goroutine 之间传值的管道：发送与接收默认会互相等待对方到场，于是传值这一步顺带完成了同步；用 make(chan T) 创建，可带缓冲。
+- term: CSP
+  full: CSP（Communicating Sequential Processes，通信顺序进程）
+  explain: Tony Hoare 1978 年提出的并发模型：独立的顺序进程之间不共享内存，只通过通道传消息来协作；Go 的 goroutine 与 channel 正是这套思想的语言级实现。
+- term: GMP
+  full: GMP 模型（Go 调度器的三件套）
+  explain: G 是 goroutine、M 是操作系统线程、P 是逻辑处理器（个数等于 GOMAXPROCS）：M 必须先拿到 P 才能跑 G，P 各自带一条本地运行队列，队列空了就去别的 P 那里偷一半任务。
+- term: 工作窃取
+  full: 工作窃取（work stealing）
+  explain: 多核调度的一种分活办法：某个处理器把自己的队列跑空时，不闲着，去另一个处理器的队列尾部拿走大约一半任务接着跑，让所有核心都有活干。
+- term: 鸭子类型
+  full: 鸭子类型（duck typing）
+  explain: 「走起来像鸭子、叫起来像鸭子，就是鸭子」：一个类型算不算某种类型，看它有没有相应的方法与行为，而不是看它声明继承了谁；Go 的接口就是编译期检查的鸭子类型。
+- term: 组合
+  full: 组合（composition，类型嵌入）
+  explain: 把一个现成类型直接写进新结构体里，新类型就白拿到它的方法与字段：复用靠「拼装」而不是靠继承树；Go 里这叫嵌入（embedding）。
+- term: 泛型
+  full: 泛型（generics，类型参数）
+  explain: 让同一份代码对多种类型成立的机制：函数与类型可以带类型参数，调用时再定具体类型。Go 直到 1.18（2022 年）才加入，之前只能靠 interface{} 与代码生成绕。
+- term: 栈
+  full: 栈（stack）
+  explain: 每个执行流私有的内存区，存函数调用的局部变量与返回地址：goroutine 的栈起步 2KB、运行时按需伸缩，操作系统线程的栈通常固定占 1–8MB——这是协程比线程便宜一个数量级的主因。
+- term: 单二进制
+  full: 单二进制部署（single binary）
+  explain: Go 程序默认把运行时与全部依赖静态链接进一个可执行文件：部署就是把这一个文件拷到服务器上跑，不装运行时、不配环境，Docker 镜像可以小到只剩这一个文件。
