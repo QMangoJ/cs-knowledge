@@ -6,7 +6,7 @@ h2{font-size:var(--fs-lg);color:var(--ink-strong);margin:0 0 var(--sp-2)}
 h3{font-size:var(--fs-sm);color:var(--ink-soft);margin:0 0 var(--sp-2);text-transform:uppercase;letter-spacing:.04em}
 code{font-family:var(--font-mono)}
 .site-header{display:flex;justify-content:space-between;align-items:center;padding:var(--sp-3) var(--sp-5);border-bottom:1px solid var(--line-mid);flex:none}
-.site-header a{color:var(--ink-strong);font-weight:700;text-decoration:none}
+.site-header a{color:var(--ink-strong);font-weight:700;text-decoration:none;font-size:20px;line-height:1.25}
 .hint,.muted{color:var(--ink-muted)}
 .site-footer{padding:var(--sp-5);border-top:1px solid var(--line-mid);color:var(--ink-soft);font-size:var(--fs-xs);flex:none}
 .card{background:var(--panel);border:1px solid var(--line-mid);border-radius:var(--radius);padding:var(--sp-4)}
