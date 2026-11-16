@@ -56,7 +56,7 @@ steps:
   canvas:
     kind: datastate
     structure: tree
-    caption: 左小右大：中序遍历 3, 5, 8, 10, 12 天然有序
+    caption: 左小右大：中序遍历 1, 3, 5, 8, 10, 12, 14 天然有序
     tree:
       nodes:
       - v: 8

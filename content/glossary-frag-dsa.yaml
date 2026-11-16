@@ -1,0 +1,30 @@
+- term: 抽屉原理
+  full: 抽屉原理（鸽巢原理 Pigeonhole Principle）
+  explain: 东西比盒子多时，至少有一个盒子要装两件以上；哈希表里键比桶多时冲突必然发生，就是它的一次应用。
+- term: 双端队列
+  full: 双端队列（Deque，Double-Ended Queue）
+  explain: 两头都能进出的队列，队头和队尾都可以插入和取出；0-1 BFS 靠它按边权把新节点放进队头或队尾，免掉优先队列的对数代价。
+- term: 惰性删除
+  full: 惰性删除（Lazy Deletion）
+  explain: 不当场删掉或修改旧条目，而是插入一条新条目，等旧条目被取到时再识别出它已过期并跳过的做法；Dijkstra 配二叉堆时常用它代替改键。
+- term: 括号定理
+  full: 括号定理（Parenthesis Theorem）
+  explain: DFS 里每个节点的发现时刻到完成时刻构成一个区间，任意两个节点的区间要么嵌套要么不相交，嵌套关系正好对应祖先与后代关系。
+- term: 逆邻接表
+  full: 逆邻接表（Reverse Adjacency List）
+  explain: 把有向图的每条边方向反过来再建的一份邻接表，用来查「谁指向我」；双向 BFS 的反向扩展和 Kosaraju 算法的第二遍遍历都要用它。
+- term: 势能
+  full: 势能（Potential，摊还分析中的势函数值）
+  explain: 摊还分析里给数据结构的状态记的一个数值，操作会让它上涨或下跌，用它的涨落给一批操作的总代价封顶，比如 KMP 里模式指针的当前值。
+- term: 字典树
+  full: 字典树（Trie）
+  explain: 把一批字符串按字符逐层分叉存成的树，公共前缀只存一份；AC 自动机就是给它加上失配跳转，让文本扫一遍报出全部模式命中。
+- term: 滚动数组
+  full: 滚动数组（Rolling Array）
+  explain: DP 填表时只保留转移真正用到的那几行、新行算完覆盖旧行轮换使用的空间优化；代价是被压掉的行无法再用来回溯具体方案。
+- term: 临界分解
+  full: 临界分解（Critical Factorization）
+  explain: Two-Way 字符串匹配里把模式切成左右两段的一种分解，切点选得让先比右段、再比左段时，已经比过的信息不会白费。
+- term: 位并行
+  full: 位并行（Bit-Parallelism）
+  explain: 把匹配状态塞进一个机器字里、用一条位运算同时推进多位状态的算法技巧，适合模式长度不超过机器字长的字符串匹配。
