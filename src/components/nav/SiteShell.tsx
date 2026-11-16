@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { t } from "@/i18n";
 
 export type NavTopic = { id: string; title: string; href: string };
@@ -17,10 +17,35 @@ const isCurrent = (pathname: string, href: string) => {
  *  Desktop: fixed in-flow sidebar. Narrow viewports: the same list becomes an
  *  off-canvas drawer behind the header's menu button. The list is rendered twice
  *  (sidebar + drawer) and CSS shows exactly one of them per breakpoint. */
+/** Scroll one sidenav container so its current-page link is fully visible.
+ *  Manual scrollTop math (not scrollIntoView) so only this container moves —
+ *  never the page or the main column. If the link is already fully visible,
+ *  leave the scroll position alone (nearest semantics: no jump when moving
+ *  between neighbouring lessons). Otherwise place the link ~1/4 from the top
+ *  of the container, keeping its subject heading and preceding items in view
+ *  instead of pinning it to an edge. */
+function scrollCurrentIntoView(aside: HTMLElement | null) {
+  if (!aside || aside.clientHeight === 0) return;
+  const link = aside.querySelector<HTMLElement>('[aria-current="page"]');
+  if (!link) return;
+  const a = aside.getBoundingClientRect();
+  const l = link.getBoundingClientRect();
+  if (l.top >= a.top && l.bottom <= a.bottom) return;
+  const itemTop = aside.scrollTop + (l.top - a.top);
+  aside.scrollTop = Math.max(0, itemTop - aside.clientHeight * 0.25);
+}
+
 export function SiteShell({ nav, children }: { nav: NavSubject[]; children: React.ReactNode }) {
   const pathname = usePathname() ?? "/";
   const [open, setOpen] = useState(false);
+  const desktopNavRef = useRef<HTMLElement | null>(null);
+  const drawerNavRef = useRef<HTMLElement | null>(null);
   useEffect(() => { setOpen(false); }, [pathname]);
+  useEffect(() => {
+    scrollCurrentIntoView(desktopNavRef.current);
+    scrollCurrentIntoView(drawerNavRef.current);
+  }, [pathname]);
+  useEffect(() => { if (open) scrollCurrentIntoView(drawerNavRef.current); }, [open ]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
     window.addEventListener("keydown", onKey);
@@ -58,9 +83,9 @@ export function SiteShell({ nav, children }: { nav: NavSubject[]; children: Reac
         <span className="hint">{t.keyboardHint}</span>
       </header>
       <div className="shell-row">
-        <aside className="sidenav">{list}</aside>
+        <aside className="sidenav" ref={desktopNavRef}>{list}</aside>
         {open && <div className="nav-backdrop" onClick={() => setOpen(false)} aria-hidden="true" />}
-        <aside className={open ? "sidenav drawer open" : "sidenav drawer"}>{list}</aside>
+        <aside className={open ? "sidenav drawer open" : "sidenav drawer"} ref={drawerNavRef}>{list}</aside>
         <main className="site-main">{children}</main>
       </div>
       <footer className="site-footer">{t.footer}</footer>
