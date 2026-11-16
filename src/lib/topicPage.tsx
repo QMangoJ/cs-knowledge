@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Player, type PlayerNav } from "@/components/player/Player";
 import { findTopic, loadContent, pageTopics, subjectPath } from "./content";
 import { toView } from "./view";
+import { plainText } from "./terms";
 import { stepPath } from "./paths";
 import { t } from "@/i18n";
 
@@ -12,14 +13,15 @@ import { t } from "@/i18n";
 export function topicMetadata(subject: string, slug: string, index: number): Metadata {
   const topic = findTopic(subject, slug);
   if (!topic) return {};
-  const step = toView(topic, loadContent().sources).steps[index];
+  const step = toView(topic, loadContent().sources, loadContent().glossary).steps[index];
   if (!step) return {};
   const title = `${step.title} · ${topic.title} · ${t.siteName}`;
+  const description = plainText(step.tldr);
   return {
     title,
-    description: step.tldr,
+    description,
     alternates: { canonical: stepPath(subject, slug, index) },
-    openGraph: { title, description: step.tldr, images: [`/og/${topic.subject}-${topic.slug}.png`], type: "article" },
+    openGraph: { title, description, images: [`/og/${topic.subject}-${topic.slug}.png`], type: "article" },
     robots: topic.status === "published" ? undefined : { index: false },
   };
 }
@@ -27,10 +29,10 @@ export function topicMetadata(subject: string, slug: string, index: number): Met
 export function TopicPage({ subject, slug, index }: { subject: string; slug: string; index: number }) {
   const topic = findTopic(subject, slug);
   if (!topic) notFound();
-  const { sources, subjects } = loadContent();
+  const { sources, subjects, glossary } = loadContent();
   const info = subjects.find((s) => s.id === topic.subject);
   if (!info) notFound();
-  const view = toView(topic, sources);
+  const view = toView(topic, sources, glossary);
   if (!view.steps[index]) notFound();
   const all = pageTopics();
   const path = subjectPath(all, subject);

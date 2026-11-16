@@ -5,7 +5,7 @@ order: 2
 status: published
 license: CC-BY-4.0
 title: 一个 HTTP 请求的一生：从点击到流式响应
-summary: DNS、TCP、TLS、请求、响应一次走完，并讲清 LLM API 为什么用流式输出。
+summary: "[[DNS]]、[[TCP]]、[[TLS]]、请求、响应一次走完，并讲清 [[LLM]] [[API]] 为什么用流式输出。"
 premise: 你在网页上点一下，或者调用一次流式推理接口，从这一下点击到第一个字出现在屏幕上，中间到底经过了哪些步骤、各花了多少时间？本课跟着一个具体请求走完它的一生，样本是浏览器请求 https://api.example.com/v1/chat，也就是一次流式推理调用，看它怎样建连、发请求、再一段一段地收响应。
 position: 本课落在「一次请求的旅程」板块，紧接上一课握手抵达 ESTABLISHED 之后的那一刻：通道既已对齐序号，下一步就看请求怎样沿它走完 TLS 验证与响应回程。学完你能逐段拆出冷启动约 3 个 RTT 的构成，也能说清
   SSE 为何用 chunked 分块就能实现逐 token 推送而不必动用 WebSocket。
@@ -16,13 +16,13 @@ overview:
 - key: 一句话总结
   value: 一次 HTTPS 请求 = DNS 解析 + TCP 握手 + TLS 握手 + 请求/响应，可能叠加 3–4 个 RTT 才见到数据
 - key: TLS
-  value: TLS 用证书验证身份、用 (EC)DHE 协商出对称会话密钥，之后全程对称加密。先用证书确认对面确实是你要连的服务器，再协商出一把只有双方知道的钥匙，后面的大量数据都用这把钥匙加密，速度比全程用非对称加密快得多。
+  value: TLS 用证书验证身份、用 [[(EC)DHE]] 协商出对称会话密钥，之后全程对称加密。先用证书确认对面确实是你要连的服务器，再协商出一把只有双方知道的钥匙，后面的大量数据都用这把钥匙加密，速度比全程用非对称加密快得多。
 - key: 流式响应
-  value: chunked 传输或 SSE：服务器边生成边发，客户端边收边渲染
+  value: "[[chunked]] 传输或 [[SSE]]：服务器边生成边发，客户端边收边渲染"
 - key: SSE vs WebSocket
-  value: SSE 是单向（服务端→客户端）的 HTTP 长响应；WebSocket 是全双工独立协议
+  value: SSE 是单向（服务端→客户端）的 HTTP（HyperText Transfer Protocol，超文本传输协议）长响应；WebSocket（一种全双工通信协议）是全双工独立协议
 - key: 在终端里看一看
-  value: curl -v https://example.com　看握手与头部；curl -N 看流式逐块到达
+  value: "[[curl]] -v https://example.com　看握手与头部；curl -N 看流式逐块到达"
 visual: swimlane
 lanes:
 - id: client
@@ -83,7 +83,7 @@ quiz:
 steps:
 - id: dns-tcp
   title: 先把路修好：DNS + TCP
-  tldr: 域名先解析成 IP，再完成 TCP 三次握手，应用数据才有通道。
+  tldr: 跟着一次点击走：第一段路是把通道修好。域名先解析成 IP，再完成 TCP 三次握手，应用数据才有通道——这一步先算清这两段各花几个往返。
   body: >-
     浏览器先查 DNS（下一主题细讲）拿到服务器 IP，再与该 IP 的 443 端口做 TCP 三次握手（上一主题）。这两步没完成之前，一个字节的应用数据都发不出去：DNS 命中缓存时近乎 0，问递归解析器约 1 个 RTT
     起，TCP 握手再 1 个 RTT。好在浏览器会缓存 DNS、复用已有连接——第二次请求往往可以直接跳到发数据。
@@ -112,17 +112,17 @@ steps:
       active: true
   log:
   - mode: 阶段 1–2
-    event: DNS 解析 + TCP 建连
+    event: 第一段路是 DNS 把域名解析成 IP，再用 TCP 三次握手把连接建好
 - id: tls
   title: TLS 握手：验明身份，约定密钥
-  tldr: 证书证明「你连的真是它」，双方协商出只有彼此知道的会话密钥。
+  tldr: 通道修好了，但还是一条明文通道，谁都能看能改。这一步给它上锁：证书证明「你连的真是它」，双方协商出只有彼此知道的会话密钥——验身份与换密钥是两件事，要分开看。
   body: >-
-    TCP 之上再叠一层 TLS。TLS 1.3 的握手用 1 个 RTT 做三件事：协商加密套件、验证服务器身份、协商出会话密钥，分工是：服务器证书上的签名用来验证身份（证明对端持有证书对应的私钥、且证书由受信任的 CA
-    签发）；密钥协商靠 (EC)DHE 这类临时密钥交换，双方各出随机材料算出相同的共享秘密；真正加密数据的，是从共享秘密派生出的对称会话密钥，加密方式是 AEAD（带完整性校验的对称加密）。
+    TCP 之上再叠一层 TLS。TLS 1.3 的握手用 1 个 RTT 做三件事：协商加密套件、验证服务器身份、协商出会话密钥，分工是：服务器证书上的签名用来验证身份（证明对端持有证书对应的私钥、且证书由受信任的 [[CA]]
+    签发）；密钥协商靠 (EC)DHE 这类临时密钥交换，双方各出随机材料算出相同的共享秘密；真正加密数据的，是从共享秘密派生出的对称会话密钥，加密方式是 [[AEAD]]（带完整性校验的对称加密）。
 
 
-    所以「用 RSA 加密所有数据」是经典误解：非对称密码只在握手里做签名验身份与密钥协商，量级大的数据全程走快的对称加密。没有 TLS，路径上的任何中间节点都能看光、篡改你的请求。TLS 1.3 相比 1.2 把全握手从 2 个
-    RTT 压到 1 个，靠的是把密钥份额提前塞进第一包 ClientHello。
+    所以「用 [[RSA]] 加密所有数据」是经典误解：非对称密码只在握手里做签名验身份与密钥协商，量级大的数据全程走快的对称加密。没有 TLS，路径上的任何中间节点都能看光、篡改你的请求。TLS 1.3 相比 1.2 把全握手从 2 个
+    RTT 压到 1 个，靠的是把密钥份额提前塞进第一包 [[ClientHello]]。
   derivation: original
   sources:
   - ref: rfc-8446
@@ -155,7 +155,7 @@ steps:
       active: true
   log:
   - mode: 阶段 3
-    event: TLS 1.3 握手（1 RTT）
+    event: 第三段是 TLS 1.3 握手，用 1 个 RTT 验明身份并协商出会话密钥
   code:
     lang: text
     code: |-
@@ -166,13 +166,13 @@ steps:
     note: TLS 1.3 比 1.2 少一个 RTT
 - id: request
   title: 发出请求：方法、路径、头、体
-  tldr: 请求行 + 头部 + 可选的体；头部携带认证、内容类型与流式声明。
+  tldr: 通道安全了，请求终于能出发。这一步看请求本身长什么样：请求行 + 头部 + 可选的体；头部携带认证、内容类型与流式声明，顺带说清重试为什么要看请求是否幂等。
   body: >-
-    浏览器发出请求（以 HTTP/1.1 为例）：第一行是方法与路径（POST /v1/chat/completions），随后是头部——Authorization 携带 API 密钥、Content-Type:
+    浏览器发出请求（以 HTTP/1.1 为例）：第一行是方法与路径（POST /v1/chat/completions），随后是头部——[[Authorization]] 携带 API 密钥、[[Content-Type]]:
     application/json 指定体是 JSON，推理请求还会在体里写 stream: true 要求流式（这是 LLM API 厂商的约定字段，不是 HTTP 标准）。
 
 
-    服务器按头部做认证、限流与路由。容易忽略的语义点是：请求是否「幂等」决定了失败时能不能安全重试——GET 这类读操作重试无副作用，POST
+    服务器按头部做认证、限流与路由。容易忽略的语义点是：请求是否「[[幂等]]」决定了失败时能不能安全重试——GET 这类读操作重试无副作用，POST
     生成请求盲目重试可能重复计费或重复下单，所以重试策略必须按方法与业务语义区分，不能一律自动重发；连接中途断掉时同理，先分清请求被服务端收到、处理到哪一步，再决定重发还是查询状态。
   derivation: original
   sources:
@@ -202,10 +202,10 @@ steps:
       active: true
   log:
   - mode: 阶段 4
-    event: HTTP 请求发出
+    event: 第四段，HTTP 请求正式发出，服务器开始认证、路由与排队
 - id: keepalive
   title: keep-alive 与连接复用：握手账只付一次
-  tldr: 一条连接连续跑多个请求，DNS/TCP/TLS 的固定成本被摊薄到近乎为零。
+  tldr: 请求发完，先别急着看响应——回头算一笔复用账：前面三段握手那么贵，如果每个请求都重付一遍会怎样。这一步看一条连接连续跑多个请求时，DNS/TCP/TLS 的固定成本怎样被摊薄到近乎为零。
   body: >-
     HTTP/1.0 时代每个请求都要新建一条连接，握手账逐请求重付；keep-alive（HTTP/1.1 起默认开启）把规则改成：一次响应结束不等于连接关闭，连接回到空闲池里等下一个请求复用。冷连接见数据前要付 DNS 约 1
     次往返 + TCP 1 个 RTT + TLS 1.3 的 1 个 RTT，跨洋 RTT 按 150 毫秒算就是约 450 毫秒的纯等待；复用连接的后续请求这笔账是
@@ -239,17 +239,17 @@ steps:
       active: true
   log:
   - mode: 复用
-    event: 握手成本被多个请求摊薄
+    event: 连接复用让握手成本被多个请求摊薄，后续请求近乎零建连开销
 - id: chunked
   title: chunked 编码走例：不知道总长度怎么发
-  tldr: 没有 Content-Length 时，每块数据前标自己的长度，最后一块长度为 0 表示结束。
+  tldr: 复用账算完，回到响应本身，先解决一个机械问题：流式响应发第一个字节时还不知道总长度，没有 Content-Length 怎么发？办法是每块数据前标自己的长度，最后一块长度为 0 表示结束。
   body: >-
     普通响应靠 Content-Length 告诉客户端「正文一共多少字节」。但流式响应在发第一个字节时根本不知道总长度——生成还没结束。HTTP/1.1 的解法是 chunked 传输编码：响应头写
-    Transfer-Encoding: chunked 代替 Content-Length，正文切成一块块发，每块的格式是「本块字节数（十六进制）+ 换行 + 本块数据 + 换行」，最后发一块长度为 0 的块宣告正文结束。
+    [[Transfer-Encoding]]: chunked 代替 [[Content-Length]]，正文切成一块块发，每块的格式是「本块字节数（十六进制）+ 换行 + 本块数据 + 换行」，最后发一块长度为 0 的块宣告正文结束。
 
 
     线缆上的样子：先发 5、换行、hello、换行，表示一块 5 字节的数据 hello；再发 6、换行和 world 加感叹号那一块；最后发 0 与换行。客户端的解析器就是个计数状态机：读长度、按长度取数据、循环到 0。注意
-    chunked 的块与 SSE 事件、token 都不对齐（一块可能装半个事件，也可能装三个事件），业务层解析必须自己再攒一层缓冲。HTTP/2 里没有 chunked，等价功能由 DATA 帧的 END_STREAM 标志承担。
+    chunked 的块与 SSE 事件、token 都不对齐（一块可能装半个事件，也可能装三个事件），业务层解析必须自己再攒一层缓冲。HTTP/2 里没有 chunked，等价功能由 [[DATA 帧]] 的 [[END_STREAM]] 标志承担。
   derivation: original
   sources:
   - ref: rfc-9110
@@ -276,7 +276,7 @@ steps:
       active: true
   log:
   - mode: 编码
-    event: 长度前缀分块，零块收尾
+    event: chunked 编码用长度前缀逐块发送，用一个零长度块宣告正文结束
   code:
     lang: text
     code: |-
@@ -286,14 +286,14 @@ steps:
     note: chunked 块与 SSE 事件边界无关，业务层要自己攒缓冲
 - id: stream
   title: 流式响应：边生成边发（SSE）
-  tldr: 服务器用 chunked 分块传输逐段发 token，前端逐段解析渲染，不等全文。
+  tldr: 分块的机械办法有了，这一步看它承载的正事——流式生成：服务器用 chunked 分块传输逐段发 token，前端逐段解析渲染，不等全文。为什么不等全文，看用户要盯着空白等多久就明白了。
   body: >-
     模型生成是逐个 token 的，可能持续几秒到几十秒。若等全部生成完再一次性返回，用户要盯着空白等完全程，网关与浏览器也容易超时。
 
 
     流式做法：响应头先回来（状态 200、Content-Type: text/event-stream），随后服务器把数据一块块发（HTTP/1.1 下通常走 chunked）。SSE 格式里每个事件由一行或多行 data:
-    字段组成、以一个空行结束；OpenAI 等 API 约定最后再发一个 data: [DONE] 表示生成结束（这是厂商约定，不是 SSE 标准的一部分）。前端边读边追加到界面上，就是打字机效果。两个指标要分开看：首 token
-    时间（TTFT）决定体感顺不顺，生成全文的总时长决定任务何时真正完成；流式优化的是前者，后者由模型速度决定，不能混成一句「流式更快」。
+    字段组成、以一个空行结束；OpenAI 等 API 约定最后再发一个 data: [DONE] 表示生成结束（这是厂商约定，不是 SSE 标准的一部分）。前端边读边追加到界面上，就是打字机效果。两个指标要分开看：首 token（模型生成的基本单位）
+    时间（[[TTFT]]）决定体感顺不顺，生成全文的总时长决定任务何时真正完成；流式优化的是前者，后者由模型速度决定，不能混成一句「流式更快」。
   derivation: original
   sources:
   - ref: mdn-sse
@@ -330,7 +330,7 @@ steps:
       active: true
   log:
   - mode: 阶段 5
-    event: SSE 流式返回 token
+    event: 第五段，服务器用 SSE 把生成中的 token 一段段流式返回
   code:
     lang: typescript
     code: |-
@@ -351,7 +351,7 @@ steps:
   - 流式不减少总生成时间，只是把等待摊开并提前呈现
 - id: sse-fields
   title: SSE 的事件字段与重连：id、retry 与 Last-Event-ID
-  tldr: 每个事件可带 id 与 event 类型；断线后 EventSource 自动带上 Last-Event-ID 续接。
+  tldr: 流式能跑之后，还剩断线怎么办这个尾巴：每个事件可带 id 与 event 类型；断线后 EventSource（浏览器原生的 SSE 客户端）自动带上 Last-Event-ID（最后收到的事件编号请求头）续接——但这份自动只属于 GET 场景，边界要划清。
   body: >-
     SSE 事件不止有 data。一个事件块里可以出现四类行：data 是正文（多行 data 会被拼成一段、用换行连接）、event 给事件起类型名、id 给这个事件编号、retry
     告诉客户端断线后隔多少毫秒再重连；以冒号开头的行是注释，常被拿来发心跳保活，防止空闲连接被中间设备掐掉。
@@ -390,13 +390,13 @@ steps:
       label: 只补发 id 大于 42 的事件
   log:
   - mode: 重连
-    event: 靠事件 id 实现断点续接，而非重发全流
+    event: SSE 靠事件 id 实现断线后的断点续接，而不是把整条流重发一遍
 - id: cache-intro
   title: 顺带一瞥：HTTP 缓存语义为什么也在这条链路上
-  tldr: 静态资源靠 Cache-Control 与验证头省掉整次请求；流式 API 响应则必须明确禁止缓存。
+  tldr: 顺着这条链路再瞥一眼缓存，因为它和流式恰好是一对反义词：静态资源靠 [[Cache-Control]] 与验证头省掉整次请求；流式 API 响应则必须明确禁止缓存，混了会出大问题。
   body: >-
-    同是 HTTP 响应，缓存语义天差地别。普通 GET 响应可以带 Cache-Control（如 max-age 指定多少秒内直接用本地副本）和 ETag 这类验证标识：副本过期后，客户端带 If-None-Match
-    问服务端「变了没」，没变就回一个无正文的 304，省下整个响应体的传输。静态资源、文档、图片靠这套机制把大量重复请求消灭在客户端本地，这也是 CDN 能缓存的前提——CDN 本质上是部署在网络边缘的共享缓存。
+    同是 HTTP 响应，缓存语义天差地别。普通 GET 响应可以带 Cache-Control（如 max-age 指定多少秒内直接用本地副本）和 [[ETag]] 这类验证标识：副本过期后，客户端带 [[If-None-Match]]
+    问服务端「变了没」，没变就回一个无正文的 [[304]]，省下整个响应体的传输。静态资源、文档、图片靠这套机制把大量重复请求消灭在客户端本地，这也是 CDN 能缓存的前提——CDN 本质上是部署在网络边缘的共享缓存。
 
 
     反过来，流式生成响应是每个请求独一无二的结果，绝不能被任何缓存复用：API
@@ -427,10 +427,10 @@ steps:
       active: true
   log:
   - mode: 缓存
-    event: 同一条链路，两种相反的缓存策略
+    event: 同一条链路上，静态内容与生成内容执行的是两种相反的缓存策略
 - id: ws
   title: SSE 与 WebSocket 的区别
-  tldr: 需要双向实时才上 WebSocket；单向推送用 SSE 就够了，还白得 HTTP 的全部基础设施。
+  tldr: 流式讲完，总有人问为什么不用 WebSocket。这一步正面对比：需要双向实时才上 WebSocket；单向推送用 SSE 就够了，还白得 HTTP 的全部基础设施。
   body: >-
     WebSocket 是在 HTTP 升级握手后切换成的独立全双工协议：双方随时互发消息，适合聊天、协作编辑、游戏。但它脱离了普通 HTTP 语义，代理、负载均衡、断线重连都要自己操心。
 
@@ -466,11 +466,11 @@ steps:
       label: WebSocket：双向消息
   log:
   - mode: 对比
-    event: 按方向需求选协议
+    event: SSE 与 WebSocket 的选型判据是数据流方向：单向用 SSE，双向才上 WebSocket
   mistake: 以为流式必须用 WebSocket——对单向生成流，SSE 更简单且与 HTTP 基础设施完全兼容。
 - id: buffering
   title: 收尾账：TTFT 的构成与代理缓冲这个坑
-  tldr: 首 token 时间等于建连、排队、生成首 token 与中间环节缓冲之和，其中缓冲最阴险。
+  tldr: 最后一站收成一笔排障账：用户感知的首 token 时间等于建连、排队、生成首 token 与中间环节缓冲之和，其中缓冲最阴险——前面每一段都在这笔账里有自己的位置。
   body: >-
     把整课收成一个排障视角：用户感知的首 token 时间（TTFT）可以拆成四段——建连时间（DNS 加 TCP 加 TLS，复用连接后约等于零）、服务端排队与预填充时间（请求在网关排队、模型读完提示词）、生成第一个 token
     的时间、以及数据在回程各环节被耽搁的时间。四段里最后一段最阴险：某些代理默认缓冲响应（proxy buffering），会把逐块到达的 token 攒成一大坨再统一发给客户端，表现为「等很久、然后哗一下全出来」或「流式但一卡一卡」。
@@ -498,4 +498,4 @@ steps:
       active: true
   log:
   - mode: 排障
-    event: TTFT 拆四段，逐段定位
+    event: 排障时把 TTFT 拆成四段逐段定位，不要一上来就怀疑模型生成慢

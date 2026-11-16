@@ -6,478 +6,488 @@ status: published
 license: CC-BY-4.0
 title: C 代码怎么变成能运行的程序
 summary: 从 hello.c 到屏幕上的 hello，中间经过编译、汇编、链接、加载四道工序。
-premise: 你写好一个 hello.c，按下编译，屏幕上就多出一个能直接运行的程序，中间到底经过了哪几道加工？本课以 Linux 上用 gcc 编译 hello.c 为例，把从源代码到可执行文件的全程拆开看。
-position: 本站组成原理从「从代码到可执行文件」板块开场，因为 hello.c 只有先走完预处理、编译、汇编、链接与加载，符号才会被解析成内存映像，后面谈 CPU
-  执行才有对象。学完你能追问一个未定义符号错误卡在链接哪一步，也能说清动态链接为何要等到首次调用才经 PLT 跳板查 GOT 间接表完成绑定、而静态链接又省去了什么。
+premise: 你写好一个 hello.c，按下编译，屏幕上就多出一个能直接运行的程序，中间到底经过了哪几道加工？本课以 Linux 上用 [[gcc]] 编译 hello.c 为例，把从源代码到可执行文件的全程拆开看。
+position: 本站组成原理从「从代码到可执行文件」板块开场，因为 hello.c 只有先走完预处理、编译、汇编、链接与加载，符号才会被解析成内存映像，后面谈 [[CPU]]
+  执行才有对象。学完你能追问一个未定义符号错误卡在链接哪一步，也能说清动态链接为何要等到首次调用才经 [[PLT]] 跳板查 [[GOT]] 间接表完成绑定、而静态链接又省去了什么。
 bridge:
   next: 可执行文件已躺进内存映像，下一课便把镜头对准一条 load 指令，看它如何依次走过取指、译码、执行、访存、写回五阶段。
 overview:
-- key: 一句话总结
-  value: 全程分四步，预处理先做文本替换，编译把代码翻成汇编，汇编再变成机器码，最后链接把多个文件拼成一个可执行文件，运行时再由操作系统加载进内存。每一步的产物都是下一步的原料。
-- key: 为什么分步
-  value: 分成几步是因为每一步只解决一个问题，互不纠缠。这样编译器可以单独替换，中间产物也能缓存，改一个文件时不用把全部文件重编一遍。
-- key: Linux 上的格式
-  value: 在 Linux 上，目标文件和可执行文件都是 ELF 格式。它像一个分段装箱的标准，代码、数据、符号表各有自己的区段，加载器照着这张装箱单就能把程序摆进内存。
-- key: 类比
-  value: 前端里 TypeScript 编译成 JS ≈ 这里的编译，webpack/Vite 把多个文件打包成一个产物 ≈ 链接，浏览器把产物装进页面运行 ≈ 加载
-- key: 四个阶段
-  value: 四个阶段依次产出四种文件，预处理得到 .i，编译得到汇编 .s，汇编得到目标文件 .o，链接得到可执行文件。平时一条 gcc 命令把四步连着做完，用 -S、-c 这些选项可以让它停在中间某一步看产物。
-- key: 静态 vs 动态链接
-  value: 静态链接把库的代码直接拷进可执行文件，文件大一些，但独立好部署，搬到哪台机器都能跑。动态链接运行时才去找共享库，多个程序能共用一份，体积小，库也能单独升级。
-- key: 常见报错
-  value: 链接期最常见的两个报错要分清，undefined reference 是用了某个函数却找不到它的定义。multiple definition 是同一个东西被定义了两遍，链接器不知道该听谁的。
-- key: 在终端里看一看
-  value: gcc -S hello.c　生成 hello.s 看汇编；ldd ./a.out　看程序依赖哪些动态库
+  - key: 一句话总结
+    value: 全程分四步，预处理先做文本替换，编译把代码翻成汇编，汇编再变成机器码，最后链接把多个文件拼成一个可执行文件，运行时再由操作系统加载进内存。每一步的产物都是下一步的原料。
+  - key: 为什么分步
+    value: 分成几步是因为每一步只解决一个问题，互不纠缠。这样编译器可以单独替换，中间产物也能缓存，改一个文件时不用把全部文件重编一遍。
+  - key: Linux 上的格式
+    value: 在 Linux 上，目标文件和可执行文件都是 [[ELF]] 格式。它像一个分段装箱的标准，代码、数据、符号表各有自己的区段，加载器照着这张装箱单就能把程序摆进内存。
+  - key: 类比
+    value: 前端里 [[TypeScript]] 编译成 JS ≈ 这里的编译，webpack/Vite 把多个文件打包成一个产物 ≈ 链接，浏览器把产物装进页面运行 ≈ 加载
+  - key: 四个阶段
+    value: 四个阶段依次产出四种文件，预处理得到 .i，编译得到汇编 .s，汇编得到目标文件 .o，链接得到可执行文件。平时一条 [[gcc]] 命令把四步连着做完，用 -S、-c 这些选项可以让它停在中间某一步看产物。
+  - key: 静态 vs 动态链接
+    value: 静态链接把库的代码直接拷进可执行文件，文件大一些，但独立好部署，搬到哪台机器都能跑。动态链接运行时才去找共享库，多个程序能共用一份，体积小，库也能单独升级。
+  - key: 常见报错
+    value: 链接期最常见的两个报错要分清，undefined reference 是用了某个函数却找不到它的定义。multiple definition 是同一个东西被定义了两遍，链接器不知道该听谁的。
+  - key: 在终端里看一看
+    value: gcc -S hello.c　生成 hello.s 看汇编；ldd ./a.out　看程序依赖哪些动态库
 visual: swimlane
 lanes:
-- id: tools
-  label: 工具链
-- id: files
-  label: 文件
-- id: os
-  label: 操作系统
+  - id: tools
+    label: 工具链
+  - id: files
+    label: 文件
+  - id: os
+    label: 操作系统
 logColumns:
-- key: mode
-  label: 当前状态
-- key: event
-  label: 发生了什么
+  - key: mode
+    label: 当前状态
+  - key: event
+    label: 发生了什么
 steps:
-- id: why
-  title: 为什么需要“翻译”
-  tldr: CPU 只认识机器码，人写的 C 代码它看不懂。
-  body: CPU 只能执行一串串二进制指令，而且不同指令集的编码互不相通，x86-64 的机器码拿到 ARM 上一条也跑不了。人写的 C 代码是给人读的文本，变量名、类型、花括号这些信息 CPU
-    一概不认识。所以需要一整条工具链做翻译，把源代码逐级变成 CPU 能直接执行的机器码，还要在翻译过程中查错和优化。这和 TypeScript 先编译成 JavaScript 才能在浏览器里跑是同一个道理，区别是 C
-    还要把多个源文件和现成的库拼装成一个完整程序。拆成多步还有工程好处：每一步只解决一个问题，出错时能定位是哪一步，改一行也只需重做受影响的文件——这正是增量编译能成立的前提。
-  derivation: original
-  sources:
-  - ref: csapp
-    locator: 第 1 章
-    url: http://csapp.cs.cmu.edu/
-    claim: 程序从源代码经翻译系统变为可执行文件
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: tools
-      id: t
-      label: 工具链（编译器/汇编器/链接器）
-    - lane: files
-      id: f
-      label: 文件
-      highlight: true
-    - lane: os
-      id: o
-      label: 操作系统（加载器）
-    messages: []
-  log:
-  - mode: 源代码
-    event: hello.c 准备好了
-  points:
-  - CPU 只认识机器码，人写的 C 代码它看不懂。
-- id: compile
-  title: 编译：C 变成汇编
-  tldr: 编译器理解程序的意思，并翻译成和 CPU 指令一一对应的汇编。
-  body: gcc 处理一个 hello.c 时，内部串了几个独立程序：预处理器展开头文件和宏，编译器理解语义、做类型检查和优化，最后输出汇编代码
-    hello.s。汇编是机器指令的可读版。编译器在这一步自由度最大：同一表达式可选不同的指令序列、把变量留在寄存器、重排运算顺序，只要可观察结果不变。优化等级也在这里显形：-O0 几乎逐句直译，方便调试但慢；-O2
-    会内联、删死代码、做循环变换，汇编和源码面目全非。语法和类型错误在这一站被拦下，因为只有编译器真正理解程序含义，后面的汇编器和链接器都不懂 C 语义。
-  derivation: original
-  sources:
-  - ref: csapp
-    locator: 第 1 章、第 3 章
-    url: http://csapp.cs.cmu.edu/
-    claim: 编译器将 C 翻译为汇编程序
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: tools
-      id: t
-      label: 工具链（编译器/汇编器/链接器）
-      highlight: true
-    - lane: files
-      id: f
-      label: 文件
-    - lane: os
-      id: o
-      label: 操作系统（加载器）
-    messages:
-    - id: m-compile
-      from: t
-      to: f
-      label: hello.c → hello.s
-      active: true
-  log:
-  - mode: 编译
-    event: 生成汇编代码
-- id: preprocess-opt
-  title: 预处理与优化
-  tldr: 编译前先做文本替换，编译时还会大胆改写代码，只要结果不变。
-  body: 预处理是纯文本游戏，不理解语义：#include 把头文件原样插入，#define 做字符串替换，#ifdef 按条件删段落，产物是一个几千行的纯 C 大文件。#include
-    和复制粘贴没有区别，头文件被包含几次就展开几次，这也是头文件保护宏存在的原因。进入编译后优化器才开始动脑，常量折叠把 3 加 5 在编译期算成
-    8，死代码消除删掉永远走不到的分支，内联把小函数体直接贴进调用处省掉调用开销，循环不变式外提把每轮都算同一个值挪到循环外。走例，一个在循环里反复调用的短 getter，-O2 下可能整段消失，所以拿 -O0 的汇编去推断 -O2
-    的性能会完全错位。前提是编译器恪守不改变可观察行为这条底线。
-  derivation: original
-  sources:
-  - ref: csapp
-    locator: 第 1 章
-    url: http://csapp.cs.cmu.edu/
-    claim: 编译前先做文本替换，编译时还会大胆改写代码，只要结果不变。
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: tools
-      id: t
-      label: 工具链（编译器/汇编器/链接器）
-      highlight: true
-    - lane: files
-      id: f
-      label: 文件
-    - lane: os
-      id: o
-      label: 操作系统（加载器）
-    messages:
-    - id: m-preprocess-opt
-      from: t
-      to: f
-      label: hello.c → hello.i → hello.s
-      active: true
-  log:
-  - mode: 编译
-    event: 展开、优化、生成汇编
-- id: assemble
-  title: 汇编：变成机器码
-  tldr: 汇编器把汇编逐条翻译成二进制机器码，得到目标文件。
-  body: 汇编到机器码几乎是机械的查表翻译：汇编器逐行把助记符换成二进制编码、算出每条指令的地址，产物是目标文件 hello.o，可以用 objdump -d 反汇编回来看。目标文件已经是真机器码，但还不能运行，因为它调用的 printf
-    不在自己体内，这些引用位置的地址先填占位值，同时在重定位表里记一笔，某个偏移处将来要填某个符号的地址加或减多少。汇编器还生成符号表，列清本文件定义了哪些全局符号、引用了哪些外部符号。两类目标文件要分清：可重定位目标文件就是普通的
-    .o，要被链接器继续加工；共享目标文件是 .so，链接方式特殊。汇编这一站几乎不报错，能报的多半是助记符拼写或格式问题，语义对不对它一概不管——这种各管一段的分工正是整条工具链可组合的原因。
-  derivation: original
-  sources:
-  - ref: csapp
-    locator: 第 7 章
-    url: http://csapp.cs.cmu.edu/
-    claim: 目标文件包含机器码及待重定位信息
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: tools
-      id: t
-      label: 工具链（编译器/汇编器/链接器）
-      highlight: true
-    - lane: files
-      id: f
-      label: 文件
-    - lane: os
-      id: o
-      label: 操作系统（加载器）
-    messages:
-    - id: m-assemble
-      from: t
-      to: f
-      label: hello.s → hello.o
-      active: true
-  log:
-  - mode: 汇编
-    event: 生成目标文件，外部引用待填
-- id: symbols
-  title: 符号与重定位
-  tldr: 目标文件里有一张符号表：我提供什么、我缺什么。
-  body: 每个目标文件都带一张符号表。符号分三类：全局符号是本文件定义、别处可用的函数和全局变量，外部符号是本文件引用、等别人定义的，比如
-    printf，本地符号是只在本文件可见的静态函数和变量。链接器做符号解析，就是把每个外部引用和唯一的全局定义配上对。两个经典错误由此而来：多个强符号同名叫 multiple definition，找不到任何定义叫 undefined
-    reference。强弱规则要记牢：函数和已初始化全局变量是强符号，未初始化全局变量在传统规则下是弱符号即公共块，强符号覆盖弱符号，两个弱符号取大的那块——这解释了为什么头文件里放未初始化变量定义有时不报错、放函数定义必报错。先分清发生期：undefined
-    reference 是构建期少链了库，cannot open shared object file 是运行期找不到 .so。
-  derivation: original
-  sources:
-  - ref: csapp
-    locator: 第 1 章
-    url: http://csapp.cs.cmu.edu/
-    claim: 目标文件里有一张符号表：我提供什么、我缺什么。
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: tools
-      id: t
-      label: 工具链（编译器/汇编器/链接器）
-    - lane: files
-      id: f
-      label: 文件
-      highlight: true
-    - lane: os
-      id: o
-      label: 操作系统（加载器）
-    messages:
-    - id: m-symbols
-      from: f
-      to: f
-      label: 符号表：定义 main，缺 printf
-      active: true
-  log:
-  - mode: 目标文件
-    event: 记录符号与重定位
-- id: elf-sections
-  title: ELF 文件里到底装了什么
-  tldr: 可执行文件不是一坨机器码，而是一个分段装箱的结构，每段各有用途。
-  body: 用 readelf -S 看一个可执行文件，会看到一串段：.text 装机器指令，只读可执行；.rodata 装字符串字面量和只读常量；.data 装已初始化的全局和静态变量，值直接存在文件里；.bss
-    装未初始化的全局变量，文件里只记大小不占字节，加载时整段清零，这解释了为什么声明一个巨大的全局数组不会让可执行文件等比例变大。链接器拼装时把所有输入文件的同名段按顺序合并，再统一排地址。走例，a.o 和 b.o 各有一段
-    .text，链接后它们首尾相接成为一整段，b 里函数相对 a 里函数的偏移随之改变，所有引用这些函数的重定位项都要按新地址重算，这正是重定位这个名字的来历。
-  derivation: original
-  sources:
-  - ref: csapp
-    locator: 第 7 章
-    url: http://csapp.cs.cmu.edu/
-    claim: ELF 可执行文件的段结构与链接时的段合并
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: tools
-      id: t
-      label: 工具链（编译器/汇编器/链接器）
-    - lane: files
-      id: f
-      label: 文件
-      highlight: true
-    - lane: os
-      id: o
-      label: 操作系统（加载器）
-    messages:
-    - id: m-elf
-      from: t
-      to: f
-      label: 同名段合并成 ELF
-      active: true
-  log:
-  - mode: 目标文件
-    event: 按段装箱的 ELF 结构
-- id: plt-got
-  title: 动态链接怎么找到函数：PLT 与 GOT
-  tldr: 动态库函数地址运行时才知道，调用只能先跳一层中转，这层中转叫 PLT 和 GOT。
-  body: 动态链接有个先天难题：编译链接时 .so 里 printf
-    的最终内存地址根本不知道，要等加载时才定。如果可执行文件里直接写死调用地址，加载器就得改写代码段，而代码段是只读且多进程共享的，改写会破坏共享。解法是间接一层：可执行文件的代码只跳到一小段跳板即 PLT，PLT 再按 GOT
-    表项里存的地址跳过去，GOT 是可写的数据表，每项对应一个动态符号。第一次调用时 GOT 里存的是回到 PLT 的地址，PLT 转而调用动态链接器做真正的符号查找，找到后把真实地址回填进
-    GOT；之后每次调用一次间接跳转直达，这叫惰性绑定。代价是每个动态函数多一跳，第一次调用还有查找停顿；实时性敏感的程序可以改用立即绑定在启动时一次算清。
-  derivation: original
-  sources:
-  - ref: csapp
-    locator: 第 7 章
-    url: http://csapp.cs.cmu.edu/
-    claim: 动态链接通过 PLT 与 GOT 实现间接调用与惰性绑定
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: tools
-      id: t
-      label: 工具链（编译器/汇编器/链接器）
-      highlight: true
-    - lane: files
-      id: f
-      label: 文件
-    - lane: os
-      id: o
-      label: 操作系统（加载器）
-    messages:
-    - id: m-plt
-      from: t
-      to: f
-      label: 调用 → PLT 跳板 → GOT 地址
-      active: true
-  log:
-  - mode: 动态链接
-    event: 首次调用回填 GOT
-- id: incremental
-  title: 为什么改一行不用全部重编
-  tldr: 分步翻译的红利是增量构建，只重做变了的那个文件，其余复用旧产物。
-  body: 大项目有上千个源文件，改一行就全部重编译没人等得起。分步模型天然支持增量：每个 .c 独立编译成 .o，构建工具记录每个 .o 依赖哪些源文件和头文件，只有依赖变了才重编那一个，最后统一重新链接，make 和 ninja
-    干的就是这张依赖图的维护。走例，改了 util.h 而它被 200 个文件包含，这 200 个 .o
-    全部要重编，因为预处理把头文件内容复制进了每个翻译单元，影响面按包含关系放大——这也是大项目对头文件改动格外谨慎、偏好前置声明的原因。另一个常见坑是依赖记录不全：漏记某个隐含依赖，增量构建就会用上陈旧的
-    .o，源码改了行为却没变，全量重编能立刻验证是不是增量缓存的锅。链接无法增量，任何 .o 变化都要重新拼装整个产物，超大项目的链接耗时本身会成为瓶颈。
-  derivation: original
-  sources:
-  - ref: csapp
-    locator: 第 7 章
-    url: http://csapp.cs.cmu.edu/
-    claim: 分别编译支持增量构建，仅重编受影响的目标文件
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: tools
-      id: t
-      label: 工具链（编译器/汇编器/链接器）
-      highlight: true
-    - lane: files
-      id: f
-      label: 文件
-    - lane: os
-      id: o
-      label: 操作系统（加载器）
-    messages:
-    - id: m-incr
-      from: t
-      to: f
-      label: 只重编变了的 .o，再统一链接
-      active: true
-  log:
-  - mode: 增量构建
-    event: 复用未变的 .o
-- id: link
-  title: 链接：把零件拼起来
-  tldr: 链接器把多个目标文件和库拼成一个完整的可执行文件。
-  body: 链接器做两件事：符号解析配对，再做重定位——把各目标文件的代码段和数据段拼起来，把重定位表里每个占位地址按符号的最终地址改写正确，产物才是能交给操作系统的可执行 ELF
-    文件。静态链接把用到的库函数代码整段拷进可执行文件，产物自包含、部署简单，代价是体积大、库有漏洞时每个程序都要重新链接发布。动态链接只在可执行文件里记下依赖哪个 .so
-    和需要哪些符号，真正的代码由运行时的动态链接器加载，所有进程共享同一份库代码页，省内存、库可单独升级，代价是启动多一轮加载和符号绑定，还可能撞上版本不匹配。走例，gcc a.o b.o -o app 这一步里如果 printf
-    来自动态 libc，app 本身并不含 printf 的代码，只有 PLT 和 GOT 里的一个间接入口，第一次调用时才填进真实地址。
-  derivation: original
-  sources:
-  - ref: csapp
-    locator: 第 7 章
-    url: http://csapp.cs.cmu.edu/
-    claim: 链接器进行符号解析和重定位，支持静态与动态链接
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: tools
-      id: t
-      label: 工具链（编译器/汇编器/链接器）
-      highlight: true
-    - lane: files
-      id: f
-      label: 文件
-    - lane: os
-      id: o
-      label: 操作系统（加载器）
-    messages:
-    - id: m-link
-      from: t
-      to: f
-      label: hello.o + libc → a.out
-      active: true
-  log:
-  - mode: 链接
-    event: 生成可执行文件（ELF）
-  code:
-    lang: shell
-    code: |-
-      gcc -c a.c b.c        # 编译+汇编：得到 a.o、b.o（各带符号表）
-      gcc a.o b.o -o app    # 链接：符号配对、重定位、生成可执行文件
-      nm app | grep ' T '   # 查看已定义的文本段符号
-    note: 命令行实操
-- id: load
-  title: 加载：程序跑起来
-  tldr: 运行时，操作系统把可执行文件装进内存，从入口开始执行。
-  body: 在终端敲下 ./a.out 后，shell 调用 execve 系统调用，内核解析 ELF
-    头，按程序头把各段映射进新建的地址空间——注意是建立映射而不是把整个文件读进内存，页面真正用到时才经缺页异常装入。静态可执行文件到此就能跳到入口开始跑，动态可执行文件还要先跳进动态链接器的入口，由它按依赖列表加载全部
-    .so、完成重定位、处理初始化函数，然后才跳到程序自己的入口，先经 C 运行时做全局构造等初始化，最后才调用 main（返回值再经 exit 交回内核）。所以程序里第一行代码并不是进程执行的第一条指令，动态库的构造函数会在 main
-    之前就运行，这是很多初始化顺序 bug 的来源。部署上，静态链接体积明显膨胀、容器镜像随之变大，动态链接镜像小但要管好 .so 的版本矩阵。
-  derivation: original
-  sources:
-  - ref: csapp
-    locator: 第 7 章
-    url: http://csapp.cs.cmu.edu/
-    claim: 加载器将可执行文件复制到内存并跳转到入口点
-    status: verified
-    checkedBy: Muse 核查
-    checkedAt: 2026-11-07
-    note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: tools
-      id: t
-      label: 工具链（编译器/汇编器/链接器）
-    - lane: files
-      id: f
-      label: 文件
-    - lane: os
-      id: o
-      label: 操作系统（加载器）
-      highlight: true
-    messages:
-    - id: m-load
-      from: f
-      to: o
-      label: execve：装入内存
-      active: true
-  log:
-  - mode: 运行中
-    event: 屏幕输出 hello
+  - id: why
+    title: 为什么需要“翻译”
+    tldr: 先把场面摆好：你写了一个 hello.c，按下编译，屏幕上就多出一个能直接双击运行的程序。这一步先回答最前面的问题——为什么中间需要翻译这道工序？因为 [[CPU]] 只认识二进制机器码，人写的 C
+      代码它一概看不懂，翻译就是把人能读的文本变成机器能执行的指令。
+    body: >-
+      CPU 只能执行一串串二进制指令，而且不同指令集的编码互不相通，[[x86-64]] 的机器码拿到 [[ARM]] 上一条也跑不了。人写的 C 代码是给人读的文本，变量名、类型、花括号这些信息 CPU
+      一概不认识。所以需要一整条工具链做翻译，把源代码逐级变成 CPU 能直接执行的机器码，还要在翻译过程中查错和优化。这和 [[TypeScript]] 先编译成 [[JavaScript]]
+      才能在浏览器里跑是同一个道理，区别是 C
+      还要把多个源文件和现成的库拼装成一个完整程序。拆成多步还有工程好处：每一步只解决一个问题，出错时能定位是哪一步，改一行也只需重做受影响的文件——这正是增量编译能成立的前提。
+
+      补一句容易漏掉的：翻译不只是换一种写法。C
+      代码里的变量名、类型、花括号这些信息，是给人和编译器检查用的，翻成机器码之后大部分就不存在了。所以程序跑起来出错时，想知道是哪行源码出的问题，还得靠编译时额外留下的调试信息把机器地址对回源码。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 1 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 程序从源代码经翻译系统变为可执行文件
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: tools
+          id: t
+          label: 工具链（编译器/汇编器/链接器）
+        - lane: files
+          id: f
+          label: 文件
+          highlight: true
+        - lane: os
+          id: o
+          label: 操作系统（加载器）
+      messages: []
+    log:
+      - mode: 源代码
+        event: hello.c 准备好了
+    points:
+      - CPU 只认识机器码，人写的 C 代码它看不懂。
+  - id: compile
+    title: 编译：C 变成汇编
+    tldr: 为什么需要翻译说清了，这一步看翻译的第一道正式工序：编译。场面还是那个
+      hello.c，编译器要做的，是先读懂程序的意思，再把它翻成和机器指令一一对应的汇编代码。这一步看它具体翻出了什么，以及为什么语法错误偏偏在这一站被拦下。
+    body: "[[gcc]] 处理一个 hello.c 时，内部串了几个独立程序：预处理器展开头文件和宏，编译器理解语义、做类型检查和优化，最后输出汇编代码
+      hello.s。汇编是机器指令的可读版。编译器在这一步自由度最大：同一表达式可选不同的指令序列、把变量留在寄存器、重排运算顺序，只要可观察结果不变。优化等级也在这里显形：-O0
+      几乎逐句直译，方便调试但慢；-O2 会内联、删死代码、做循环变换，汇编和源码面目全非。语法和类型错误在这一站被拦下，因为只有编译器真正理解程序含义，后面的汇编器和链接器都不懂 C 语义。"
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 1 章、第 3 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 编译器将 C 翻译为汇编程序
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: tools
+          id: t
+          label: 工具链（编译器/汇编器/链接器）
+          highlight: true
+        - lane: files
+          id: f
+          label: 文件
+        - lane: os
+          id: o
+          label: 操作系统（加载器）
+      messages:
+        - id: m-compile
+          from: t
+          to: f
+          label: 把 hello.c 编译成汇编文件 hello.s
+          active: true
+    log:
+      - mode: 编译
+        event: 生成汇编代码
+  - id: preprocess-opt
+    title: 预处理与优化
+    tldr: 编译这一步里其实还藏着两个动作没有拆开看：正式理解代码之前，先有一轮纯文本替换；理解之后，还有一轮大胆改写。这一步把这两个动作分开看——一个完全不懂程序的意思、只做替换，另一个专改写法、但保证结果不变。
+    body: 预处理是纯文本游戏，不理解语义：#include 把头文件原样插入，#define 做字符串替换，#ifdef 按条件删段落，产物是一个几千行的纯 C 大文件。#include
+      和复制粘贴没有区别，头文件被包含几次就展开几次，这也是头文件保护宏存在的原因。进入编译后优化器才开始动脑，常量折叠把 3 加 5 在编译期算成
+      8，死代码消除删掉永远走不到的分支，内联把小函数体直接贴进调用处省掉调用开销，循环不变式外提把每轮都算同一个值挪到循环外。走例，一个在循环里反复调用的短 getter，-O2 下可能整段消失，所以拿 -O0
+      的汇编去推断 -O2 的性能会完全错位。前提是编译器恪守不改变可观察行为这条底线。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 1 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 编译前先做文本替换，编译时还会大胆改写代码，只要结果不变。
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: tools
+          id: t
+          label: 工具链（编译器/汇编器/链接器）
+          highlight: true
+        - lane: files
+          id: f
+          label: 文件
+        - lane: os
+          id: o
+          label: 操作系统（加载器）
+      messages:
+        - id: m-preprocess-opt
+          from: t
+          to: f
+          label: hello.c → hello.i → hello.s
+          active: true
+    log:
+      - mode: 编译
+        event: 展开、优化、生成汇编
+  - id: assemble
+    title: 汇编：变成机器码
+    tldr: 文本替换和改写都看过了，手里是一份汇编代码，可它还不是机器能直接吃的东西。这一步看汇编器怎么把汇编逐条翻成二进制机器码，得到目标文件；同时留个心眼：它调用的 printf
+      还不在自己身体里，这个缺口要留给后面解决。
+    body: |-
+      汇编到机器码几乎是机械的查表翻译：汇编器逐行把助记符换成二进制编码、算出每条指令的地址，产物是目标文件 hello.o，可以用 objdump -d 反汇编回来看。目标文件已经是真机器码，但还不能运行，因为它调用的 printf 不在自己体内，这些引用位置的地址先填占位值，同时在重定位表里记一笔，某个偏移处将来要填某个符号的地址加或减多少。汇编器还生成符号表，列清本文件定义了哪些全局符号、引用了哪些外部符号。两类目标文件要分清：可重定位目标文件就是普通的 .o，要被链接器继续加工；共享目标文件是 .so，链接方式特殊。汇编这一站几乎不报错，能报的多半是助记符拼写或格式问题，语义对不对它一概不管——这种各管一段的分工正是整条工具链可组合的原因。
+      这里补清一个名词：占位值不是随便填的假地址。汇编器会在重定位表里记一笔账，写明哪个位置将来要填哪个符号的地址、还要加多少或减多少。链接器最后就是照着这本账一笔一笔把地址填实的，没有这本账，拼装就无从下手。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 7 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 目标文件包含机器码及待重定位信息
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: tools
+          id: t
+          label: 工具链（编译器/汇编器/链接器）
+          highlight: true
+        - lane: files
+          id: f
+          label: 文件
+        - lane: os
+          id: o
+          label: 操作系统（加载器）
+      messages:
+        - id: m-assemble
+          from: t
+          to: f
+          label: 把汇编文件 hello.s 汇编成目标文件 hello.o
+          active: true
+    log:
+      - mode: 汇编
+        event: 生成目标文件，外部引用待填
+  - id: symbols
+    title: 符号与重定位
+    tldr: 目标文件有了，缺口也留下了。这一步看目标文件里那张清单——符号表：它写清了这个文件能提供哪些函数和变量、又缺哪些要等别人来补。后面链接器配对、以及那两个最常见的报错，都要从这张表说起。
+    body: |-
+      先交代一个前提：分别编译的时候，每个文件只能看见别人函数的声明，看不见定义本身。比如 hello.c 里写了调用 printf，它只知道有这么个函数、参数长什么样，并不知道这个函数的代码在哪里。这个信息差，就是符号表存在的原因。
+      每个目标文件都带一张符号表。符号分三类：全局符号是本文件定义、别处可用的函数和全局变量，外部符号是本文件引用、等别人定义的，比如 printf，本地符号是只在本文件可见的静态函数和变量。链接器做符号解析，就是把每个外部引用和唯一的全局定义配上对。两个经典错误由此而来：多个强符号同名叫 multiple definition，找不到任何定义叫 undefined reference。强弱规则要记牢：函数和已初始化全局变量是强符号，未初始化全局变量在传统规则下是弱符号即公共块，强符号覆盖弱符号，两个弱符号取大的那块——这解释了为什么头文件里放未初始化变量定义有时不报错、放函数定义必报错。先分清发生期：undefined reference 是构建期少链了库，cannot open shared object file 是运行期找不到 .so。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 1 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 目标文件里有一张符号表：我提供什么、我缺什么。
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: tools
+          id: t
+          label: 工具链（编译器/汇编器/链接器）
+        - lane: files
+          id: f
+          label: 文件
+          highlight: true
+        - lane: os
+          id: o
+          label: 操作系统（加载器）
+      messages:
+        - id: m-symbols
+          from: f
+          to: f
+          label: 符号表：定义 main，缺 printf
+          active: true
+    log:
+      - mode: 目标文件
+        event: 记录符号与重定位
+  - id: elf-sections
+    title: ELF 文件里到底装了什么
+    tldr: 符号表看的是清单，这一步看箱子本身：可执行文件不是一整坨机器码，而是按用途分段装箱的结构，代码一段、只读数据一段、已初始化变量一段。这一步把每一段装什么拆开看，后面链接时同名段怎么合并就好懂了。
+    body: >-
+      先说清为什么要分段：代码要能执行但不能被改，字符串常量只读，已初始化的变量要带着初值，未初始化的变量不用占文件空间——这几类东西的待遇完全不同，混成一坨就没法分别对待。分段就是按待遇把它们分开装。
+
+      用 readelf -S 看一个可执行文件，会看到一串段：.text 装机器指令，只读可执行；.rodata 装字符串字面量和只读常量；.data 装已初始化的全局和静态变量，值直接存在文件里；.bss
+      装未初始化的全局变量，文件里只记大小不占字节，加载时整段清零，这解释了为什么声明一个巨大的全局数组不会让可执行文件等比例变大。链接器拼装时把所有输入文件的同名段按顺序合并，再统一排地址。走例，a.o 和
+      b.o 各有一段 .text，链接后它们首尾相接成为一整段，b 里函数相对 a 里函数的偏移随之改变，所有引用这些函数的重定位项都要按新地址重算，这正是重定位这个名字的来历。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 7 章
+        url: http://csapp.cs.cmu.edu/
+        claim: ELF 可执行文件的段结构与链接时的段合并
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: tools
+          id: t
+          label: 工具链（编译器/汇编器/链接器）
+        - lane: files
+          id: f
+          label: 文件
+          highlight: true
+        - lane: os
+          id: o
+          label: 操作系统（加载器）
+      messages:
+        - id: m-elf
+          from: t
+          to: f
+          label: 同名段合并成 [[ELF]]
+          active: true
+    log:
+      - mode: 目标文件
+        event: 按段装箱的 ELF 结构
+  - id: plt-got
+    title: 动态链接怎么找到函数：PLT 与 GOT
+    tldr: 分段装箱讲完，回到动态链接留下的一个难题：程序要调用的库函数，地址要等运行时才知道，编译链接时根本写不进去。这一步看解法——调用不直接写死地址，而是先跳一层中转，这层中转就是 [[PLT]] 跳板和
+      [[GOT]] 地址表。
+    body: |-
+      先把前提说清：动态链接的意思是，库的代码不拷进你的程序，程序运行时再去加载公共的库文件。好处是多个程序能共用一份，可代价是，库函数最终会被装到内存的哪个地址，编译和链接的时候谁也不知道。这一步的中转机制，就是为这个「不知道」准备的。
+      动态链接有个先天难题：编译链接时 .so 里 printf 的最终内存地址根本不知道，要等加载时才定。如果可执行文件里直接写死调用地址，加载器就得改写代码段，而代码段是只读且多进程共享的，改写会破坏共享。解法是间接一层：可执行文件的代码只跳到一小段跳板即 PLT，PLT 再按 GOT 表项里存的地址跳过去，GOT 是可写的数据表，每项对应一个动态符号。第一次调用时 GOT 里存的是回到 PLT 的地址，PLT 转而调用动态链接器做真正的符号查找，找到后把真实地址回填进 GOT；之后每次调用一次间接跳转直达，这叫惰性绑定。代价是每个动态函数多一跳，第一次调用还有查找停顿；实时性敏感的程序可以改用立即绑定在启动时一次算清。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 7 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 动态链接通过 PLT 与 GOT 实现间接调用与惰性绑定
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: tools
+          id: t
+          label: 工具链（编译器/汇编器/链接器）
+          highlight: true
+        - lane: files
+          id: f
+          label: 文件
+        - lane: os
+          id: o
+          label: 操作系统（加载器）
+      messages:
+        - id: m-plt
+          from: t
+          to: f
+          label: 调用先跳到 PLT 跳板，再按 GOT 表里存的地址跳到真正的函数
+          active: true
+    log:
+      - mode: 动态链接
+        event: 首次调用回填 GOT
+  - id: incremental
+    title: 为什么改一行不用全部重编
+    tldr: 中转的机制看完，换一个日常场面：大项目有上千个源文件，你只改了一行，为什么不用全部重编？这一步看分步翻译带来的红利——每个文件单独编译、产物能复用，只有受影响的那几个文件需要重做。
+    body: 大项目有上千个源文件，改一行就全部重编译没人等得起。分步模型天然支持增量：每个 .c 独立编译成 .o，构建工具记录每个 .o 依赖哪些源文件和头文件，只有依赖变了才重编那一个，最后统一重新链接，make 和
+      ninja 干的就是这张依赖图的维护。走例，改了 util.h 而它被 200 个文件包含，这 200 个 .o
+      全部要重编，因为预处理把头文件内容复制进了每个翻译单元，影响面按包含关系放大——这也是大项目对头文件改动格外谨慎、偏好前置声明的原因。另一个常见坑是依赖记录不全：漏记某个隐含依赖，增量构建就会用上陈旧的
+      .o，源码改了行为却没变，全量重编能立刻验证是不是增量缓存的锅。链接无法增量，任何 .o 变化都要重新拼装整个产物，超大项目的链接耗时本身会成为瓶颈。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 7 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 分别编译支持增量构建，仅重编受影响的目标文件
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: tools
+          id: t
+          label: 工具链（编译器/汇编器/链接器）
+          highlight: true
+        - lane: files
+          id: f
+          label: 文件
+        - lane: os
+          id: o
+          label: 操作系统（加载器）
+      messages:
+        - id: m-incr
+          from: t
+          to: f
+          label: 只重编变了的 .o，再统一链接
+          active: true
+    log:
+      - mode: 增量构建
+        event: 复用未变的 .o
+  - id: link
+    title: 链接：把零件拼起来
+    tldr: 零件和红利都看过了，这一步正式做拼装：链接器把多个目标文件和库拼成一个完整的可执行文件。它只做两件事，先把符号配对，再把当初留下的占位地址按最终位置改写正确。这一步也把静态链接和动态链接的取舍放在一起算清。
+    body: 链接器做两件事：符号解析配对，再做重定位——把各目标文件的代码段和数据段拼起来，把重定位表里每个占位地址按符号的最终地址改写正确，产物才是能交给操作系统的可执行 [[ELF]]
+      文件。静态链接把用到的库函数代码整段拷进可执行文件，产物自包含、部署简单，代价是体积大、库有漏洞时每个程序都要重新链接发布。动态链接只在可执行文件里记下依赖哪个 .so
+      和需要哪些符号，真正的代码由运行时的动态链接器加载，所有进程共享同一份库代码页，省内存、库可单独升级，代价是启动多一轮加载和符号绑定，还可能撞上版本不匹配。走例，[[gcc]] a.o b.o -o app
+      这一步里如果 printf 来自动态 libc，app 本身并不含 printf 的代码，只有 [[PLT]] 和 [[GOT]] 里的一个间接入口，第一次调用时才填进真实地址。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 7 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 链接器进行符号解析和重定位，支持静态与动态链接
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: tools
+          id: t
+          label: 工具链（编译器/汇编器/链接器）
+          highlight: true
+        - lane: files
+          id: f
+          label: 文件
+        - lane: os
+          id: o
+          label: 操作系统（加载器）
+      messages:
+        - id: m-link
+          from: t
+          to: f
+          label: 把 hello.o 和 C 标准库链接成可执行文件 a.out
+          active: true
+    log:
+      - mode: 链接
+        event: 生成可执行文件（ELF）
+    code:
+      lang: shell
+      code: |-
+        gcc -c a.c b.c        # 编译+汇编：得到 a.o、b.o（各带符号表）
+        gcc a.o b.o -o app    # 链接：符号配对、重定位、生成可执行文件
+        nm app | grep ' T '   # 查看已定义的文本段符号
+      note: 命令行实操
+  - id: load
+    title: 加载：程序跑起来
+    tldr: 文件拼好了，最后一步看它怎么跑起来：你在终端敲下运行命令，操作系统把可执行文件装进内存，从入口开始执行。这一步要特别留意一件事——程序里第一行代码，并不是这个进程执行的第一条指令，在它之前还有一段准备工作。
+    body: |-
+      在终端敲下 ./a.out 后，shell 调用 execve 系统调用，内核解析 [[ELF]] 头，按程序头把各段映射进新建的地址空间——注意是建立映射而不是把整个文件读进内存，页面真正用到时才经缺页异常装入。静态可执行文件到此就能跳到入口开始跑，动态可执行文件还要先跳进动态链接器的入口，由它按依赖列表加载全部 .so、完成重定位、处理初始化函数，然后才跳到程序自己的入口，先经 C 运行时做全局构造等初始化，最后才调用 main（返回值再经 exit 交回内核）。所以程序里第一行代码并不是进程执行的第一条指令，动态库的构造函数会在 main 之前就运行，这是很多初始化顺序 bug 的来源。部署上，静态链接体积明显膨胀、容器镜像随之变大，动态链接镜像小但要管好 .so 的版本矩阵。
+      再补一个和日常写代码直接相关的点：动态库的初始化代码会在 main 之前运行，所以「程序一启动就崩、连第一行日志都没打出来」这类问题，常常出在这一段准备工作里，而不是你的主逻辑里。排查启动崩溃时，要把这段时间也算进去。
+    derivation: original
+    sources:
+      - ref: csapp
+        locator: 第 7 章
+        url: http://csapp.cs.cmu.edu/
+        claim: 加载器将可执行文件复制到内存并跳转到入口点
+        status: verified
+        checkedBy: Muse 核查
+        checkedAt: 2026-11-07
+        note: 2026-11-07 已对照一手来源核查，记录见 docs/curriculum-audit.md
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: tools
+          id: t
+          label: 工具链（编译器/汇编器/链接器）
+        - lane: files
+          id: f
+          label: 文件
+        - lane: os
+          id: o
+          label: 操作系统（加载器）
+          highlight: true
+      messages:
+        - id: m-load
+          from: f
+          to: o
+          label: 通过 execve 系统调用把程序装入内存
+          active: true
+    log:
+      - mode: 运行中
+        event: 屏幕输出 hello
 level: 基础
 minutes: 26
 prereq: []
 objectives:
-- 按顺序说出预处理→编译→汇编→链接四步的产物
-- 用符号表解释未定义符号错误
-- 分清静态链接与动态链接的取舍
-aiLink: 推理服务部署时满屏的 .so、符号未定义、glibc 版本问题都来自这一课：CUDA/ONNX Runtime 的动态库加载、Python 扩展模块（torch 的 .so）本质都是链接与加载。看懂符号与重定位，排这类错就不再靠玄学。
+  - 按顺序说出预处理→编译→汇编→链接四步的产物
+  - 用符号表解释未定义符号错误
+  - 分清静态链接与动态链接的取舍
+aiLink: 推理服务部署时满屏的 .so、符号未定义、glibc 版本问题都来自这一课：CUDA/ONNX Runtime 的动态库加载、Python 扩展模块（torch 的
+  .so）本质都是链接与加载。看懂符号与重定位，排这类错就不再靠玄学。
 quiz:
-- q: 链接器报 undefined reference，通常是？
-  options:
-  - 语法错
-  - 某个符号只有声明没有定义（或没把实现的目标文件/库链进来）
-  - 内存不足
-  - CPU 不支持
-  answer: 1
-  explain: 编译只查声明，符号的定义由链接器在全部目标文件与库里配对。
-- q: 动态链接相比静态链接的代价是？
-  options:
-  - 二进制更大
-  - 运行时要加载并重定位共享库，启动稍慢；多进程共享同一份库省内存，库还可单独升级（重启进程后生效）
-  - 不能跨平台
-  - 不支持函数调用
-  answer: 1
-  explain: 多个进程共享同一份 .so 的代码页，这正是虚拟内存共享映射的应用。
-- q: 头文件里应该放什么？
-  options:
-  - 函数定义
-  - 声明（函数原型、类型、extern 变量）
-  - main 函数
-  - 全局变量定义
-  answer: 1
-  explain: 定义放多个 .c 里会造成重复定义；头文件只声明，链接器最后统一配对。
+  - q: 链接器报 undefined reference，通常是？
+    options:
+      - 语法错
+      - 某个符号只有声明没有定义（或没把实现的目标文件/库链进来）
+      - 内存不足
+      - CPU 不支持
+    answer: 1
+    explain: 编译只查声明，符号的定义由链接器在全部目标文件与库里配对。
+  - q: 动态链接相比静态链接的代价是？
+    options:
+      - 二进制更大
+      - 运行时要加载并重定位共享库，启动稍慢；多进程共享同一份库省内存，库还可单独升级（重启进程后生效）
+      - 不能跨平台
+      - 不支持函数调用
+    answer: 1
+    explain: 多个进程共享同一份 .so 的代码页，这正是虚拟内存共享映射的应用。
+  - q: 头文件里应该放什么？
+    options:
+      - 函数定义
+      - 声明（函数原型、类型、extern 变量）
+      - main 函数
+      - 全局变量定义
+    answer: 1
+    explain: 定义放多个 .c 里会造成重复定义；头文件只声明，链接器最后统一配对。
 design:
-- mechanism: 翻译被拆成预处理、编译、汇编、链接、加载五步，每步产物落盘，分别是 .i、.s、.o、可执行文件和内存映像。
-  problem: 源码一次性变成内存映像是个巨大工程，一步做完则无法定位错误、无法复用中间产物、无法并行翻译，改一行也要全量重来。
-  choice: 流水线式分工，每步只解决一个问题且接口用文件格式固定，工具可以独立替换，构建系统还能按依赖做增量复用。
-  tradeoff: 代价是信息逐级丢失，链接器不懂 C 语义所以报不出友好的类型错误，优化也被切成编译期和链接期两段，全局最优更难做到。
-  root: 根源是关注点分离加上文件作为稳定接口：中间格式标准化，工具链就能像积木一样组合、缓存和并行，这是构建系统的地基
-- mechanism: 动态链接把符号绑定推迟到加载甚至首次调用时，经 PLT 跳板和 GOT 间接表完成，库代码只加载一份供多进程共享。
-  problem: 静态链接把库拷进每个程序，同一份 libc 在磁盘和内存里存在成百上千份副本，库修个安全漏洞要重发所有程序，运维上不可行。
-  choice: 只在可执行文件里记依赖和符号名，运行时由动态链接器统一加载共享库并回填地址，多进程映射同一份只读代码页，升级库即全场生效
-  tradeoff: 代价是启动多一轮加载重定位、首次调用有惰性绑定停顿，还引入了版本矩阵和运行期找不到 .so 这类部署时才暴露的故障。
-  root: 根源是代码页只读可共享这一虚拟内存特性：不改写代码、只改写一张私有间接表，就能同时满足共享、升级和地址无关。
-- mechanism: 符号解析按强弱规则配对，未初始化全局变量作弱符号即公共块，函数与已初始化变量作强符号，链接器据此裁决重复名字。
-  problem: 多个文件都声明了同名全局量时，链接器必须有确定规则决定用哪份、报不报错，否则同样的输入在不同链接顺序下会得到不同程序。
-  choice: 用强弱规则给出可预测的裁决，强符号唯一且覆盖弱符号，弱符号之间取尺寸最大者，让头文件放声明、源文件放定义成为全员约定
-  tradeoff: 历史包袱是公共块的宽容会掩盖真 bug，两个文件误写了同名未初始化变量会被悄悄合并而不是报错，现代编译器默认关掉这份宽容正是为此
-  root: 根源是分别编译的必然结果，每个翻译单元只能看见声明，定义归属的最终裁决只能交给掌握全局符号表的链接器，规则必须简单且与顺序无关
+  - mechanism: 翻译被拆成预处理、编译、汇编、链接、加载五步，每步产物落盘，分别是 .i、.s、.o、可执行文件和内存映像。
+    problem: 源码一次性变成内存映像是个巨大工程，一步做完则无法定位错误、无法复用中间产物、无法并行翻译，改一行也要全量重来。
+    choice: 流水线式分工，每步只解决一个问题且接口用文件格式固定，工具可以独立替换，构建系统还能按依赖做增量复用。
+    tradeoff: 代价是信息逐级丢失，链接器不懂 C 语义所以报不出友好的类型错误，优化也被切成编译期和链接期两段，全局最优更难做到。
+    root: 根源是关注点分离加上文件作为稳定接口：中间格式标准化，工具链就能像积木一样组合、缓存和并行，这是构建系统的地基
+  - mechanism: 动态链接把符号绑定推迟到加载甚至首次调用时，经 PLT 跳板和 GOT 间接表完成，库代码只加载一份供多进程共享。
+    problem: 静态链接把库拷进每个程序，同一份 libc 在磁盘和内存里存在成百上千份副本，库修个安全漏洞要重发所有程序，运维上不可行。
+    choice: 只在可执行文件里记依赖和符号名，运行时由动态链接器统一加载共享库并回填地址，多进程映射同一份只读代码页，升级库即全场生效
+    tradeoff: 代价是启动多一轮加载重定位、首次调用有惰性绑定停顿，还引入了版本矩阵和运行期找不到 .so 这类部署时才暴露的故障。
+    root: 根源是代码页只读可共享这一虚拟内存特性：不改写代码、只改写一张私有间接表，就能同时满足共享、升级和地址无关。
+  - mechanism: 符号解析按强弱规则配对，未初始化全局变量作弱符号即公共块，函数与已初始化变量作强符号，链接器据此裁决重复名字。
+    problem: 多个文件都声明了同名全局量时，链接器必须有确定规则决定用哪份、报不报错，否则同样的输入在不同链接顺序下会得到不同程序。
+    choice: 用强弱规则给出可预测的裁决，强符号唯一且覆盖弱符号，弱符号之间取尺寸最大者，让头文件放声明、源文件放定义成为全员约定
+    tradeoff: 历史包袱是公共块的宽容会掩盖真 bug，两个文件误写了同名未初始化变量会被悄悄合并而不是报错，现代编译器默认关掉这份宽容正是为此
+    root: 根源是分别编译的必然结果，每个翻译单元只能看见声明，定义归属的最终裁决只能交给掌握全局符号表的链接器，规则必须简单且与顺序无关

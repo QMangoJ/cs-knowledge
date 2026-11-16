@@ -2,11 +2,12 @@ import fs from "node:fs";
 import path from "node:path";
 import YAML from "yaml";
 import { z } from "zod";
-import { SourceDef, SubjectsFile, Topic, checkTopic, type Issue, type JourneyStep, type SubjectInfo, type Topic as TopicT } from "./schema";
+import { GlossaryEntry, SourceDef, SubjectsFile, Topic, checkTopic, type Issue, type JourneyStep, type SubjectInfo, type Topic as TopicT } from "./schema";
+import { MARKER_RE } from "./terms";
 
 export class ContentError extends Error {}
 
-export type Content = { topics: Topic[]; sources: Map<string, SourceDef>; subjects: SubjectInfo[]; journey: JourneyStep[]; issues: Issue[] };
+export type Content = { topics: Topic[]; sources: Map<string, SourceDef>; subjects: SubjectInfo[]; journey: JourneyStep[]; issues: Issue[]; glossary: Map<string, GlossaryEntry> };
 
 /** Recommended path inside a subject: its pageable topics in `order` sequence. */
 export function subjectPath(topics: TopicT[], subject: string): TopicT[] {
@@ -84,6 +85,24 @@ export function readContent(root = path.join(process.cwd(), "content")): Content
   }
   const subjects = subParsed.data?.subjects ?? [];
   const journey = subParsed.data?.journey ?? [];
+  // Glossary: the merged glossary.yaml plus per-subject glossary-frag-*.yaml fragments.
+  const glossary = new Map<string, GlossaryEntry>();
+  const glossFiles = ["glossary.yaml", ...fs.readdirSync(root).filter((f) => /^glossary-frag-.+\.yaml$/.test(f)).sort()];
+  for (const gf of glossFiles) {
+    const gp = path.join(root, gf);
+    if (!fs.existsSync(gp)) continue;
+    const gParsed = z.array(GlossaryEntry).safeParse(YAML.parse(fs.readFileSync(gp, "utf8")));
+    if (!gParsed.success) {
+      for (const e of gParsed.error.issues) issues.push({ level: "error", where: `${gf} ${e.path.join(".")}`, msg: e.message });
+      continue;
+    }
+    for (const entry of gParsed.data) {
+      const prev = glossary.get(entry.term);
+      if (prev && (prev.full !== entry.full || prev.explain !== entry.explain)) {
+        issues.push({ level: "error", where: gf, msg: `术语「${entry.term}」在多处定义且内容不一致（先见 full=${prev.full}）` });
+      } else glossary.set(entry.term, entry);
+    }
+  }
   const topics: Topic[] = [];
   for (const file of walk(path.join(root, "topics")).sort()) {
     const rel = path.relative(root, file);
@@ -97,7 +116,30 @@ export function readContent(root = path.join(process.cwd(), "content")): Content
   }
   topics.sort((a, b) => a.subject.localeCompare(b.subject) || a.order - b.order);
   issues.push(...checkCoherence(topics, subjects));
-  return { topics, sources, subjects, journey, issues };
+  // Term markers: every [[...]] in any topic text field must be well-formed and in the glossary.
+  // Scan string values (not the JSON serialization, whose nested arrays contain literal "[["),
+  // and skip code blocks, whose [[...]] array syntax is not a marker.
+  const collectTexts = (v: unknown, out: string[]): void => {
+    if (typeof v === "string") out.push(v);
+    else if (Array.isArray(v)) for (const x of v) collectTexts(x, out);
+    else if (v && typeof v === "object") for (const [k, x] of Object.entries(v)) if (k !== "code") collectTexts(x, out);
+  };
+  for (const t of topics) {
+    const texts: string[] = [];
+    collectTexts(t, texts);
+    let opens = 0;
+    const marks: RegExpMatchArray[] = [];
+    for (const s of texts) {
+      opens += (s.match(/\[\[/g) ?? []).length;
+      marks.push(...s.matchAll(MARKER_RE));
+    }
+    if (opens !== marks.length) issues.push({ level: "error", where: t.id, msg: `有 ${opens - marks.length} 处 [[ 标记未闭合或格式错误` });
+    for (const m of marks) {
+      const key = (m[2] ?? m[1])!.trim();
+      if (!glossary.has(key)) issues.push({ level: "error", where: t.id, msg: `术语标记 [[${key}]] 不在术语表（glossary.yaml / glossary-frag-*.yaml）` });
+    }
+  }
+  return { topics, sources, subjects, journey, issues, glossary };
 }
 
 let cache: Content | undefined;

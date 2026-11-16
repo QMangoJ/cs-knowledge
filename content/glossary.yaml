@@ -1,0 +1,1654 @@
+# 全站术语表：课文里的 [[词]] / [[显示文字|词条名]] 标记点击后弹出本表的全称与解释。
+- term: (EC)DHE
+  full: (Elliptic Curve) Diffie-Hellman Ephemeral（临时密钥交换）
+  explain: 双方各出临时随机材料、算出同一个共享秘密的密钥协商方法，TLS 的会话密钥就从它派生。
+- term: 0-1 BFS
+  full: 0-1 BFS（边权只有 0 与 1 时的最短路算法）
+  explain: 把优先队列换成双端队列：走 0 权边放队头、1 权边放队尾，距离单调性免费成立，总复杂度降到线性。
+- term: 0-RTT
+  full: Zero Round-Trip Time（零往返时延恢复连接）
+  explain: 恢复连接时在第一个包就带上应用数据的做法，省掉一轮往返，但数据缺抗重放保护，只许放幂等请求。
+- term: '304'
+  full: 304 Not Modified（未修改状态码）
+  explain: 服务器确认资源没变的响应，不带正文，客户端直接用本地缓存副本即可。
+- term: 5G
+  full: Fifth Generation Mobile Network（第五代移动通信网络）
+  explain: 手机的蜂窝网络一代，从 Wi-Fi 切到它时 IP 会变，这正是 QUIC 连接迁移要解决的场面。
+- term: A 记录
+  full: A Record（地址记录）
+  explain: 把域名直接指向一个 IPv4 地址的 DNS 记录。
+- term: A*
+  full: A* 搜索算法（A-Star）
+  explain: 在 Dijkstra 最短路径基础上加一个朝目标方向的估计来少走弯路的寻路算法，估计不高估真实距离时仍保证最短。
+- term: A/B 实验
+  full: A/B Testing（对照实验）
+  explain: 把用户随机分成两组，一组用旧版、一组用新版，用两组读数的差异判断改动有没有效果。
+- term: AAAA 记录
+  full: AAAA Record（IPv6 地址记录）
+  explain: 把域名指向一个 IPv6 地址的 DNS 记录，作用与 A 记录相同、地址版本不同。
+- term: ABI
+  full: Application Binary Interface（应用二进制接口）
+  explain: 已编译程序和内核之间定死的约定，系统调用号就是其中一部分，发布后不能改、不能复用。
+- term: AC 自动机
+  full: Aho–Corasick 自动机
+  explain: 把很多个模式一起编进一棵带失配跳转的字典树，文本只扫一遍就能报出全部模式的命中位置。
+- term: ACID
+  full: Atomicity, Consistency, Isolation, Durability（原子性、一致性、隔离性、持久性）
+  explain: 事务的四条性质：要么全做要么全不做、数据始终满足约束、并发事务互不干扰、提交后断电也不丢。
+- term: ACK
+  full: Acknowledgment（确认标志位 / 确认报文）
+  explain: 表示「我收到了」的标志，配合确认号使用；纯 ACK 报文不占序号。
+- term: ack
+  full: Acknowledgment Number（确认号）
+  explain: 表示「下一个期望收到的字节序号」，等于对方已发序号加一；它指向下一个，而不是最后一个收到的。
+- term: Adam
+  full: Adaptive Moment Estimation（自适应矩估计，优化器名）
+  explain: 训练常用的优化器，给每个参数各记一份梯度的一阶与二阶滑动平均，再据此给每个参数定制步长。
+- term: AEAD
+  full: Authenticated Encryption with Associated Data（带完整性校验的对称加密）
+  explain: 加密的同时附带防篡改校验的对称加密方式，TLS 协商完成后数据全程用它加密。
+- term: agent
+  full: agent（智能体）
+  explain: 能自己看上下文、调用工具并决定下一步的模型程序，常驻 agent 还要在没人盯着时长期待命。
+- term: AI
+  full: Artificial Intelligence（人工智能）
+  explain: 让计算机完成预测、生成等原本靠人判断的任务的技术统称。
+- term: AIMD
+  full: Additive Increase / Multiplicative Decrease（加性增、乘性减）
+  explain: 拥塞窗口的经典调节规则：没丢包时每轮加一点，丢包时按比例砍；多条流执行同一规则会大体均分带宽。
+- term: alpha
+  full: α（希腊字母 alpha，显著性水平）
+  explain: 假设检验事先定好的门槛，也是冤枉「没效果」的概率上限，常用 0.05，必须在看数据之前定。
+- term: Alt-Svc
+  full: Alternative Service（替代服务宣告头）
+  explain: 服务器在响应里宣告「同一资源还能在别的协议与端点上访问」的头，浏览器靠它学到对面支持 HTTP/3。
+- term: ALU
+  full: Arithmetic Logic Unit（算术逻辑单元）
+  explain: CPU 里真正做加减、比较等运算的电路。
+- term: Anthropic
+  full: Anthropic（人工智能公司名）
+  explain: 推出 Claude 系列模型的公司，常驻 agent 那一课的架构原文就出自它。
+- term: Anycast
+  full: Anycast（任播）
+  explain: 同一个 IP 地址由全球多地实例同时宣告，数据包被路由送到拓扑上最近的一处，根服务器与 CDN 都靠它扩容。
+- term: AoS
+  full: Array of Structures（结构体数组）
+  explain: 把每个对象的全部字段捆在一起存放的数据布局。
+- term: AP 系统
+  full: AP 系统（保可用性优先的取向）
+  explain: 网络分区发生时，优先保可用性、宁可先返回旧数据的系统取向。
+- term: API
+  full: Application Programming Interface（应用程序接口）
+  explain: 程序之间按约定互相调用的入口，调用方按接口约定发请求、拿响应，不需要知道对方内部实现。
+- term: ARM
+  full: ARM（指令集架构名）
+  explain: 手机芯片、很多嵌入式设备和部分服务器使用的指令集架构。
+- term: atomic_fetch_add
+  full: atomic fetch-and-add（原子加操作）
+  explain: 一步完成「读出旧值并加一」的原子操作，单个计数器用它就不用加锁。
+- term: Authorization
+  full: Authorization Header（授权请求头）
+  explain: 携带 API 密钥等身份凭证的 HTTP 请求头，服务器靠它做认证。
+- term: auto mode
+  full: auto mode（自动模式，Claude Code 的权限模式）
+  explain: 用一个分类器审查风险较高的工具调用、拦下危险操作的自动运行模式，定位是减负的过滤器，不是责任的承担者。
+- term: AVL
+  full: Adelson-Velsky and Landis tree（自平衡二叉搜索树）
+  explain: 最早的自平衡二叉搜索树，要求每个节点左右子树高度差不超过 1，靠旋转恢复平衡，查找路径最短但增删调整频繁。
+- term: AWS
+  full: Amazon Web Services（亚马逊云计算平台）
+  explain: 亚马逊的云计算平台，把服务器、存储等基础设施租给别人用。
+- term: B+ 树
+  full: B-plus Tree（B 加树）
+  explain: 每个节点能分出上千个叉的平衡搜索树，数据只放在叶子层、叶子之间用链表相连，是数据库索引最常用的结构。
+- term: batch
+  full: batch（批，一次处理的一批数据）
+  explain: 一次前向、反向和更新所用的样本集合，批越大梯度越稳，每一步也越贵。
+- term: BBR
+  full: Bottleneck Bandwidth and Round-trip Propagation Time（按瓶颈带宽与传播时延建模的拥塞算法）
+  explain: 持续测量瓶颈带宽与往返传播时延、把发送速率锚在管道容量上的算法，不把丢包当主要信号。
+- term: BDP
+  full: Bandwidth-Delay Product（带宽时延积）
+  explain: 带宽乘以往返时延，等于一条管道同时能容纳的在途数据量；窗口小于它链路就跑不满。
+- term: beam search
+  full: Beam Search（束搜索）
+  explain: 序列生成时每步只保留得分最高的 k 条前缀继续扩展，是把动态规划的表按宽度截断的近似，越宽越接近精确解、也越慢。
+- term: Bellman-Ford
+  full: Bellman-Ford 算法
+  explain: 把所有边反复松弛 V−1 轮的最短路径算法，不靠一次定案，所以能处理负权边，还能顺手检测出负环。
+- term: beta
+  full: β（希腊字母 beta，第二类错误概率）
+  explain: 明明有效果却没查出来、放走了的概率；与它相对的功效等于 1−β。
+- term: BF
+  full: Brute Force（暴力匹配）
+  explain: 字符串匹配的朴素办法：每个偏移都从头逐字比，失配就右移一格，最坏要比文本长度乘模式长度次。
+- term: BF16
+  full: Brain Floating Point 16（16 位脑浮点格式）
+  explain: 一种 16 位浮点格式，取值范围和 FP32 一样宽、精细程度较低，训练里常用来存计算权重和做矩阵乘。
+- term: BFS
+  full: Breadth-First Search（广度优先搜索）
+  explain: 用队列一层层往外扩的图遍历，先访问离起点近的节点，在无权图里第一次到达某点时走过的边数就是最少边数。
+- term: BigInt
+  full: BigInt（JavaScript 大整数类型）
+  explain: JavaScript 里能表示任意大整数的类型。
+- term: binlog
+  full: binary log（二进制日志）
+  explain: 主库把每次数据改动按顺序记下来的逻辑账本，从库靠复制它来重放出相同的数据，是主从复制的传送带。
+- term: Boyer-Moore
+  full: Boyer-Moore 算法
+  explain: 从模式末尾往前比的字符串匹配算法，失配时按露出的文本字符决定跳多远，平均速度很快，最好情况大量文本字符根本不用看。
+- term: C10K
+  full: Concurrent 10000 connections（单机一万并发连接问题）
+  explain: 单机同时服务一万个连接时先撑不住的不是算力，而是每个连接占一个线程的等待方式。
+- term: CA
+  full: Certificate Authority（证书颁发机构）
+  explain: 给服务器证书签名背书的受信任机构，浏览器靠它的签名确认对面出示的证书是真的。
+- term: Cache-Control
+  full: Cache-Control Header（缓存控制头）
+  explain: 声明一份响应能被缓存多久、能不能缓存的头，静态资源靠它省掉重复请求，生成响应靠它禁止缓存。
+- term: canary
+  full: stack canary（栈金丝雀）
+  explain: 编译器插在栈帧里的一段校验值，函数返回前检查它有没有被改动。
+- term: CANCELLED
+  full: Cancelled（gRPC 已取消状态码）
+  explain: 服务端一侧调用被取消时的状态，业务代码要主动检查它、停掉没人要的计算。
+- term: CAP
+  full: Consistency / Availability / Partition tolerance（一致性 / 可用性 / 分区容错）
+  explain: 一条定理：网络分区发生时，一致性和可用性只能保一边；没有分区时，两者可以兼得。
+- term: Cassandra
+  full: Apache Cassandra（分布式键值数据库）
+  explain: 一种分布式的 LSM 系键值数据库，擅长多机写入和水平扩展。
+- term: CDN
+  full: Content Delivery Network（内容分发网络）
+  explain: 把内容缓存到离用户最近的边缘节点上、加快访问速度的网络。
+- term: CFS
+  full: Complete Fair Scheduler（完全公平调度器）
+  explain: Linux 长期使用的调度器，按虚拟运行时间记账，谁用得少谁先上场。
+- term: char
+  full: char（C 语言字符类型）
+  explain: C 语言的字符类型，占 8 位。
+- term: chunked
+  full: Chunked Transfer Encoding（分块传输编码）
+  explain: 不知道正文总长度时逐块发送的编码，每块前标自己的长度，用一个零长度块宣告结束。
+- term: CISC
+  full: Complex Instruction Set Computer（复杂指令集计算机）
+  explain: 单条指令能做很多事、格式不统一的一种处理器设计路线。
+- term: Clay 数学研究所
+  full: Clay Mathematics Institute
+  explain: 美国一家数学研究机构，2000 年它为包括 P 对 NP 在内的七个难题各悬赏 100 万美元，合称千禧年大奖问题。
+- term: ClientHello
+  full: ClientHello（TLS 握手的首个客户端消息）
+  explain: TLS 握手的第一包，带上支持的加密套件，TLS 1.3 里还提前塞进客户端的密钥份额，因此省掉一轮往返。
+- term: Clock
+  full: Clock algorithm（时钟置换算法）
+  explain: 用一个循环指针加每页的引用位近似 LRU 的挑页办法，被扫到且引用位为 0 的页被换出。
+- term: clone
+  full: clone（创建任务的系统调用）
+  explain: Linux 创建新执行流的系统调用，靠一组标志决定新任务和父任务共享多少东西，fork 和建线程都是它的特例。
+- term: CLONE_VM
+  full: clone virtual memory flag（clone 共享地址空间标志）
+  explain: 创建任务时带上这个标志，新任务就和父任务共用同一份地址空间，建线程用的就是它。
+- term: CLRS
+  full: 《算法导论》四位作者 Cormen、Leiserson、Rivest、Stein 的姓氏首字母缩写
+  explain: 算法教材《算法导论》（Introduction to Algorithms）的代称，本站多数算法结论的出处。
+- term: CNAME
+  full: Canonical Name（别名记录）
+  explain: 把一个域名指向另一个域名的 DNS 记录，是把子域名流量调度到 CDN 的关键抓手；裸域名不能配它。
+- term: compaction
+  full: compaction（合并/压实）
+  explain: LSM 后台把多层文件归并成更有序文件的过程，新版本覆盖旧版本、墓碑和旧值在这里被真正清掉。
+- term: Content-Length
+  full: Content-Length Header（正文长度头）
+  explain: 声明正文一共多少字节的头；流式响应发第一个字节时还不知道总长度，所以用不了它。
+- term: Content-Type
+  full: Content-Type Header（内容类型请求头）
+  explain: 声明请求或响应正文是什么格式的头，如 application/json 表示正文是 JSON。
+- term: Cook–Levin 定理
+  full: Cook–Levin theorem（库克–列文定理）
+  explain: 1971 年前后由 Cook 与 Levin 各自独立证明：任何 NP 问题的验证过程都能编码成布尔公式，所以 SAT 是第一个 NP 完全问题。
+- term: COW
+  full: Copy-on-Write（写时复制）
+  explain: 父子先共享同一批只读页，谁真要写哪一页，才把那一页复制一份给他。
+- term: CP 系统
+  full: CP 系统（保一致性优先的取向）
+  explain: 网络分区发生时，优先保一致性、宁可拒绝一部分请求的系统取向。
+- term: CPI
+  full: Cycles Per Instruction（平均每条指令的周期数）
+  explain: 平均每条指令花多少个时钟周期，越小说明执行越快。
+- term: CPU
+  full: Central Processing Unit（中央处理器）
+  explain: 真正执行指令的硬件核心，同一时刻一个核心只能跑一个程序。
+- term: CR2
+  full: Control Register 2（缺页出错地址寄存器）
+  explain: 发生缺页时，硬件把出错的虚拟地址放进这个寄存器交给内核。
+- term: CR3
+  full: Control Register 3（页表基址寄存器）
+  explain: 存放当前进程页表根地址的寄存器，切换进程时换的就是它。
+- term: CRDT
+  full: Conflict-free Replicated Data Type（无冲突复制数据类型）
+  explain: 一类专门设计的数据结构：多个副本各自先改，事后按固定规则合并，结果天然一致，不需要先商量。
+- term: CUBIC
+  full: CUBIC（一种拥塞控制算法）
+  explain: Linux 长期默认的拥塞算法，让窗口按三次曲线增长，在长肥管道上比经典线性增长爬升得更快。
+- term: cuBLAS
+  full: CUDA Basic Linear Algebra Subprograms（NVIDIA 矩阵运算库）
+  explain: NVIDIA 提供的矩阵运算库，深度学习里大量矩阵乘法实际由它完成。
+- term: CUDA
+  full: Compute Unified Device Architecture（NVIDIA GPU 编程平台）
+  explain: NVIDIA 提供的 GPU 编程平台，用它写的程序才能调动 NVIDIA 显卡做通用计算。
+- term: curl
+  full: curl（命令行 HTTP 客户端）
+  explain: 在终端里发 HTTP 请求的工具，加 -v 看握手与头部、加 -N 能逐块看流式响应到达。
+- term: cwnd
+  full: Congestion Window（拥塞窗口）
+  explain: 发送方自己维护的在途数据上限，靠丢包与时延信号试探出来，保护的是网络不被塞爆。
+- term: D1
+  full: Cloudflare D1
+  explain: Cloudflare 的数据库产品，把 SQLite 的单文件形态托管到云上，单个写者加全球只读副本。
+- term: DATA 帧
+  full: DATA Frame（数据帧）
+  explain: HTTP/2 里装正文数据的帧，带流编号；gRPC 的每条消息就装在它里面发送。
+- term: deadline
+  full: Deadline（最晚完成时刻）
+  explain: 一次调用整条链共享的倒计时预算，每往下游传一跳就扣掉已耗时，到点全链取消。
+- term: DEADLINE_EXCEEDED
+  full: Deadline Exceeded（gRPC 超时状态码）
+  explain: 调用超过 deadline 还没完成时客户端收到的状态码，表示这次调用被超时取消。
+- term: decode
+  full: decode（解码阶段）
+  explain: 推理的第二段，逐个生成新词，每步只处理一个新 token，瓶颈是把权重和 KV 从显存读进来的带宽。
+- term: decrease-key
+  full: Decrease-Key（减小键值操作）
+  explain: 把优先队列里某个元素的键改小并让它上浮到新位置；很多语言的堆不提供它，工程上常用再入堆一份、取出时跳过旧条目的懒删除代替。
+- term: DFS
+  full: Depth-First Search（深度优先搜索）
+  explain: 用栈或递归沿一条路走到底、再回头换路的图遍历，适合穷尽所有可能、检测环和排拓扑顺序。
+- term: diff
+  full: Diff（差异比较工具）
+  explain: 比较两份文本差异的工具，底层用最长公共子序列或编辑距离算出哪些行该保留、哪些该增删。
+- term: dig
+  full: Domain Information Groper（DNS 查询工具）
+  explain: 命令行里查 DNS 的工具，能看解析结果、剩余 TTL，加 +trace 还能看逐级迭代过程。
+- term: Dijkstra
+  full: Edsger W. Dijkstra 提出的最短路径算法
+  explain: 在边权非负的图上，每轮把当前估计距离最小的点定案、再松弛它的邻居，算出起点到所有点的最短距离。
+- term: DMA
+  full: Direct Memory Access（直接内存访问）
+  explain: 设备不经过 CPU、自己把整块数据搬进或搬出内存的机制，CPU 只在开始设置和结束确认时出现。
+- term: DMB
+  full: Data Memory Barrier（ARM 数据内存屏障指令）
+  explain: ARM 的数据内存屏障指令，保证屏障之前的访存先于之后的被其他观察者看到。
+- term: DNA
+  full: Deoxyribonucleic Acid（脱氧核糖核酸）
+  explain: 携带遗传信息的长链分子，只有 A、C、G、T 四种碱基字母；在基因组里定位一段序列就是字符串匹配问题。
+- term: DNS
+  full: Domain Name System（域名系统）
+  explain: 把域名逐级问成 IP 地址的分布式系统，靠分层委派与多级缓存扛住全球查询量。
+- term: double
+  full: double（双精度浮点类型）
+  explain: 占 64 位的浮点数类型，精度比单精度更高。
+- term: DP
+  full: Dynamic Programming（动态规划）
+  explain: 把问题拆成重叠的子问题、每个子问题只算一次并把答案存下来的方法，前提是最优子结构与子问题重叠。
+- term: DRAM
+  full: Dynamic Random-Access Memory（动态随机存取存储器）
+  explain: 电脑主内存使用的存储电路，容量大、便宜，需要不断刷新保持数据。
+- term: dreaming
+  full: dreaming（对旧会话的定期整理，常驻 agent 原文术语）
+  explain: 在运行之外定期回看旧会话、清理过期记忆条目、提炼出跨很多次运行才看得出的规律的维护环节。
+- term: DRF
+  full: Data-Race-Free（无数据竞争）
+  explain: 程序里所有共享访问都被锁或原子操作正确隔开的状态，语言对这种程序给出顺序一致的保证。
+- term: dup2
+  full: duplicate file descriptor（复制文件描述符调用）
+  explain: 把一个文件描述符复制到指定编号上，shell 的重定向就是用它把输出接到文件上的。
+- term: Dynamo
+  full: Amazon Dynamo（分布式键值存储系统）
+  explain: 亚马逊的分布式存储系统，一致性哈希的著名应用，机器增减时只搬动圆环上一小段数据。
+- term: EACCES
+  full: Permission denied（权限不足）
+  explain: 对文件或路径没有所需权限时返回的错误码。
+- term: EAGAIN
+  full: Again（暂时无数据错误）
+  explain: 非阻塞读写现在做不了时返回的错误，意思是数据还没到、稍后再试。
+- term: ECN
+  full: Explicit Congestion Notification（显式拥塞通知）
+  explain: 路由器在队列将满时不丢包、改在包头打标记的机制，让发送方提前、无损地降速，但需要全链路配合。
+- term: ECS
+  full: EDNS Client Subnet（EDNS 客户端子网）
+  explain: 递归解析器在查询里附上用户 IP 前缀的机制，让权威能按用户的大致位置而不是解析器位置做调度。
+- term: EEVDF
+  full: Earliest Eligible Virtual Deadline First（最早的合格虚拟截止时间优先）
+  explain: Linux 6.6 起使用的调度器，在公平之外还兼顾任务的响应截止时间。
+- term: EFAULT
+  full: Bad address（坏地址错误）
+  explain: 传给内核的指针指向非法内存时返回的错误码。
+- term: ELF
+  full: Executable and Linkable Format（可执行与可链接格式）
+  explain: Linux 上目标文件、可执行文件和库文件使用的统一格式，exec 按它把代码和数据装进地址空间。
+- term: ELOOP
+  full: Too many levels of symbolic links（符号链接层数过多）
+  explain: 路径解析时符号链接套得太多或绕成环，内核返回的错误。
+- term: END_STREAM
+  full: End Stream Flag（流结束标志）
+  explain: HTTP/2 帧上表示「这条流的数据到此发完」的标志，承担了 chunked 里零长度块的收尾作用。
+- term: ENOENT
+  full: No such file or directory（没有此文件或目录）
+  explain: 打开一个不存在的路径时返回的错误码。
+- term: ENOSYS
+  full: Function not implemented（功能未实现错误）
+  explain: 调用号在系统调用表里不存在时返回的错误，程序可据此探测新调用是否被支持。
+- term: Envoy
+  full: Envoy（网络代理）
+  explain: 一种常用的网络代理，常给服务之间的调用做治理：限流、重试、熔断、观测。
+- term: EOF
+  full: End of File（文件结束）
+  explain: 读的一方发现数据已经读完的状态，管道里要所有写端都关掉才会出现。
+- term: epoll
+  full: event poll（Linux 事件通知机制）
+  explain: 连接先注册进内核一次，之后内核只把就绪的那几个连接报告给你，等待成本只和就绪数量有关。
+- term: EPOLLOUT
+  full: epoll out event（可写事件）
+  explain: 连接的发送缓冲腾出空位时触发的 epoll 事件，通知你可以接着写没写完的数据。
+- term: errno
+  full: error number（错误号变量）
+  explain: 系统调用失败后存放具体原因的线程本地变量，只有先确认返回值是 -1 时它才有意义。
+- term: ETag
+  full: Entity Tag（实体标签）
+  explain: 服务器给资源版本打的标识，客户端下次带它来问「变了没」，没变就回 304 省掉正文传输。
+- term: etcd
+  full: etcd（分布式键值存储）
+  explain: 一种保存集群关键状态的分布式存储服务，靠 Raft 共识保证只有一个版本。
+- term: EX
+  full: Execute（执行）
+  explain: 流水线的第三级，做运算或算出内存地址。
+- term: exec
+  full: execute（执行新程序的系统调用族）
+  explain: 把当前进程的代码和内存整体换成新程序，进程号不变，exec 之后原来的代码不再执行。
+- term: EXPLAIN
+  full: EXPLAIN（查看执行计划的命令）
+  explain: 让数据库把一条查询的执行计划打印出来看的命令，调优时靠它检查优化器选了哪条路。
+- term: ext4
+  full: Fourth Extended Filesystem（第四代扩展文件系统）
+  explain: Linux 最常用的本地文件系统，用日志保证崩溃后结构不坏。
+- term: failover
+  full: failover（故障切换）
+  explain: 主库倒下时挑一台账最全的从库扶正、再把其余从库和写流量切过去的过程。
+- term: FCFS
+  full: First-Come First-Served（先来先服务）
+  explain: 按作业到达顺序排队执行的调度策略，简单，但会被排在前面的长作业拖住后面所有短作业。
+- term: FD_SETSIZE
+  full: fd set size（select 的描述符集合上限）
+  explain: select 用位图表示连接集合时能装下的文件描述符数量上限，通常是 1024。
+- term: fencing
+  full: fencing（隔离）
+  explain: 扶正新主时确保旧主再也收不到写的一组动作，比如摘流量、改权限，顺序必须先隔离后扶正。
+- term: FFI
+  full: Foreign Function Interface（外部函数接口）
+  explain: 一个语言调用另一个语言写的函数时使用的机制。
+- term: FIFO
+  full: First In First Out（先进先出）
+  explain: 先排进队列的数据先被处理的顺序规则。
+- term: FIN
+  full: Finish（结束标志位）
+  explain: 表示「我这个方向的数据发完了」的标志，只关发送方向、不关接收方向，本身占一个序号。
+- term: float32
+  full: float32（单精度浮点）
+  explain: 占 32 位的浮点数格式。
+- term: FLOPs
+  full: Floating-Point Operations（浮点运算次数）
+  explain: 衡量计算量的单位，一次乘法或一次加法算一次，常用来估算训练和推理各要做多少运算。
+- term: FOR UPDATE
+  full: SELECT ... FOR UPDATE（锁定读写法）
+  explain: 在查询语句后加的锁定子句，让这次读变成当前读：读最新版本并给命中的行上锁。
+- term: FP16
+  full: Half-Precision Floating Point（16 位半精度浮点）
+  explain: 用 16 位存一个浮点数的格式，小数部分比 BF16 更精细，但能表示的数值范围更窄。
+- term: FP32
+  full: Single-Precision Floating Point（32 位单精度浮点）
+  explain: 用 32 位存一个浮点数的格式，训练里主权重和优化器状态常用它记账，保证很小的更新不被舍入吞掉。
+- term: fsck
+  full: file system consistency check（文件系统一致性检查）
+  explain: 崩溃后把整个文件系统的元数据扫一遍、核对并修补矛盾的工具。
+- term: fsync
+  full: fsync（强制刷盘操作）
+  explain: 把操作系统缓存里的数据强制刷到磁盘上的操作，返回成功后才敢说断电不丢，日志落盘靠它才算数。
+- term: futex
+  full: Fast Userspace Mutex（快速用户空间互斥机制）
+  explain: 没人抢锁时只在用户态改一个整数、根本不进内核，真抢不到才请内核让线程睡下等的锁机制。
+- term: Galil 规则
+  full: Galil rule
+  explain: Boyer-Moore 算法的一条补充规则，避免对已确认匹配的段重复比较，把最坏复杂度拉回线性。
+- term: GC
+  full: Garbage Collection（垃圾回收）
+  explain: 程序自动回收不再使用的内存的机制；回收时可能让程序短暂停顿。
+- term: gcc
+  full: GNU Compiler Collection（GNU 编译器套件）
+  explain: Linux 上最常用的 C 语言编译工具。
+- term: gdb
+  full: GNU Debugger（GNU 调试器）
+  explain: 常用的调试器，可以查看调用栈等运行时信息。
+- term: git bisect
+  full: Git Bisect（Git 二分定位）
+  explain: Git 自带的功能：在提交历史里二分查找，每次测中间那个提交有没有问题，快速定位引入 bug 的那一次提交。
+- term: glibc
+  full: GNU C Library（GNU C 标准库）
+  explain: 程序调用系统功能时先经过的那层库，系统调用的包装函数和线程库都在里面。
+- term: Google Spanner
+  full: Google Spanner（全球分布式数据库）
+  explain: Google 的全球分布式数据库，用 TrueTime 时钟给跨洲的事务排顺序。
+- term: GOT
+  full: Global Offset Table（全局偏移表）
+  explain: 一张可写的数据表，存放动态库函数在运行时的真实地址。
+- term: GPIO
+  full: General-Purpose Input/Output（通用输入输出）
+  explain: 单片机和开发板上接按键、传感器等简单外设的引脚接口。
+- term: GPU
+  full: Graphics Processing Unit（图形处理器）
+  explain: 有成千上万个简单核心的处理器，擅长同时做海量相同的乘加，是训练和推理的主要算力来源。
+- term: grep
+  full: grep（文本搜索命令）
+  explain: 在文件或日志里按模式找行的命令行工具，是字符串匹配最日常的入口。
+- term: gRPC
+  full: gRPC Remote Procedure Calls（基于 HTTP/2 的远程调用框架）
+  explain: 用 .proto 合同加 Protobuf 二进制编码、站在 HTTP/2 上做服务间调用的框架，核心词条目与本课标题词对应。
+- term: gRPC-Web
+  full: gRPC-Web（浏览器转译方案）
+  explain: 让浏览器能调 gRPC 的衔接方案，要经代理转译，且只支持一元与服务端流两种形状。
+- term: gzip
+  full: gzip（文件压缩格式与工具）
+  explain: 最常见的压缩格式之一，压缩流程里用哈夫曼编码给出现频繁的内容更短的编码。
+- term: happens-before
+  full: happens-before（先行发生关系）
+  explain: 若一个操作先行于另一个，后者保证能看见前者以及前者之前的所有修改。
+- term: HashMap
+  full: Java HashMap（哈希表实现）
+  explain: Java 标准库的哈希表：拉链法处理冲突，负载因子默认 0.75 时扩容，链过长且容量足够时把链改成红黑树。
+- term: HBM
+  full: High Bandwidth Memory（高带宽内存）
+  explain: 现代 GPU 使用的显存，靠很宽的总线换来极高的传输速度。
+- term: heapify
+  full: Heapify（建堆操作）
+  explain: 把一整个无序数组原地整理成堆：从最后一个有孩子的节点往前逐个下沉，总代价是线性的，比逐个插入快一个量级。
+- term: heapq
+  full: heapq（Python 标准库堆模块）
+  explain: Python 标准库里基于普通列表的堆实现，提供入堆、出堆与一次性建堆，不提供改键操作。
+- term: hint
+  full: hint（优化器提示）
+  explain: 写在语句里强制优化器按指定索引或路线执行的指令，是统计和索引都纠不回来时最后才用的手段。
+- term: hook
+  full: hook（钩子，预先挂上的拦截点）
+  explain: 在工具调用等关键位置预先挂上的拦截机制，可以先把某次调用搁下，等用户补充信息或批准。
+- term: Horspool
+  full: Horspool 算法（Boyer-Moore 的简化版）
+  explain: 只保留坏字符思想的 Boyer-Moore 简化版，用模式末尾对齐的文本字符决定跳步，实现简单、实测速度快，但没有最坏保证。
+- term: HPACK
+  full: HPACK（HTTP/2 的头部压缩算法）
+  explain: 靠双方同步的静态表与动态表、重复头字段只发编号来压缩头部的方法，依赖连接内有序处理。
+- term: htonl
+  full: htonl（主机序转网络序函数）
+  explain: 网络编程函数，把主机字节序的 32 位整数转成网络统一使用的大端字节序。
+- term: HTTP
+  full: HyperText Transfer Protocol（超文本传输协议）
+  explain: 浏览器与服务器之间传请求与响应的应用层协议，方法、路径、头部与状态码都是它定的。
+- term: HTTP/2
+  full: HyperText Transfer Protocol Version 2（超文本传输协议第 2 版）
+  explain: 把报文切成带流编号的二进制帧、在一条连接上多路复用的 HTTP 版本，头部用 HPACK 压缩。
+- term: Huffman 编码
+  full: Huffman Coding（哈夫曼编码）
+  explain: 按符号出现频率分配长短编码的压缩方法，出现越频繁编码越短，HPACK 在索引之外还用它压字符串。
+- term: I/O
+  full: Input/Output（输入/输出）
+  explain: 程序和外部设备之间的数据进出，比如读磁盘、收发网络数据。
+- term: ID
+  full: Instruction Decode（译码）
+  explain: 流水线的第二级，拆开指令字段并读出源寄存器。
+- term: IDA*
+  full: Iterative Deepening A*（迭代加深 A* 搜索）
+  explain: 给深度优先搜索设一个代价上限、一轮轮放宽的搜索办法，是 A* 的省内存版本，用时间换空间。
+- term: IDL
+  full: Interface Definition Language（接口定义语言）
+  explain: 专门用来写接口合同的语言，gRPC 用的就是 .proto 这一套，合同先行再生成各语言代码。
+- term: IEEE 754
+  full: IEEE 754（浮点数标准编号）
+  explain: 美国电气电子工程师协会制定的浮点数标准，几乎所有硬件都按它存小数。
+- term: IF
+  full: Instruction Fetch（取指）
+  explain: 流水线的第一级，按程序计数器取出指令。
+- term: If-None-Match
+  full: If-None-Match Header（条件请求头）
+  explain: 客户端带上次拿到的 ETag 发起的条件请求头，意思是「如果没变就别再发正文了」。
+- term: Infinity
+  full: Infinity（无穷大）
+  explain: 浮点数溢出或非零数除以零时得到的特殊值。
+- term: InnoDB
+  full: InnoDB（MySQL 的存储引擎）
+  explain: MySQL 默认的存储引擎，负责真正存取数据、管事务和锁，本学科多数样本都以它为准。
+- term: inode
+  full: index node（索引节点）
+  explain: 记录一个文件的大小、权限、时间戳和数据块位置的元数据，文件名不在里面、记在目录里。
+- term: int
+  full: int（C 语言整数类型）
+  explain: C 语言的整数类型，通常占 32 位。
+- term: INT8
+  full: INT8（8 位整数）
+  explain: 模型量化里常用的低精度整数格式，占 8 位。
+- term: IO
+  full: Input/Output（输入/输出）
+  explain: 程序和外部设备之间的数据进出，比如读磁盘、收发网络数据。
+- term: io_uring
+  full: io_uring（异步输入输出接口）
+  explain: 把要做的读写请求放进提交队列交给内核异步执行、结果从完成队列取回的新接口。
+- term: IOMMU
+  full: Input-Output Memory Management Unit（输入输出内存管理单元）
+  explain: 给设备做地址翻译和访问检查的硬件，让每个设备只能碰被授权的内存。
+- term: IP
+  full: Internet Protocol（网际协议）
+  explain: 给每台联网设备编址、把数据包逐跳送到目的地址的基础协议，域名最终要解析成它才能连接。
+- term: IPC
+  full: Inter-Process Communication（进程间通信）
+  explain: 内存互相隔离的进程之间交换数据的机制总称，包括管道、消息队列、共享内存和套接字。
+- term: IPC（每周期指令数）
+  full: Instructions Per Cycle（每周期指令数）
+  explain: 平均每个时钟周期完成多少条指令，是 CPI 的倒数。
+- term: ISA
+  full: Instruction Set Architecture（指令集体系结构）
+  explain: 软件和硬件之间关于指令、寄存器和访存规则的约定。
+- term: ISN
+  full: Initial Sequence Number（初始序号）
+  explain: 建连时随机选定的序号起点，随机是为了让攻击者难以预测序号、伪造报文注入连接。
+- term: Istio
+  full: Istio（服务网格）
+  explain: 一种管理服务间调用的服务网格工具，把限流、重试、加密这些治理逻辑从业务代码里接管出来。
+- term: JavaScript
+  full: JavaScript（编程语言名）
+  explain: 浏览器里直接运行的脚本语言。
+- term: jbd2
+  full: Journaling Block Device 2（ext4 的日志模块）
+  explain: ext4 里负责先把事务写进日志区、再写回正式位置的那一层。
+- term: JLS
+  full: Java Language Specification（Java 语言规范）
+  explain: Java 语言的官方规范，第 17 章专门规定 Java 的内存模型。
+- term: JPEG
+  full: Joint Photographic Experts Group（图像压缩标准）
+  explain: 最常见的照片压缩格式，它的编码流程里用哈夫曼编码给高频符号短码、低频符号长码来压体积。
+- term: JS
+  full: JavaScript（编程语言名）
+  explain: 浏览器里直接运行的脚本语言。
+- term: JSON
+  full: JavaScript Object Notation（一种文本数据格式）
+  explain: 带键名的文本数据格式，人能直接读懂，但键名每个请求重复传、数字也要逐字解析，机器高频调用时是三笔账。
+- term: JSON.parse
+  full: JSON.parse（JSON 解析函数）
+  explain: JavaScript 里把 JSON 字符串解析回对象的函数。
+- term: JSON.stringify
+  full: JSON.stringify（JSON 序列化函数）
+  explain: JavaScript 里把对象转成 JSON 字符串的函数。
+- term: Kafka
+  full: Apache Kafka（分布式消息日志系统）
+  explain: 把消息按顺序追加成日志流的系统，是先追加、后消费这一日志思想的代表。
+- term: Kahn 算法
+  full: Kahn's algorithm（卡恩拓扑排序算法）
+  explain: 排拓扑顺序的一种办法：反复找出入度为零的节点、输出它并删掉它的出边，删不完就说明图里有环。
+- term: keep-alive
+  full: Keep-Alive（长连接复用）
+  explain: 一次响应结束后不关连接、留给后续请求复用的做法，省掉每个请求重付握手账。
+- term: kernel
+  full: kernel（核函数）
+  explain: 提交给 GPU 执行的并行程序，一次启动会开成千上万个线程来跑它。
+- term: KMP
+  full: Knuth–Morris–Pratt 算法
+  explain: 预先算出模式的前缀函数，失配时按表滑动模式、文本指针永不回退的字符串匹配算法，总复杂度是文本加模式长度。
+- term: Kosaraju 算法
+  full: Kosaraju's algorithm
+  explain: 求有向图强连通分量的算法：先在原图上做一遍深度优先记完成时刻，再在反图上按完成时刻倒序做第二遍，每遍走出一团。
+- term: Kruskal
+  full: Kruskal 算法
+  explain: 求最小生成树的贪心算法：边按权从小到大排队，不构成环就拿下，用并查集判断两个端点是否已经连通。
+- term: Kubernetes
+  full: Kubernetes（容器编排系统）
+  explain: 一个管理大量容器化应用的编排系统，负责调度、扩缩容和故障恢复。
+- term: KV
+  full: Key-Value（键值）
+  explain: 按一个键存取一个值的最简数据模型，给键就能拿到值，不支持复杂的表间查询。
+- term: KV 缓存
+  full: Key-Value Cache（键值缓存）
+  explain: 推理时把每个已处理词在每层的键和值存下来的缓存，新词直接查表，免去把历史从头重算。
+- term: KV（键与值向量）
+  full: Key and Value（键和值）
+  explain: 注意力里每个词算出的键与值两个向量的合称，推理时被成对存进 KV 缓存，供后面的词查阅。
+- term: L1
+  full: Level 1 Cache（一级缓存）
+  explain: 离 CPU 核心最近、容量最小、速度最快的一层缓存。
+- term: L2
+  full: Level 2 Cache（二级缓存）
+  explain: 比一级缓存大一些、也慢一些的一层缓存。
+- term: L3
+  full: Level 3 Cache（三级缓存）
+  explain: 多个核心共用的、容量最大的一层片上缓存。
+- term: lambda
+  full: λ（希腊字母 lambda）
+  explain: 在泊松与指数分布里表示单位时间平均发生的次数，也就是事件的平均速率。
+- term: LCS
+  full: Longest Common Subsequence（最长公共子序列）
+  explain: 两个字符串里按原顺序都能挑出的最长相同字符序列，不要求连续；用二维表递推，是 diff 工具的底层家族。
+- term: LEN
+  full: Length-Delimited（长度分隔型，wire type 2）
+  explain: Protobuf 里字符串、字节串与嵌套消息的类型编号，表示值前面带一个长度、按长度读。
+- term: Levenshtein
+  full: Levenshtein 距离（编辑距离）
+  explain: 以提出者命名的编辑距离：把一个字符串变成另一个所需的最少插入、删除、替换次数，用二维表递推。
+- term: LIS
+  full: Longest Increasing Subsequence（最长递增子序列）
+  explain: 一个序列里按原顺序挑出的最长严格递增子序列；状态定义在每个位置结尾的长度上，可用二分优化到 n log n。
+- term: LLM
+  full: Large Language Model（大语言模型）
+  explain: 用大量文本训练出来的语言模型，如今的聊天和生成式 AI 大多建立在它上面。
+- term: load
+  full: load（加载指令）
+  explain: 把数据从内存读进寄存器的那类指令。
+- term: load-use
+  full: load-use hazard（加载使用冒险）
+  explain: 一条 load 的下一条指令马上要用它读回的数据，由此产生的一拍停顿。
+- term: lodash
+  full: Lodash（JavaScript 工具函数库）
+  explain: JavaScript 常用的工具库，它的 sortedIndex 用二分查找算出一个值在有序数组里的插入位置。
+- term: lowbit
+  full: Lowbit（最低位的 1）
+  explain: 取一个二进制数最低位的 1 及其后所有 0 组成的数，用 x 与 −x 按位与得到，是状态压缩里枚举子集的常用技巧。
+- term: lower_bound
+  full: Lower Bound（下界查找）
+  explain: 在有序范围里找第一个不小于目标的位置，是标准库二分变体的基本款，与 upper_bound 相减可得目标出现次数。
+- term: LRU
+  full: Least Recently Used（最近最少使用）
+  explain: 挑淘汰对象时先挑最久没被用过的那个的策略，页置换和缓存淘汰都在用。
+- term: LSM
+  full: Log-Structured Merge Tree（日志结构合并树）
+  explain: 写入只顺序追加、整理推迟到后台合并的存储结构，为写密集负载而生，代价是读要逐层找。
+- term: malloc
+  full: malloc（C 语言堆分配函数）
+  explain: C 语言里从堆上申请一段内存的函数；申请成功只代表拿到地址使用权，物理页要等真正访问时才分配。
+- term: MAP_PRIVATE
+  full: private mapping flag（私有映射标志）
+  explain: mmap 时用这个标志，改动只是自己的快照，不写回文件、别人也看不见。
+- term: MAP_SHARED
+  full: shared mapping flag（共享映射标志）
+  explain: mmap 时用这个标志，改动对其他映射同一文件的进程可见，并会写回文件。
+- term: MEM
+  full: Memory（访存）
+  explain: 流水线的第四级，真正读写数据缓存和内存。
+- term: memchr
+  full: memchr（内存查找函数）
+  explain: 在一段内存里找某个字节第一次出现的位置，常用向量指令一次比对几十个字节，是快速字符串匹配的第一道筛子。
+- term: memmem
+  full: memmem（内存子串查找函数）
+  explain: glibc 里在一段内存中找子串的函数，用的就是 Two-Way 算法。
+- term: MemTable
+  full: MemTable（内存表）
+  explain: LSM 在内存里的有序表，新写入先放这里，攒满后整表顺序刷成磁盘文件。
+- term: MESI
+  full: Modified / Exclusive / Shared / Invalid（已修改/独占/共享/无效）
+  explain: 一种缓存一致性协议，用四种状态管理每个缓存行在各核心之间的副本。
+- term: metadata
+  full: Metadata（元数据）
+  explain: 随 gRPC 调用附带的键值对，放认证信息、追踪编号这类不属于业务参数的数据。
+- term: MFENCE
+  full: Memory Fence（x86 全屏障指令）
+  explain: x86 的一条全屏障指令，执行它之前本核的写必须全部对其他核可见。
+- term: MIXED
+  full: MIXED（混合格式）
+  explain: binlog 的一种记法，默认按语句记，引擎判断某条语句不安全时自动切换成行格式。
+- term: mmap
+  full: memory map（内存映射）
+  explain: 把一个文件直接映射进进程地址空间的办法，访问哪一页才从文件读哪一页。
+- term: MMU
+  full: Memory Management Unit（内存管理单元）
+  explain: 处理器里负责把虚拟地址按页表翻译成物理地址、并检查访问是否合法的硬件。
+- term: MSL
+  full: Maximum Segment Lifetime（报文最大生存时间）
+  explain: 一个报文在网络里最长能活多久，规范名义值是 2 分钟；TIME_WAIT 的时长按它的 2 倍取。
+- term: MSR
+  full: Model Specific Register（型号专属寄存器）
+  explain: 存放处理器配置的寄存器，内核入口地址就登记在其中一个里面。
+- term: MSS
+  full: Maximum Segment Size（最大报文段长度）
+  explain: 单个 TCP 报文段最多装多少字节的数据，握手时在第一包里随其他选项一起协商。
+- term: mu
+  full: μ（希腊字母 mu）
+  explain: 表示总体的均值，也就是一批数据的中心位置。
+- term: MVCC
+  full: Multi-Version Concurrency Control（多版本并发控制）
+  explain: 更新不覆盖旧值而是生成新版本，读者按自己的快照挑版本看，让读写互不阻塞的并发控制办法。
+- term: MySQL
+  full: MySQL（关系型数据库软件）
+  explain: 一种广泛使用的开源关系型数据库，常拿它的主从复制、锁和执行计划当例子。
+- term: NaN
+  full: Not a Number（不是一个数）
+  explain: 浮点数里表示无效运算结果的特殊值，它和任何值包括自己比较都不相等。
+- term: NP
+  full: Nondeterministic Polynomial time（非确定性多项式时间）
+  explain: 答案附带一份不长的证据、拿到证据能在多项式时间内验完的问题集合；解难找、验飞快是它的直觉形象。
+- term: npm
+  full: Node Package Manager（Node.js 包管理器）
+  explain: JavaScript 生态的包管理工具，安装依赖时按拓扑顺序处理模块之间的依赖关系。
+- term: NS
+  full: Name Server（权威服务器记录）
+  explain: 指明某个域名由哪几台权威服务器负责的记录，迭代查询靠它逐级往下问。
+- term: NVLink
+  full: NVLink（NVIDIA 高速互连技术）
+  explain: 专门连接 GPU 与 GPU、或 GPU 与 CPU 的高速互连，速度比 PCIe 快得多。
+- term: NX
+  full: No-eXecute（不可执行）
+  explain: 把栈等数据区域标记为不可执行代码的安全防护。
+- term: occupancy
+  full: occupancy（占用率）
+  explain: 实际驻留在计算单元上的线程组数量占硬件上限的比例，太低时等待内存的时间盖不住。
+- term: OOM
+  full: Out Of Memory（内存耗尽）
+  explain: 物理内存和交换区都用满的状态，内核会启动 OOM killer 挑一个进程杀掉腾地方。
+- term: OSPF
+  full: Open Shortest Path First（开放式最短路径优先）
+  explain: 网络路由协议，每个路由器掌握全网拓扑后用 Dijkstra 算法算出到各网段的最短路径来转发数据。
+- term: p 值
+  full: p-value（p 值）
+  explain: 假设原假设为真时，看到像这次一样极端或更极端数据的概率；它算的是数据的概率，不是原假设为真的概率。
+- term: p99
+  full: p99（第 99 百分位延迟）
+  explain: 99% 的请求都快于它的那个延迟值，常用来看慢请求这条尾巴有多长。
+- term: P99
+  full: 99th Percentile（第 99 百分位）
+  explain: 把一批读数从小到大排队，排在 99% 位置的那个值；说延迟 P99 是多少，就是说 99% 的请求都不比它慢。
+- term: PACELC
+  full: PACELC 定理（CAP 的扩展版本）
+  explain: 对 CAP 的补充：分区时在可用性与一致性之间选；没有分区时，在延迟与一致性之间选。
+- term: PagedAttention
+  full: PagedAttention（分页注意力，vLLM 提出的 KV 缓存管理方法）
+  explain: 把 KV 缓存切成固定大小的小块、按需领取并用块表索引的管理办法，解决整段预留的浪费和碎片问题。
+- term: Paxos
+  full: Paxos（共识协议）
+  explain: Raft 之前最主流的共识协议，解决的问题相同，但规则出了名地难懂、难实现。
+- term: PC
+  full: Program Counter（程序计数器）
+  explain: 专门记着下一条指令地址的寄存器，跳转和函数调用本质上都是改写它。
+- term: PCB
+  full: Process Control Block（进程控制块）
+  explain: 内核保存一个进程全部现场的记录，上下文切换时存和恢复的就是它。
+- term: PCIe
+  full: Peripheral Component Interconnect Express（高速串行总线标准）
+  explain: 电脑里连接显卡、固态硬盘等高速设备的点对点串行互连标准。
+- term: perf
+  full: perf（Linux 性能分析工具）
+  explain: Linux 自带的性能分析工具，可以统计分支预测失败等硬件事件。
+- term: phi 累积故障检测器
+  full: Phi Accrual Failure Detector（phi 累积故障检测器）
+  explain: 一种故障检测器：不输出死/活的二值结论，而是用一个随怀疑加重不断累积的数值表示怀疑程度，阈值由业务自己定。
+- term: PID
+  full: Process ID（进程标识符）
+  explain: 内核给每个进程的编号，进程的账本和父子关系都靠它标识。
+- term: pivot
+  full: Pivot（基准元素）
+  explain: 快速排序每轮选出的那个元素：分区后它站到最终位置，比它小的在左、大的在右；选得好不好直接决定快排退不退化。
+- term: PLT
+  full: Procedure Linkage Table（过程链接表）
+  explain: 可执行文件里的一排小跳板，调用动态库函数时先跳到这里中转。
+- term: PML4
+  full: Page Map Level 4（四级页表最高一级）
+  explain: x86-64 四级页表的根表，一个虚拟地址翻译时先查的就是它里面的条目。
+- term: poll
+  full: poll（多路复用调用）
+  explain: select 的改进版，用数组代替位图去掉了数量上限，但每次仍要全量传递并扫描。
+- term: posix_spawn
+  full: POSIX spawn（一步创建并执行新程序的库函数）
+  explain: 不需要中间布置子进程时，一步完成创建和执行新程序的办法，比 fork 加 exec 更快也更安全。
+- term: PostgreSQL
+  full: PostgreSQL（关系型数据库软件）
+  explain: 一种广泛使用的开源关系型数据库，默认隔离级别是读已提交，常与 MySQL 并列比较。
+- term: Powersort
+  full: Powersort（自适应归并排序）
+  explain: TimSort 的改进版归并排序，先识别输入里已有的有序段再按段合并，Python 3.11 起的标准排序用的就是它。
+- term: prefill
+  full: prefill（预填充阶段）
+  explain: 推理的第一段，把整段提示词一次并行处理完，产出第一个新词和覆盖全部提示词的 KV 缓存，瓶颈是算力。
+- term: Prim
+  full: Prim 算法
+  explain: 求最小生成树的另一种贪心：从一个点出发，每次拿下连接已选集合与外部的最小边，和 Kruskal 是同一性质的两种执行顺序。
+- term: PriorityQueue
+  full: Java PriorityQueue（优先队列）
+  explain: Java 标准库的优先队列，底层是二叉堆，堆顶永远是最小元素，插入和取出都是对数时间。
+- term: Protobuf
+  full: Protocol Buffers（一种二进制序列化格式）
+  explain: 先写 .proto 合同、线上只传字段号与紧凑编码值的序列化格式，拿可读性换体积与解析速度。
+- term: protoc
+  full: Protocol Buffer Compiler（Protobuf 编译器）
+  explain: 读 .proto 合同、为每种语言生成序列化代码与 stub 的编译器。
+- term: pthread_mutex
+  full: POSIX thread mutex（线程互斥锁）
+  explain: 同一时刻只许一个线程持有、用来保护临界区的锁，Linux 上基于 futex 实现。
+- term: Q16.16
+  full: Q16.16（定点数格式约定）
+  explain: 32 位定点数的一种约定：高 16 位是整数部分，低 16 位是小数部分。
+- term: QKV
+  full: Query / Key / Value（查询 / 键 / 值）
+  explain: 注意力里每个词备的三份投影，Q 是它在找什么，K 是它贴出的标签，V 是它实际交出的内容。
+- term: QPACK
+  full: QPACK（QUIC 的头部压缩算法）
+  explain: 为乱序交付改过同步方式的头部压缩算法，让一条流的头块不必等另一条流上的表更新到达才能解码。
+- term: RabbitMQ
+  full: RabbitMQ（消息队列系统）
+  explain: 另一种常用的消息队列系统。
+- term: Rabin-Karp
+  full: Rabin-Karp 算法
+  explain: 用滚动哈希做字符串匹配：先比窗口的指纹、指纹相等再逐字验证，窗口滑动时指纹只需增量更新，适合多模式与并行场景。
+- term: Raft
+  full: Raft（共识协议）
+  explain: 一种让多台机器对同一串决定达成一致的共识协议：先选出一个领头者，由它把决定按顺序同步给所有机器。
+- term: RAG
+  full: Retrieval-Augmented Generation（检索增强生成）
+  explain: 让语言模型先从资料库检索相关内容、再据此生成回答的做法；图检索里常用广度优先只扩展有限跳的邻居。
+- term: RAW
+  full: Read After Write（写后读）
+  explain: 后一条指令要读前一条刚写的结果，是程序语义决定的真依赖。
+- term: rax
+  full: rax（寄存器名）
+  explain: x86-64 里约定存放整数和指针返回值的寄存器。
+- term: rbp
+  full: rbp（帧基址寄存器）
+  explain: 指向当前栈帧固定锚点位置的寄存器，局部变量靠它加偏移找回。
+- term: rdi
+  full: rdi（寄存器名）
+  explain: x86-64 调用约定里的第一个整数参数寄存器。
+- term: READ COMMITTED
+  full: READ COMMITTED（读已提交）
+  explain: 隔离级别的一档，只保证读到的都是已提交版本，InnoDB 在这一档基本关掉间隙锁，插入并发更顺。
+- term: ReadView
+  full: ReadView（读视图/快照名单）
+  explain: InnoDB 里事务开始时领到的一份名单，记着那一刻哪些事务已经提交，读版本时靠它判断哪个版本可见。
+- term: redo
+  full: redo log（重做日志）
+  explain: 记着改动后新值的日志，崩溃重启时照着它把已提交的改动重新做一遍。
+- term: ReLU
+  full: Rectified Linear Unit（修正线性单元）
+  explain: 最常用的激活函数，规则很简单，负数输出 0，正数原样放行。
+- term: REPEATABLE READ
+  full: REPEATABLE READ（可重复读）
+  explain: 隔离级别的一档，同一事务内反复读同一行结果稳定，MySQL InnoDB 的默认档位，还用间隙锁处理幻读。
+- term: reserved
+  full: Reserved（保留声明）
+  explain: .proto 里把删掉字段的号码与名字封存的声明，防止后来人复用旧号造成新旧数据误解。
+- term: RISC
+  full: Reduced Instruction Set Computer（精简指令集计算机）
+  explain: 指令数量少、格式规整的一种处理器设计路线。
+- term: RISC-V
+  full: RISC-V（开放指令集名）
+  explain: 一种开放的精简指令集，任何人都可以免费用它设计芯片。
+- term: RNN
+  full: Recurrent Neural Network（循环神经网络）
+  explain: 按顺序逐词处理句子、边读边更新内部状态的网络，长距离信息容易被冲淡，训练也无法并行。
+- term: RocksDB
+  full: RocksDB（嵌入式键值存储引擎）
+  explain: 一种广泛使用的嵌入式 LSM 键值存储引擎，很多数据库和特征存储拿它做底层。
+- term: ROW
+  full: ROW（行格式）
+  explain: binlog 的默认记法，记每一行改动前后的具体值，账本臃肿，但从库照着落值不会跑偏。
+- term: RR
+  full: Round Robin（轮转调度）
+  explain: 每个作业轮流跑一个时间片、到点就换下一个的策略，响应快，代价是周转变差、切换变多。
+- term: RSA
+  full: RSA（一种非对称加密算法）
+  explain: 以发明者命名的非对称算法，在 TLS 里只参与签名验身份，不用来逐字节加密数据本身。
+- term: rsi
+  full: rsi（寄存器名）
+  explain: x86-64 调用约定里的第二个整数参数寄存器。
+- term: rsp
+  full: rsp（栈指针寄存器）
+  explain: 始终指向当前栈顶的寄存器。
+- term: RST
+  full: Reset（复位标志位）
+  explain: 强制打断连接的标志，确认号对不上、连接不存在时用它把对方的状态清掉。
+- term: RTO
+  full: Retransmission Timeout（重传超时）
+  explain: 发出数据后等确认的最长时限，由实测的往返时间加波动余量算出；等不到就判定丢失并重传。
+- term: RTT
+  full: Round-Trip Time（往返时延）
+  explain: 一个包从发出到收到对方回复所花的一来一回时间，握手与超时计算都按它算账。
+- term: run
+  full: run（一次运行）
+  explain: agent 被一个事件唤醒后，从开始干活到把发生的事存下、重新休眠的完整一段工作。
+- term: rwnd
+  full: Receive Window（接收窗口）
+  explain: 接收方在 ACK 里通告的剩余缓冲空间，发送方未确认的在途数据不得超过它，保护的是接收方。
+- term: S3
+  full: Simple Storage Service（亚马逊简单存储服务）
+  explain: 以不可变对象为单位存数据的对象存储服务，没有目录和原地修改的语义。
+- term: SACK
+  full: Selective Acknowledgment（选择性确认）
+  explain: 允许接收方只确认已经收到的那几段数据，发送方就不必把中间没丢的段也重传一遍。
+- term: Saga
+  full: Saga（分布式事务模式）
+  explain: 一种分布式事务做法：正向每一步都配一个反向补偿动作，出错时靠补偿把账做平。
+- term: SAT
+  full: Boolean Satisfiability Problem（布尔可满足性问题）
+  explain: 问一个由与、或、非拼成的布尔公式能不能赋值成真；它是第一个被证明的 NP 完全问题，所有 NP 问题都能归约到它。
+- term: SC
+  full: Sequential Consistency（顺序一致）
+  explain: 最严格的内存模型：所有核心的操作能排成一条大家都认可的队列，且每核内部保持程序顺序。
+- term: Seconds_Behind_Source
+  full: Seconds_Behind_Source（从库落后秒数）
+  explain: 从库状态里显示的落后主库的秒数，是按正在重放事件的发生时刻估出来的，要看趋势不能只看某一秒。
+- term: select
+  full: select（最早的多路复用调用）
+  explain: 把关心的连接集合交给内核等就绪的第一代办法，每次调用都要全量传递并扫描。
+- term: seq
+  full: Sequence Number（序号）
+  explain: 给每个字节编的号，用来排序、确认与重传；每条连接从自己的初始序号开始数。
+- term: session
+  full: session（会话）
+  explain: 一段连续工作的消息与工具调用记录，续上旧工作的事件回到原会话，其他事件新开会话。
+- term: SIGCHLD
+  full: Signal Child（子进程状态变化信号）
+  explain: 子进程结束或暂停时，内核发给父进程的信号，提醒它去回收。
+- term: SIGINT
+  full: Signal Interrupt（中断信号）
+  explain: 在终端按 Ctrl+C 时发给前台进程的信号，默认让它终止。
+- term: SIGKILL
+  full: Signal Kill（强制终止信号）
+  explain: 直接杀死进程的信号，进程不能捕获也不能忽略，再卡死的进程也能被它终止。
+- term: sigma
+  full: σ（希腊字母 sigma）
+  explain: 表示总体的标准差，衡量数据离均值有多散；样本均值的波动则用标准误 σ/√n 表示。
+- term: SIGSEGV
+  full: Segmentation Violation（段错误信号）
+  explain: 进程访问了不属于自己的地址时，内核发给它的终止信号。
+- term: SIGSTOP
+  full: Signal Stop（强制暂停信号）
+  explain: 直接暂停进程的信号，进程不能捕获也不能忽略。
+- term: SIGTERM
+  full: Signal Terminate（终止信号）
+  explain: kill 命令默认发送的信号，请求进程退出，进程可以捕获它做收尾。
+- term: SIMD
+  full: Single-Instruction, Multiple-Data（单指令多数据）
+  explain: 一条指令同时操作一组数据的方式，CPU 的向量指令就是这种。
+- term: SIMT
+  full: Single Instruction, Multiple Threads（单指令多线程）
+  explain: GPU 的执行方式，同一条指令同时在大量线程上执行，适合整齐划一的大批量运算。
+- term: SipHash
+  full: SipHash（带密钥的哈希函数）
+  explain: 用进程启动时随机生成的密钥算哈希，使攻击者无法提前构造互相冲突的键，是防御哈希洪水攻击的标准做法。
+- term: SJF
+  full: Shortest Job First（最短作业优先）
+  explain: 让预计运行时间最短的作业先跑的策略，平均周转最优，但前提是预先知道每个作业要跑多久。
+- term: SM
+  full: Streaming Multiprocessor（流多处理器）
+  explain: GPU 内部的基本计算单元，一块 GPU 里有几十到上百个。
+- term: SO_REUSEPORT
+  full: socket reuse port option（端口复用套接字选项）
+  explain: 允许多个进程监听同一个端口、由内核把新连接分到不同进程的选项，避免惊群。
+- term: SoA
+  full: Structure of Arrays（数组的结构体）
+  explain: 把同一个字段拆成一个独立数组存放的数据布局。
+- term: SOA
+  full: Start of Authority（区域起始记录）
+  explain: 标明一个 DNS 区域权威起点的记录，与 NS 一起必须放在区域顶点上，这也是顶点不能配 CNAME 的原因。
+- term: softmax
+  full: softmax（归一化指数函数）
+  explain: 把一组任意分数洗成总和为 1 的正权重的方法，对每个分数取指数再除以指数总和，差距被指数放大且全程可导。
+- term: sortedIndex
+  full: sortedIndex（Lodash 的有序插入位置函数）
+  explain: 用二分查找算出一个值应该插入有序数组的哪个位置，插入后数组仍然有序。
+- term: span
+  full: Span（追踪片段）
+  explain: 分布式追踪里记录一跳耗时的一段记录；一次请求的整条链路，由许多个 span 按同一个 trace ID 串起来。
+- term: SQL
+  full: Structured Query Language（结构化查询语言）
+  explain: 用来查询和修改数据库的那门语言，只说要什么结果，不说具体怎么取数。
+- term: SQLite
+  full: SQLite（嵌入式数据库）
+  explain: 把整个数据库装进单个文件和一个函数库的轻量数据库，没有独立服务器进程，常用于手机和嵌入式设备。
+- term: SRAM
+  full: Static Random-Access Memory（静态随机存取存储器）
+  explain: 缓存使用的存储电路，速度快、不用刷新，断电后数据丢失。
+- term: SSD
+  full: Solid State Drive（固态硬盘）
+  explain: 用闪存芯片存数据的硬盘，随机读比机械硬盘快得多，但仍然比内存慢几个数量级。
+- term: SSE
+  full: Server-Sent Events（服务器推送事件）
+  explain: 服务器用一条迟迟不结束的普通 HTTP 响应、按事件格式单向推送数据的机制，LLM 流式输出就用它。
+- term: SSE（向量指令扩展）
+  full: Streaming SIMD Extensions（流式单指令多数据扩展）
+  explain: x86 里一组能一次处理多个数据的向量指令。
+- term: SSTable
+  full: Sorted String Table（有序字符串表）
+  explain: LSM 在磁盘上的不可变有序文件，由内存表整表刷出，后台合并也在文件之间进行。
+- term: STATEMENT
+  full: STATEMENT（语句格式）
+  explain: binlog 的一种记法，只记执行的语句原话，账本短小，但遇到每次结果不同的函数可能在从库记歪。
+- term: STCF
+  full: Shortest Time to Completion First（最短完成时间优先）
+  explain: SJF 的抢占版，新作业到达时比较所有作业的剩余时间，谁剩余最少谁先跑。
+- term: std::map
+  full: std::map（C++ 标准库有序映射）
+  explain: C++ 标准库里用红黑树实现的有序键值容器，查找、插入、删除都是对数时间。
+- term: std::sort
+  full: std::sort（C++ 标准库排序）
+  explain: C++ 的默认排序，用内省排序实现：快排为主、递归过深切换堆排序兜底、小区间换插入排序，不保证稳定性。
+- term: stream
+  full: Stream（流）
+  explain: 一条连接里的一条逻辑通道，多条流的帧交错在同一连接上发送、按编号在对端拆开组装。
+- term: strstr
+  full: strstr（C 字符串查找函数）
+  explain: 在字符串里找子串第一次出现位置的 C 标准库函数，glibc 的实现用 Two-Way 算法。
+- term: stub
+  full: Stub（客户端存根）
+  explain: 由合同生成的客户端代办代码，你把参数交给它，它负责序列化、发送、等回包再解码返回。
+- term: swap
+  full: swap space（交换区）
+  explain: 磁盘上暂存被换出内存页的区域，匿名页想被回收只能先写到这里。
+- term: SYN
+  full: Synchronize（同步标志位）
+  explain: TCP 报文里表示「我要开始一条连接、这是我的初始序号」的标志，发 SYN 的报文要占一个序号。
+- term: System V
+  full: System V ABI（Unix 系统调用约定）
+  explain: Unix 类系统上 x86-64 的调用约定，Linux 使用的就是这一套。
+- term: tag
+  full: Tag（字段头字节）
+  explain: Protobuf 每条字段记录开头的字节，由字段号左移 3 位再或上类型号合成，解码靠它定位每个字段。
+- term: TCP
+  full: Transmission Control Protocol（传输控制协议）
+  explain: 提供可靠、有序、不重复字节流的传输协议，靠序号、确认与重传在不可靠的网络上把数据送准。
+- term: TIME_WAIT
+  full: Time Wait（时间等待状态）
+  explain: 主动关闭方发完最后一个 ACK 后留守的状态，要守满 2 倍 MSL，给丢失的最后 ACK 和迟到的旧报文兜底。
+- term: TimSort
+  full: TimSort（自适应稳定归并排序）
+  explain: 先识别输入里天然有序的段、再归并的稳定排序，对部分有序的真实数据特别快，V8 与 Python 的默认排序都出自这一系。
+- term: TLB
+  full: Translation Lookaside Buffer（转址旁路缓存）
+  explain: 处理器里缓存最近地址翻译结果的小缓存，命中时不用再逐级查页表。
+- term: TLD
+  full: Top-Level Domain（顶级域）
+  explain: 域名最右边一段，如 .com、.jp，由根服务器指路、各自的注册局管理。
+- term: TLS
+  full: Transport Layer Security（传输层安全协议）
+  explain: 在 TCP 之上给连接加密并验证对方身份的协议，用证书验身份、用协商出的对称密钥加密数据。
+- term: TLS（线程本地存储）
+  full: Thread Local Storage（线程本地存储）
+  explain: 每条线程各有一份的变量存放方式，errno 就是靠它避免多线程互相覆盖。
+- term: token
+  full: token（词元）
+  explain: 模型处理文本的最小单位，一段文本先被切成 token 才能进模型，上下文长度和费用都按它计数。
+- term: Top K
+  full: Top K（取最大或最小的 K 个）
+  explain: 从大量数据里只要最大或最小的 K 个时，维护一个大小为 K 的堆即可，不必把全部数据排序。
+- term: Transfer-Encoding
+  full: Transfer-Encoding Header（传输编码头）
+  explain: 声明正文在线上怎样分段传输的头，流式响应里用它标明采用 chunked 分块而不是总长度。
+- term: Transformer
+  full: Transformer（一种神经网络结构名）
+  explain: 完全用注意力组装的网络结构，多头注意力加逐词的前馈小网络，再用残差和归一化堆深，是当代大模型的基本形状。
+- term: Treap
+  full: Treap（树堆，tree + heap）
+  explain: 给每个键随机发优先级的搜索树：键按搜索树排、优先级按堆排，期望高度被随机性摁在对数级，与插入顺序无关。
+- term: TreeMap
+  full: Java TreeMap（红黑树实现的有序映射）
+  explain: Java 标准库里用红黑树实现的有序键值容器，能按顺序遍历和按范围取数。
+- term: TrueTime
+  full: TrueTime（Google 的时钟机制）
+  explain: Google 的一套时钟机制，能明确给出每台钟的误差上限；拿不准时先等误差过去，再下结论。
+- term: TSO
+  full: Total Store Order（全局写序）
+  explain: x86 处理器使用的内存模型，只放松写之后读这一种顺序。
+- term: TTFT
+  full: Time To First Token（首 token 时间）
+  explain: 从发出请求到第一个 token 到达的时间，由建连、排队、生成首 token 与中间环节缓冲四段组成，决定流式的体感。
+- term: TTL
+  full: Time To Live（生存时间）
+  explain: 一条数据能存活的时间上限：在 DNS 里指记录能被缓存多少秒，在消息系统里指消息过期就被删除或转走处理。
+- term: Two-Way 算法
+  full: Two-Way algorithm
+  explain: 把模式切成左右两段、先比右段再比左段的字符串匹配算法，时间线性且只用常数额外空间，glibc 的 strstr 用的就是它。
+- term: TXT
+  full: Text Record（文本记录）
+  explain: 存放文本信息的 DNS 记录，常用来做域名所有权验证与邮件等策略声明。
+- term: TypeScript
+  full: TypeScript（编程语言名）
+  explain: 给 JavaScript 加上类型检查的语言，要先编译成 JavaScript 才能运行。
+- term: UDP
+  full: User Datagram Protocol（用户数据报协议）
+  explain: 只提供最小不可靠数据报通道的传输协议，QUIC 以它为地基、在用户态自建可靠与加密。
+- term: undo
+  full: undo log（撤销日志）
+  explain: 记着改动前旧值的日志，事务回滚时靠它擦回原样，也给读者提供旧版本。
+- term: upper_bound
+  full: Upper Bound（上界查找）
+  explain: 在有序范围里找第一个大于目标的位置，与 lower_bound 配合可数出目标出现的次数。
+- term: UUID
+  full: Universally Unique Identifier（通用唯一标识符）
+  explain: 一串几乎不会重复的随机编号，常被拿来当主键，但随机顺序会让索引频繁分裂。
+- term: V8
+  full: V8（Google 的 JavaScript 引擎）
+  explain: Chrome 与 Node.js 用的 JavaScript 引擎；它从 7.0 版起把数组排序换成了稳定的 TimSort。
+- term: vDSO
+  full: virtual Dynamic Shared Object（虚拟动态共享对象）
+  explain: 内核映射进每个进程的一页数据加一小段代码，让查时间这类只读调用不用进内核就能完成。
+- term: Vegas
+  full: TCP Vegas（基于时延的拥塞算法）
+  explain: 盯着往返时延的变化推断拥塞、还没丢包就先收敛的早期算法，是时延派信号的代表。
+- term: vfork
+  full: virtual fork（旧式子进程创建方式）
+  explain: 子进程先借用父进程地址空间、直到 exec 才分开的旧办法，只适合很受限的场面。
+- term: Viterbi
+  full: Viterbi 算法（维特比算法）
+  explain: 在隐马尔可夫模型上做精确动态规划的解码算法，每个时间步为每个隐状态保留一条最优前缀。
+- term: vLLM
+  full: vLLM（开源推理引擎名）
+  explain: 一个常用的大模型推理引擎，以 PagedAttention 管理 KV 缓存、以连续批处理提高吞吐著称。
+- term: VMA
+  full: Virtual Memory Area（虚拟内存区域）
+  explain: 内核账本里的一段连续虚拟地址区间，记着这段地址归谁、允许怎么访问。
+- term: volatile
+  full: volatile（易变修饰）
+  explain: 一种变量修饰，对它的读写带有同步语义，能在读写之间建立先行发生关系。
+- term: Volta
+  full: Volta（NVIDIA GPU 架构名）
+  explain: NVIDIA 一代 GPU 架构的名字，从这一代起支持独立线程调度。
+- term: WAL
+  full: Write-Ahead Logging（预写日志）
+  explain: 改数据页之前，必须先把描述这次改动的日志顺序写进磁盘并落盘，崩溃恢复靠它成立。
+- term: WAR
+  full: Write After Read（读后写）
+  explain: 后一条指令要写前一条刚读过的寄存器，是名字复用造成的假依赖。
+- term: warp
+  full: warp（线程束）
+  explain: GPU 的基本调度单位，一组 32 个线程，同一时刻全组执行同一条指令。
+- term: WAW
+  full: Write After Write（写后写）
+  explain: 两条指令写同一个寄存器，是名字复用造成的假依赖。
+- term: WB
+  full: Write Back（写回）
+  explain: 流水线的第五级，把结果写回目标寄存器。
+- term: webhook
+  full: webhook（网络回调钩子）
+  explain: 外部系统在事件发生时主动向你的接口发来的一次 HTTP 通知，它会重试，所以接收方必须能去重。
+- term: WebSocket
+  full: WebSocket（全双工通信协议）
+  explain: 经 HTTP 升级握手后切换成的独立全双工协议，双方随时互发消息，适合聊天与实时协作这类双向场景。
+- term: wire type
+  full: Wire Type（线上类型编号）
+  explain: tag 低 3 位存的类型编号，告诉解码方这个字段的值该按变长整数、定长还是带长度的方式读、能跳过多少字节。
+- term: worker
+  full: worker（后台工作进程）
+  explain: 在后台领取队列或收件箱里的任务并逐个执行的进程，常驻 agent 的收件箱就靠单个 worker 领取。
+- term: x86
+  full: x86（指令集架构名）
+  explain: 个人电脑和多数服务器 CPU 使用的指令集架构。
+- term: x86-64
+  full: x86-64（64 位指令集架构名）
+  explain: x86 的 64 位版本，个人电脑和多数服务器的 CPU 都用它。
+- term: XA 事务
+  full: XA（eXtended Architecture，分布式事务规范）
+  explain: 一种让多个数据库参与同一笔分布式事务的标准规范，靠两阶段提交来协调。
+- term: xmm
+  full: xmm（向量寄存器组）
+  explain: x86-64 的向量寄存器，浮点参数和返回值走这一组。
+- term: z 分数
+  full: z-score（z 分数）
+  explain: 一个观测值离均值有几个标准差，用来把不同量纲的偏离换成同一把尺子比较。
+- term: π 函数
+  full: 前缀函数（Prefix Function）
+  explain: KMP 算法预先算出的表：π[q] 是模式前 q 个字符里，最长的既是前缀又是后缀的长度，失配时查它就知道模式该滑多远。
+- term: 一致性哈希
+  full: Consistent Hashing
+  explain: 把机器和键都哈希到同一个圆环上、键顺时针归第一台机器的办法，机器增减时只有出事的那一段数据要搬家。
+- term: 不可重复读
+  full: non-repeatable read（不可重复读）
+  explain: 同一事务里两次读同一行，中间被别人改了并提交，两次读到的值不一样。
+- term: 两将军问题
+  full: Two Generals' Problem（两将军问题）
+  explain: 经典难题：两方只能靠可能丢失的信使通信，因此无法确定地达成一致，是分布式里很多不确定性的源头。
+- term: 两阶段锁
+  full: two-phase locking（两阶段锁协议）
+  explain: 靠锁实现隔离的纪律：事务先集中拿锁、后集中放锁，两个阶段不许混，按第一次放锁的时刻排序等价于串行执行。
+- term: 中序后继
+  full: Inorder Successor（中序后继）
+  explain: 一个节点在中序遍历里紧挨着的下一个节点，也就是它右子树里最靠左的节点；删有两个孩子的节点时用它的值顶替。
+- term: 中继日志
+  full: relay log（中继日志）
+  explain: 从库本地暂存复制事件的日志，接收线程先把账抄到这里，应用线程再慢慢取出来重放。
+- term: 临键锁
+  full: next-key lock（临键锁）
+  explain: 记录锁加上它前面那段间隙的组合锁，一把锁管一段左开右闭的区间，是可重复读下防幻读的主力。
+- term: 乐观并发控制
+  full: optimistic concurrency control（乐观并发控制）
+  explain: 先不加锁、在私有区里改，提交时再检查读过的行有没有被人动过，没动过才落盘，适合冲突很少的场面。
+- term: 二次探测
+  full: Quadratic Probing（二次探测）
+  explain: 开放寻址的一种探查方式：冲突后按 1、4、9……的平方步长往后跳，避免线性探测那种连续占用段越长越长的聚集。
+- term: 二级索引
+  full: 二级索引（secondary index）
+  explain: 建在主键以外列上的索引，叶子只存该列的值和对应的主键值，查整行需要回表。
+- term: 二项堆
+  full: Binomial Heap（二项堆）
+  explain: 由若干棵二项树组成的堆，专门补二叉堆的短板：合并两个堆只要对数时间，代价是放弃数组存储、回到指针结构。
+- term: 交叉熵
+  full: cross entropy（交叉熵损失）
+  explain: 分类任务常用的损失，拿模型给出的概率分布和正确答案比对，猜得越离谱罚得越重，而且光滑可导。
+- term: 交换论证
+  full: Exchange Argument（交换论证）
+  explain: 证明贪心正确的通用办法：把任意最优解的第一步换成贪心选择，算清总账不亏，就说明存在包含这一步的最优解。
+- term: 优化器
+  full: optimizer（查询优化器）
+  explain: 数据库里负责给每条查询计算候选路线、按成本挑最便宜一条的部件。
+- term: 伪多项式
+  full: Pseudo-Polynomial（伪多项式时间）
+  explain: 运行时间按输入数值的大小是多项式、按数值的位数却是超多项式的算法，如背包的 O(nW)：W 写进输入只占约 log W 位，表却要开 W 大小。
+- term: 似然
+  full: Likelihood（似然）
+  explain: 假设某件事是真的时，看到手头这份证据的概率有多大；它衡量证据与假设合不合拍。
+- term: 位置编码
+  full: positional encoding（位置编码）
+  explain: 给每个位置造一个独特的向量、加到词的表示上，让本身不分先后的注意力也能知道词序。
+- term: 保存点
+  full: savepoint（保存点）
+  explain: 事务内部打的一个书签，出错时只回滚到书签处、之前的工作保留，事务本身不结束。
+- term: 停机问题
+  full: Halting Problem（停机问题）
+  explain: 给定一段程序和输入，问它会不会停下来；已被证明不存在能回答所有程序的算法，是 NP 难里最极端的例子之一。
+- term: 先验
+  full: Prior Probability（先验概率）
+  explain: 还没看到新证据之前，对一件事原本有多常见的判断，比如某种故障平时的发生率。
+- term: 入度
+  full: Indegree（入度）
+  explain: 有向图里指向某个节点的边数；入度为零的节点没有任何前置依赖，Kahn 算法靠反复摘掉它们排拓扑顺序。
+- term: 共享锁
+  full: shared lock（共享锁）
+  explain: 读数据时拿的锁，多个事务可以同时持有、互不冲突，但和排他锁冲突。
+- term: 内省排序
+  full: Introsort（内省排序）
+  explain: 以快排为主、监控递归深度、过深就切换堆排序兜底的混合排序，C++ 标准库的 std::sort 用的就是它，保证最坏仍是 n log n。
+- term: 再哈希
+  full: Rehashing（再哈希）
+  explain: 哈希表扩容时把全部元素按新桶数重新算位置放一遍，旧位置全部作废；单次很贵，但摊到每次插入上仍是常数级。
+- term: 写入偏斜
+  full: write skew（写入偏斜）
+  explain: 两个事务各改各的行、没有直接冲突，合起来却破坏了一条横跨多行的规矩的异常现象。
+- term: 写放大
+  full: write amplification（写放大）
+  explain: LSM 里同一份数据在多次合并中被反复重写，实际落盘字节数是逻辑写入量的数倍到数十倍。
+- term: 分发进程
+  full: dispatcher（分发进程）
+  explain: 发件箱的执行者，读出待发消息、决定发哪些和何时发，再递到用户手里，与收件箱的 worker 正好镜像。
+- term: 分支因子
+  full: Branching Factor（分支因子）
+  explain: 搜索树或图里每个节点平均有多少个邻居或孩子；它决定节点数随深度增长的倍数，是估算搜索规模的关键数。
+- term: 切割性质
+  full: Cut Property（切割性质）
+  explain: 把图任意切成两半，跨越这一刀的最小边必然在某棵最小生成树里；这是 Kruskal 与 Prim 贪心选边的担保。
+- term: 判定问题
+  full: Decision Problem（判定问题）
+  explain: 答案只有是或否的问题；把优化问题加上一个门槛就能改写成判定问题，难度才可比、才能互相归约。
+- term: 前缀码
+  full: Prefix Code（前缀码）
+  explain: 任何符号的编码都不是另一个符号编码的前缀的编码方式，解码时不需要分隔符，哈夫曼编码给出的就是最优前缀码。
+- term: 功效
+  full: Power（统计功效）
+  explain: 真有效果时能把它查出来的概率，等于 1−β；功效不足的实验，不显著也说明不了没效果。
+- term: 千禧年大奖问题
+  full: Millennium Prize Problems（千禧年大奖问题）
+  explain: Clay 数学研究所在 2000 年公布的七个难题，每个悬赏 100 万美元，P 对 NP 是其中之一，至今未解。
+- term: 半同步
+  full: semisynchronous replication（半同步复制）
+  explain: 主库提交前先等至少一台从库签收账本落盘、但不等它重放完的复制方式，换已提交数据至少两处有据。
+- term: 原假设
+  full: Null Hypothesis（记作 H0）
+  explain: 假设检验先立起来的「没效果、没区别」立场，让数据来反驳它；证据不够强就不推翻。
+- term: 原地
+  full: In-Place（原地算法）
+  explain: 只用常数或对数级额外空间、直接在原数组上改的算法；快排是原地的，归并排序需要一整块辅助数组就不是。
+- term: 参数化
+  full: Parameterized Algorithm（参数化算法）
+  explain: 把指数爆炸关进一个小参数的笼子里的办法：问题在某个参数很小时重新变得可解，如图接近树形或某个量很小时。
+- term: 双重哈希
+  full: Double Hashing（双重哈希）
+  explain: 开放寻址的一种探查方式：用第二个哈希函数算步长，不同键步长不同，聚集比线性探测轻得多。
+- term: 反向传播
+  full: backpropagation（反向传播）
+  explain: 从损失出发、逆着计算图逐段乘上局部导数，一趟算出每个参数梯度的方法，是训练能分摊责任的核心机制。
+- term: 后验
+  full: Posterior Probability（后验概率）
+  explain: 看到证据之后更新过的概率判断，由先验乘似然再归一化得到，是贝叶斯更新的结果。
+- term: 哈夫曼编码
+  full: Huffman Coding（哈夫曼编码）
+  explain: 构造最优前缀码的贪心算法：每次把频率最小的两个合成为一组，直到成树；高频符号得到短码，总成本可证最小。
+- term: 哈希
+  full: hash（哈希/散列）
+  explain: 把任意键算成一个固定位置编号的办法，查单个键一步到位，但排不出顺序、做不了范围查询。
+- term: 哈希洪水攻击
+  full: Hash Flooding Attack（哈希洪水攻击）
+  explain: 攻击者故意提交大量互相冲突的键，让服务器的哈希表退化成长链、把 CPU 耗在比对上，少量请求就能拖垮服务。
+- term: 哈希连接
+  full: hash join（哈希连接）
+  explain: 把小表建成内存哈希表、大表流过逐行探测的连接方式，没有索引也能打，但只认等值连接。
+- term: 四元组
+  full: Four-Tuple（源 IP、源端口、目的 IP、目的端口）
+  explain: TCP 用来认定一条连接的四个地址要素，任何一个变了，TCP 就认为这是另一条连接。
+- term: 回表
+  full: 回表（通过二级索引查到主键后，再去聚簇索引取整行的动作）
+  explain: 用二级索引只能先拿到主键，想看整行还要拿主键再查一次聚簇索引，这多走的一趟就叫回表。
+- term: 因果掩码
+  full: causal mask（因果掩码）
+  explain: 注意力打分时把每个位置看向未来位置的分数屏蔽掉的办法，保证预测一个词时偷看不到后面的答案。
+- term: 图着色
+  full: Graph Coloring（图着色问题）
+  explain: 给图的每个点染色、相邻不同色，问 k 种颜色够不够；是 NP 完全问题，验只需逐边检查、找却要翻指数组合。
+- term: 均匀分布
+  full: Uniform Distribution（均匀分布）
+  explain: 区间里每个位置一样可能的分布，概率只看所问区间占总区间的长度比例，没有中心也没有偏好。
+- term: 坏字符规则
+  full: Bad Character Rule（坏字符规则）
+  explain: Boyer-Moore 的跳步规则：失配时看文本露出的字符，它不在模式里就整段跳过、在模式里就对齐到它最后出现的位置。
+- term: 基数
+  full: cardinality（基数）
+  explain: 一列里不同值的个数，反映值有多分散，是优化器估算一筛能剩下几成行的关键原料。
+- term: 基数排序
+  full: Radix Sort（基数排序）
+  explain: 不靠比较、按数位逐位分桶的排序，复杂度含位数项，只适用于整数这类有限形态的键，能绕开比较排序的下限。
+- term: 基础率
+  full: Base Rate（基础概率）
+  explain: 一件事在总体里原本有多常见，就是它的先验数值；忽略它会把稀有事件的检测结果严重高估。
+- term: 墓碑
+  full: tombstone（墓碑标记）
+  explain: LSM 里删除一个键时写入的特殊标记记录，它必须下沉到最底层才能连同旧值一起丢弃，丢早了旧值会重新被读出来。
+- term: 外部排序
+  full: External Sort（外部排序）
+  explain: 数据大到内存装不下时的排序：先分块排成有序顺串写回磁盘，再多路归并，全程顺序读写磁盘。
+- term: 多头注意力
+  full: multi-head attention（多头注意力）
+  explain: 把 QKV 投影复制成多组、每组独立查一轮再拼接的做法，让模型能同时按多种关系看一句话。
+- term: 多项式时间
+  full: Polynomial Time（多项式时间）
+  explain: 运行时间是输入规模的多项式，如 n、n²、n³；理论界把这一档当作可行的标准，带指数项的则算撞墙。
+- term: 大 O 记号
+  full: Big O Notation（大 O 记号）
+  explain: 描述耗时或空间随输入规模增长上界的记号，如 O(n) 表示与规模成正比、O(log n) 表示规模翻倍只多一步、O(1) 表示与规模无关。
+- term: 好后缀规则
+  full: Good Suffix Rule（好后缀规则）
+  explain: Boyer-Moore 的另一条跳步规则：已对上一截后缀才失配时，按这截后缀在模式里还能对齐的位置决定右移多少，与坏字符规则取较大者。
+- term: 子问题重叠
+  full: Overlapping Subproblems（子问题重叠）
+  explain: 同一个小问题在递归里被反复求解的性质；它是动态规划的前提之一，没有重叠，存表也用不上。
+- term: 子集和
+  full: Subset Sum（子集和问题）
+  explain: 从一组数里挑出一组使和恰好等于目标；是 NP 完全问题，找要翻遍子集，验只需把递来的一组数加一遍。
+- term: 嵌套循环
+  full: nested loop join（嵌套循环连接）
+  explain: 外层每出一行就拿键去内层查一次的连接方式，外层小、内层有索引时最稳。
+- term: 布隆过滤器
+  full: Bloom Filter（布隆过滤器）
+  explain: 用一个小位数组快速判断某文件肯定没有某个键的工具，会小概率误报有，但绝不会把有说成没有。
+- term: 带权区间调度
+  full: Weighted Interval Scheduling（带权区间调度）
+  explain: 每场活动带不同收益、选互不冲突的一组使总收益最大；权重一进来贪心就失效，是动态规划的标准例题。
+- term: 幂等
+  full: Idempotent（幂等）
+  explain: 同一个请求执行一次与执行多次效果相同，如读取数据；只有幂等的请求才适合自动重试与放进 0-RTT。
+- term: 并查集
+  full: Disjoint Set Union（不相交集合并，Union-Find）
+  explain: 只回答两个元素是不是连通的数据结构：每个集合选一个代表，合并与查询在路径压缩后近乎一步，但它不记得路径。
+- term: 幻读
+  full: phantom read（幻读）
+  explain: 同一事务里两次按同一条件查一批行，中间被别人插入或删掉行，第二次的行数变了。
+- term: 开放寻址
+  full: Open Addressing（开放寻址）
+  explain: 冲突时不挂链表、而在表内按规则找下一个空位的办法，元素全在一个连续数组里，对缓存友好，但删除要留墓碑。
+- term: 强连通分量
+  full: Strongly Connected Component（强连通分量）
+  explain: 有向图里一组互相可达的节点构成的极大集合；先把图按分量缩成无环骨架，是处理带环有向图的常用第一步。
+- term: 归一化
+  full: normalization（归一化）
+  explain: 把一组数或一层表示的分布拉回稳定范围的操作，比如让权重总和为 1，或者防止深层数值漂移失控。
+- term: 归约
+  full: Reduction（归约）
+  explain: 把问题 A 的每个实例用多项式时间翻译成问题 B 的实例、答案同为是或否；能把已知难题归约到新问题，就证明新问题至少一样难。
+- term: 当前读
+  full: current read（当前读）
+  explain: 更新、删除和带 FOR UPDATE 的查询用的读法，必须读最新已提交版本并当场上锁。
+- term: 循环不变式
+  full: Loop Invariant（循环不变式）
+  explain: 循环每一轮开始时都成立的断言；二分查找的不变式是目标若存在就一定在当前区间内，守住它就不会误杀、也不会死循环。
+- term: 快照读
+  full: snapshot read（快照读）
+  explain: 普通查询按事务开始时的快照挑一个可见版本来读，全程不上锁、不挡别人写。
+- term: 快照隔离
+  full: snapshot isolation（快照隔离）
+  explain: 每个事务在一份固定快照上读写、只在改到同一行时才算冲突的隔离方式，防不住跨行的写入偏斜。
+- term: 意向锁
+  full: intention lock（意向锁）
+  explain: 事务给某些行上锁前先在表一级挂的标记，让想锁整张表的人看一眼就知道行不行，不必逐行查。
+- term: 成本模型
+  full: cost model（成本模型）
+  explain: 把不同执行路线统一折算成可比数字的估价办法，主要按要读的页数和要处理的行数计价。
+- term: 执行器
+  full: executor（执行器）
+  explain: 照着优化器给的计划真正去取页、拼行、吐结果的部件。
+- term: 投机解码
+  full: speculative decoding（投机解码）
+  explain: 让小模型先连猜几个词、大模型用一次并行前向同时验证的方法，输出分布与逐词生成严格一致，省下的只是步数。
+- term: 拉链法
+  full: Separate Chaining（拉链法）
+  explain: 哈希表处理冲突的办法：每个桶挂一条链表，冲突的元素排在同一条链上，查找先定位桶再沿链比对。
+- term: 拓扑排序
+  full: Topological Sort（拓扑排序）
+  explain: 把有向无环图的节点按依赖先后排成一条线，每条边都从前指向后；构建系统排任务顺序用的就是它，图里有环则不存在。
+- term: 拟阵
+  full: Matroid（拟阵）
+  explain: 刻画贪心何时正确的统一结构：由一个集合与一族独立子集构成，满足子集仍独立与交换公理；能表述成在拟阵里求最大权独立集的问题，贪心必定最优。
+- term: 指数分布
+  full: Exponential Distribution（指数分布）
+  explain: 数「两次事件之间要等多久」的分布，和泊松是同一件事的两面；它没有记忆，已经等了多久不影响还要等多久。
+- term: 排他锁
+  full: exclusive lock（排他锁）
+  explain: 写数据时拿的锁，同一时刻只许一个事务持有，和任何其他锁都冲突。
+- term: 排序合并
+  full: sort-merge join（排序合并连接）
+  explain: 两边先按连接键排好序再并行对齐扫描的连接方式，适合两边都大、结果又正好要排序的场面。
+- term: 提示缓存
+  full: prompt caching（提示缓存）
+  explain: 把每轮都相同的提示前缀缓存下来重复使用、只付较低价格的办法，省去每轮为不变的前缀付全价。
+- term: 摊还分析
+  full: Amortized Analysis（摊还分析）
+  explain: 给一串操作算总账的记账法：单次很贵的操作由大量便宜操作均摊，如动态数组扩容、KMP 指针回退，总量被封顶。
+- term: 方差
+  full: Variance（记作 Var）
+  explain: 衡量一批数值离平均有多散的量，数值越大波动越大；它和期望分工不同，期望管中心、方差管半径。
+- term: 旅行商问题
+  full: Travelling Salesman Problem（旅行商问题，TSP）
+  explain: 走遍所有城市各一次再回到起点、求最短路线的问题；判定版是 NP 完全，路线数随城市数阶乘级爆炸。
+- term: 显著性水平
+  full: Significance Level（显著性水平）
+  explain: 判断结果算不算「显著」的预设门槛，就是 α；p 小于它才拒绝原假设。
+- term: 最优子结构
+  full: Optimal Substructure（最优子结构）
+  explain: 大问题的最优解能由子问题的最优解拼出来的性质；动态规划与贪心都建立在它之上，没有它连选完一步再看余下都无从谈起。
+- term: 最小生成树
+  full: Minimum Spanning Tree（最小生成树，MST）
+  explain: 连通带权图里总权最小的那棵生成树：包含全部点、边数是点数减一、无环；Kruskal 与 Prim 都是求它的贪心算法。
+- term: 最短路径树
+  full: Shortest Path Tree（最短路径树）
+  explain: 最短路径算法里每个点的前驱边合起来构成的以起点为根的树，树上任意点到根的路径都是它的一条最短路。
+- term: 最终一致
+  full: eventual consistency（最终一致性）
+  explain: 只保证只要不再写入、所有副本最终会收敛到相同值的弱保证，中间读到旧值是允许的。
+- term: 有限自动机
+  full: Finite Automaton（有限自动机）
+  explain: 只有有限个状态、读入字符就按预定规则跳状态的计算模型；为模式建一台自动机后，文本只过一遍就能完成匹配。
+- term: 期望
+  full: Expectation（记作 E[X]）
+  explain: 按概率加权的平均值，是重复很多次以后平均结果会落到的位置，不是单次最可能出现的值。
+- term: 朴素贝叶斯
+  full: Naive Bayes（朴素贝叶斯分类器）
+  explain: 一种故意假设各个特征彼此独立的分类方法，算起来快，特征近独立时好用，强相关时会过度自信。
+- term: 条件概率
+  full: Conditional Probability（记作 P(A|B)）
+  explain: 已经知道 B 发生了的前提下，A 发生的概率；相当于把世界缩小到 B 里面重新算占比。
+- term: 松弛
+  full: Relaxation（松弛）
+  explain: 最短路径算法唯一的更新动作：试着经过某个点去邻居，若比已知距离更短就改写邻居的估计并记下前驱。
+- term: 标准误
+  full: Standard Error（样本均值的标准差）
+  explain: 样本均值自己的波动大小，等于总体标准差除以根号样本量；它决定一个估计值有多不稳。
+- term: 样本空间
+  full: Sample Space（记作 Ω）
+  explain: 一次随机试验所有可能结果的集合，先把这个集合圈全，概率才有地方落。
+- term: 梯度下降
+  full: gradient descent（梯度下降）
+  explain: 沿负梯度方向按学习率走一小步来更新参数的方法，新值等于旧值减去学习率乘梯度。
+- term: 梯度检查点
+  full: gradient checkpointing（梯度检查点）
+  explain: 前向时只留少数检查点、其余中间结果扔掉，反向时从检查点重算一遍的做法，用多付约三分之一的计算换回大半激活显存。
+- term: 检查点
+  full: checkpoint（检查点）
+  explain: 一个进度标记，表示这个位置之前的改动都已经写回数据文件，标记之前的日志可以回收。
+- term: 模拟退火
+  full: Simulated Annealing（模拟退火）
+  explain: 求近似最优解的启发式：先允许以一定概率接受变差的移动、再慢慢降温收紧，常在排班与路径规划里给出足够好的解。
+- term: 正态分布
+  full: Normal Distribution（正态分布，又叫高斯分布）
+  explain: 许多独立小扰动相加得到的钟形分布，由均值 μ 定中心、标准差 σ 定胖瘦，身高和测量误差都近似服从它。
+- term: 死锁
+  full: deadlock（死锁）
+  explain: 两个以上事务互相等对方先放锁、谁也不可能先醒的僵局，只能靠检测后回滚一个来破。
+- term: 残差连接
+  full: residual connection（残差连接）
+  explain: 把子层的输出加回它的输入、而不是替换输入的连法，给信息和梯度留一条不经过任何参数的直通道。
+- term: 泊松分布
+  full: Poisson Distribution（泊松分布）
+  explain: 数「一段固定时间里平均发生 λ 次的事、实际发生几次」的分布，整张表只由平均速率 λ 一个参数定死。
+- term: 注意力
+  full: Attention（注意力机制）
+  explain: 让每个词按相关程度回头查全句的机制，拿自己的 Q 和各词的 K 比对打分，再按权重取用各词的 V。
+- term: 滚动哈希
+  full: Rolling Hash（滚动哈希）
+  explain: 窗口滑动时只需去掉最前一个字符、添上新字符就能 O(1) 更新的哈希指纹，是 Rabin-Karp 与查重去重的核心技巧。
+- term: 激活
+  full: activations（激活值）
+  explain: 前向时每层为每个 token 算出的中间结果，反向算梯度时要用，所以训练时必须先存下来，是显存的一大住户。
+- term: 独热
+  full: one-hot（独热编码 / 独热分布）
+  explain: 只有一个位置是 1、其余全是 0 的表示或分布，权重接近独热就意味着几乎只听一个词。
+- term: 直方图
+  full: histogram（直方图）
+  explain: 把一列的取值分布切成若干桶统计出来的形状，优化器靠它估算过滤条件能筛掉几成行。
+- term: 稳定性
+  full: Stability（排序稳定性）
+  explain: 相等元素排序后保持原来先后顺序的性质；多关键字排序靠它一次顶两次用，归并稳定、快排通常不稳定。
+- term: 空间放大
+  full: space amplification（空间放大）
+  explain: 旧版本和墓碑在合并前一直占着磁盘，实际占用比有效数据多出来的倍数。
+- term: 等待图
+  full: wait-for graph（等待图）
+  explain: 把谁在等谁画成的图，边是等待关系，图里出现环就是死锁，数据库靠它检测。
+- term: 红黑树
+  full: Red-Black Tree（红黑树）
+  explain: 用颜色规则放松平衡的自平衡搜索树：保证最长路径不超过最短路径的两倍，旋转比 AVL 少，是标准库有序容器的默认实现。
+- term: 线性探测
+  full: Linear Probing（线性探测）
+  explain: 开放寻址最简单的探查方式：冲突就往后一格格找空位；简单，但连续占用段会自我放大地变长，叫一次聚集。
+- term: 缓冲池
+  full: Buffer Pool（缓冲池）
+  explain: 数据库在内存里划出来专门缓存数据页的一大片区域，页要先搬进来才能被读写。
+- term: 缓存行
+  full: Cache Line（缓存行）
+  explain: CPU 缓存与内存之间一次搬运的一小块连续数据，通常 64 字节；数据连续存放时一次搬运能喂饱多次访问。
+- term: 编辑距离
+  full: Edit Distance（编辑距离）
+  explain: 把一个字符串变成另一个所需的最少插入、删除、替换次数，与 Levenshtein 距离同义，diff、拼写纠正、DNA 比对都是它的变体。
+- term: 置信区间
+  full: Confidence Interval（置信区间）
+  explain: 给点估计配的一段范围；95% 说的是造区间的方法长期有一百次里约九十五次能罩住真值。
+- term: 聚簇索引
+  full: 聚簇索引（clustered index）
+  explain: 叶子节点直接存整行数据的那棵主键索引，表数据本身就按它组织，一张表只有一棵。
+- term: 脏读
+  full: dirty read（脏读）
+  explain: 读到了别人还没提交的改动，对方一旦回滚，你读到的就是一个从未真正存在过的值。
+- term: 脏页
+  full: dirty page（脏页）
+  explain: 内存里已经改过、但还没写回磁盘数据文件的页，它比磁盘上的版本新，迟早要由后台写回。
+- term: 脑裂
+  full: split-brain（脑裂）
+  explain: 网络分区后两边都以为对方已死、各自当主同时收写的故障状态，分区愈合后两本账无法自动合并。
+- term: 自回归
+  full: autoregressive（自回归生成）
+  explain: 把自己刚生成的内容接回输入、再预测下一个的生成方式，天生只能逐词串行。
+- term: 虚拟节点
+  full: Virtual Node（虚拟节点）
+  explain: 一致性哈希里给每台真实机器在圆环上放的多个替身，用来把数据分布抹匀，避免某台机器分到的弧过长。
+- term: 覆盖索引
+  full: 覆盖索引（covering index）
+  explain: 查询要的列全都在二级索引里，不用回表就能直接返回结果的索引用法。
+- term: 计数排序
+  full: Counting Sort（计数排序）
+  explain: 不靠比较、先数每个值出现几次再依次输出的排序，复杂度含值域大小，只在值域受限时近似线性。
+- term: 计算图
+  full: computational graph（计算图）
+  explain: 把一次计算画成节点与连线的图，节点是数值、连线是运算，反向传播就沿这张图从输出往回分摊责任。
+- term: 记录锁
+  full: record lock（记录锁）
+  explain: 锁住索引里某一条记录的锁，别人不能改也不能删这一行。
+- term: 记忆化
+  full: Memoization（记忆化）
+  explain: 自顶向下动态规划的实现方式：递归时先查缓存、算完存回，每个子问题只真正算一次，与自底向上填表等价。
+- term: 词向量
+  full: word embedding（词向量 / 词嵌入）
+  explain: 把一个词表示成一串数字的方法，词义的差别藏在这串数字的取值里，后续的打分和加权都拿它来算。
+- term: 读放大
+  full: read amplification（读放大）
+  explain: LSM 里查一个键可能要翻内存表和多层多个文件，一次逻辑读变成多次实际读的倍数。
+- term: 贝尔曼方程
+  full: Bellman Equation（贝尔曼方程）
+  explain: 强化学习里状态价值满足的递推式：当前价值等于即时奖励加上下一状态价值的折扣期望，本质就是动态规划的转移方程。
+- term: 负环
+  full: Negative Cycle（负权环）
+  explain: 总权为负的环：绕一圈距离反而更短，最短路径因此不存在；Bellman-Ford 多松弛一轮还能变小，就说明有负环。
+- term: 负载因子
+  full: Load Factor（负载因子）
+  explain: 哈希表里已存元素数除以桶数，衡量表有多挤；冲过阈值（常见 0.7 至 0.75）就扩容，它决定冲突与探查长度。
+- term: 贪心选择性
+  full: Greedy Choice Property（贪心选择性）
+  explain: 存在一个最优解包含贪心这一步选择的性质；它是贪心独有的入场券，没有它，第一步定死就可能把最优解关在门外。
+- term: 跳表
+  full: Skip List（跳表）
+  explain: 给有序链表加多层索引的结构，层高随机，查找期望对数级，没有旋转与颜色规则，Redis 的有序集合用的就是它。
+- term: 连接 ID
+  full: Connection ID（连接标识）
+  explain: QUIC 双方协商出的连接身份，与源地址解耦，换网络后凭它继续同一条连接，不必重连。
+- term: 连续批处理
+  full: continuous batching（连续批处理）
+  explain: 推理时按 token 级别动态组批的调度办法，哪条会话结束就退出、新请求随时补位，让 GPU 尽量满载。
+- term: 逆序对
+  full: Inversion（逆序对）
+  explain: 下标在前、值却更大的一对数，衡量数组离有序有多远；归并排序合并时能顺手在 n log n 内数清总数。
+- term: 遗传算法
+  full: Genetic Algorithm（遗传算法）
+  explain: 模拟进化求近似最优解的启发式：维护一群候选解，反复做选择、交叉与变异，不保证最优但常在真实数据上够好。
+- term: 邻接矩阵
+  full: Adjacency Matrix（邻接矩阵）
+  explain: 用一张 V×V 的表存图：格子标记两点之间有没有边，查边一步到位，但空间随点数平方膨胀，稀疏图用不起。
+- term: 邻接表
+  full: Adjacency List（邻接表）
+  explain: 给每个节点存一份邻居名单来存图，空间只随真实边数增长，是稀疏图的默认存法；找邻居就是读名单。
+- term: 链式法则
+  full: chain rule（链式法则）
+  explain: 复合函数求导的规则，总的影响等于每一段的局部导数连乘，反向传播分摊责任靠的就是它。
+- term: 间隙锁
+  full: gap lock（间隙锁）
+  explain: 锁住两条索引记录之间那段空缺的锁，那里没有行，锁的是不许往这个空档里插入新行。
+- term: 顶点覆盖
+  full: Vertex Cover（顶点覆盖问题）
+  explain: 选一组点使每条边至少一端被选，问至多 K 个点够不够；是 NP 完全问题，验只需逐边检查，找要翻组合。
+- term: 顺串
+  full: Run（有序顺串）
+  explain: 外部排序里一段已排好序、写在磁盘上的数据块；多路归并合并的对象就是这些顺串，TimSort 识别的天然有序段也叫这个名字。
+- term: 香农-法诺编码
+  full: Shannon–Fano Coding（香农–法诺编码）
+  explain: 自顶向下按频率把符号表劈成两半再递归的前缀编码，只能给出接近最优的码，不像自底向上的哈夫曼有最优保证。

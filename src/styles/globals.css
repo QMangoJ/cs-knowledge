@@ -437,3 +437,14 @@ details.ref-sol summary{cursor:pointer;font-weight:700}
 .in-step-sources .claim{font-size:var(--fs-sm)}
 .src-steps{color:var(--ink-muted);font-size:var(--fs-xs);margin-left:8px}
 .in-step-report{margin-top:22px}
+
+/* Glossary terms: dotted-underline buttons in reading text + fixed popover. */
+.gloss-term{font:inherit;color:var(--accent);background:none;border:none;border-bottom:1.5px dotted var(--accent);padding:0;margin:0;cursor:pointer;text-align:left}
+.gloss-term:hover,.gloss-term:focus-visible{color:var(--ink-strong);border-bottom-color:var(--ink-strong)}
+.gloss-pop{position:fixed;z-index:60;width:min(320px,calc(100vw - 16px));background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-lg);box-shadow:0 10px 34px rgba(6,12,28,.28);padding:var(--sp-4);font-size:var(--fs-md);line-height:1.55}
+.gloss-pop-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-3)}
+.gloss-pop-head b{color:var(--ink-strong);font-size:var(--fs-lg)}
+.gloss-pop-x{font:inherit;font-size:16px;line-height:1;background:none;border:none;color:var(--ink-soft);cursor:pointer;padding:2px 4px}
+.gloss-pop-x:hover{color:var(--ink-strong)}
+.gloss-pop-full{margin:var(--sp-2) 0 0;color:var(--ink);font-family:var(--font-mono);font-size:var(--fs-sm)}
+.gloss-pop-explain{margin:var(--sp-2) 0 0;color:var(--ink)}

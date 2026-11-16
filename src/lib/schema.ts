@@ -143,6 +143,12 @@ export const Topic = TopicBase.transform((t) => {
   return { ...t, overview: t.overview.filter((o) => o !== kv), terminal: [...(t.terminal ?? []), ...parseTerminal(kv.value)] };
 });
 
+/** One glossary entry (content/glossary.yaml + glossary-frag-*.yaml):
+ *  term = the marked word, full = abbreviation expansion / original name,
+ *  explain = one plain-language sentence. Shown in the player's term popover. */
+export const GlossaryEntry = z.object({ term: z.string().min(1), full: z.string().min(1), explain: z.string().min(1) });
+export type GlossaryEntry = z.infer<typeof GlossaryEntry>;
+
 export type SourceDef = z.infer<typeof SourceDef>;
 export type SourceCitation = z.infer<typeof SourceCitation>;
 export type Step = z.infer<typeof Step>;
