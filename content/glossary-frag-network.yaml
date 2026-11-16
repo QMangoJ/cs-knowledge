@@ -1,0 +1,10 @@
+# 网络学科审计新增词条（待并入 glossary.yaml）：正文以 [[词]] 标记引用本表。
+- term: bufferbloat
+  full: Bufferbloat（缓冲膨胀）
+  explain: 路由器队列过长时出现的现象：包还没丢，却要在队列里排很久，时延先暴涨。发送窗口远大于带宽时延积时，多出的数据就堵在队列里。
+- term: Reno
+  full: TCP Reno（经典拥塞控制算法）
+  explain: 慢开始加 AIMD 的经典组合：没有丢包时每个往返把拥塞窗口加约一个 MSS，丢包时把窗口砍半，是 CUBIC 与 BBR 出现之前的对照基线。
+- term: ReadableStream
+  full: ReadableStream（可读流，浏览器流式读取接口）
+  explain: 浏览器里逐块读取响应体的接口：fetch 拿到响应后通过它一块块读流式数据，不必等整个响应全部到齐。
