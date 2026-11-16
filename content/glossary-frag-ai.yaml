@@ -1,0 +1,10 @@
+# 人工智能学科新增术语（与 glossary.yaml 合并加载，格式相同）。
+- term: 数值微分
+  full: Numerical Differentiation（数值微分）
+  explain: 逐个参数加上一点小扰动、看输出变化多少来估算梯度的方法；参数一多，就要把整个计算重跑很多遍，贵得用不起。
+- term: 梯度裁剪
+  full: Gradient Clipping（梯度裁剪）
+  explain: 梯度的整体大小超过事先定好的上限时，按比例把它缩回上限以内的做法，防止某一步更新过大把训练打崩。
+- term: 教师强制
+  full: Teacher Forcing（教师强制）
+  explain: 训练语言模型时直接把标准答案的前文喂给模型，让每个位置可以同时计算的办法；真正生成时没有答案可喂，只能逐词往外产出。
