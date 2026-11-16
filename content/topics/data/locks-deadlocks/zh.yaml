@@ -31,7 +31,7 @@ lanes:
 - id: txb
   label: 事务 B：先动 id=9
 - id: lockmgr
-  label: 锁管理器：锁的账房先生
+  label: 锁管理器：统一管着所有的锁
 - id: idx
   label: 索引记录：锁真正挂住的地方
 logColumns:

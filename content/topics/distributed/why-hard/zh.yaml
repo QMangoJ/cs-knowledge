@@ -26,13 +26,13 @@ overview:
 visual: swimlane
 lanes:
 - id: caller
-  label: 调用方：只能靠消息看世界
+  label: 调用方：看不见对方内部，只能靠收发消息来判断
 - id: a
-  label: 节点 A：活着，手快
+  label: 节点 A：正常运行，回复很快
 - id: b
-  label: 节点 B：活着，但时快时慢
+  label: 节点 B：也活着，但回复时快时慢
 - id: net
-  label: 网络：会迟到、会断、会重复
+  label: 网络：消息会迟到、会中断、会重复送达
 logColumns:
 - key: mode
   label: 当前状态

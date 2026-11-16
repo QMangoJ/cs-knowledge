@@ -33,7 +33,7 @@ lanes:
 - id: p
   label: 主副本（东京）：账的原件
 - id: r
-  label: 远方副本（法兰克福）：追赶中的抄本
+  label: 远方副本（法兰克福）：跟着主副本抄，进度慢一步
 logColumns:
 - key: mode
   label: 当前议题

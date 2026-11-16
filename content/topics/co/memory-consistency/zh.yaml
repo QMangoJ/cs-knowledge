@@ -279,7 +279,7 @@ steps:
     structure: array
     caption: 四种顺序里 TSO 只放松写后读一种
     rows:
-    - label: 保住
+    - label: 保住的顺序
       cells:
       - v: 写→写 保序
         mark: found
@@ -287,7 +287,7 @@ steps:
         mark: found
       - v: 读→写 保序
         mark: found
-    - label: 放松
+    - label: 放松的顺序
       cells:
       - v: 写→读 可越过
         mark: active
@@ -431,13 +431,13 @@ steps:
     structure: array
     caption: 纪律清单：只认合同，不认运气
     rows:
-    - label: 只认
+    - label: 靠得住的
       cells:
       - v: 锁与原子的文档保证
         mark: found
       - v: happens-before 链
         mark: found
-    - label: 不赌
+    - label: 靠不住的
       cells:
       - v: 某台机器的宽容
         mark: active

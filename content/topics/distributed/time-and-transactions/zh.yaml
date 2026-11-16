@@ -31,9 +31,9 @@ lanes:
 - id: coord
   label: 协调者：主持表决与宣布
 - id: a
-  label: 服务 A：扣款方（账户在它家）
+  label: 服务 A：扣款的一方（账户在它这里）
 - id: b
-  label: 服务 B：入账方（账户在它家）
+  label: 服务 B：入账的一方（账户在它这里）
 logColumns:
 - key: mode
   label: 当前议题
