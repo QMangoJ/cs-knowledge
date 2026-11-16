@@ -171,7 +171,7 @@ export function Player({ topic, initialStep, nextTopic, nav }: { topic: ViewTopi
             <div className="body" dangerouslySetInnerHTML={{ __html: step.bodyHtml }} />
             {step.code && (
               <figure className="codeblock">
-                <figcaption>{step.code.lang}{step.code.note ? ` · ${step.code.note}` : ""}</figcaption>
+                <figcaption>{step.code.lang}{step.code.note ? ` · ${plainText(step.code.note)}` : ""}</figcaption>
                 <pre><code>{step.code.code.split("\n").map((ln, li) => (
                   <span key={li} className={step.code!.highlight === li + 1 ? "cl hl" : "cl"}>{ln || " "}</span>
                 ))}</code></pre>
@@ -187,7 +187,7 @@ export function Player({ topic, initialStep, nextTopic, nav }: { topic: ViewTopi
               </details>
             )}
             {step.special === "overview" && topic.overview.length > 0 && (
-              <dl className="kv overview-kv">{topic.overview.map((o) => <div key={o.key}><dt>{o.key}</dt><dd><Tx text={o.value} terms={topic.terms} /></dd></div>)}</dl>
+              <dl className="kv overview-kv">{topic.overview.map((o) => <div key={o.key}><dt><Tx text={o.key} terms={topic.terms} /></dt><dd><Tx text={o.value} terms={topic.terms} /></dd></div>)}</dl>
             )}
             {step.special === "terminal" && topic.terminal && topic.terminal.length > 0 && (
               <div className="term-list">
