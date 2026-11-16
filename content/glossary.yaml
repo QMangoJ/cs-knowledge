@@ -83,6 +83,9 @@
 - term: ARM
   full: ARM（指令集架构名）
   explain: 手机芯片、很多嵌入式设备和部分服务器使用的指令集架构。
+- term: ARPANET
+  full: ARPANET（Advanced Research Projects Agency Network，阿帕网）
+  explain: 1969 年由美国国防部高级研究计划局建成的分组交换网络，互联网的前身，最初就是为了把分散在各大学和研究机构的昂贵计算机连起来共用。
 - term: atomic_fetch_add
   full: atomic fetch-and-add（原子加操作）
   explain: 一步完成「读出旧值并加一」的原子操作，单个计数器用它就不用加锁。
@@ -131,6 +134,9 @@
 - term: BigInt
   full: BigInt（JavaScript 大整数类型）
   explain: JavaScript 里能表示任意大整数的类型。
+- term: Bigtable
+  full: Bigtable（Google 的分布式结构化存储系统）
+  explain: Google 2006 年论文公开的存储系统，把海量结构化数据摊在成千上万台普通机器上存，是「用普通机器扛海量数据」那套做法里负责存数据的一件。
 - term: binlog
   full: binary log（二进制日志）
   explain: 主库把每次数据改动按顺序记下来的逻辑账本，从库靠复制它来重放出相同的数据，是主从复制的传送带。
@@ -428,6 +434,9 @@
 - term: gdb
   full: GNU Debugger（GNU 调试器）
   explain: 常用的调试器，可以查看调用栈等运行时信息。
+- term: GFS
+  full: GFS（Google File System，谷歌文件系统）
+  explain: Google 2003 年论文公开的分布式文件系统：把大文件切成块、分多份存到大量普通机器上，坏掉几台数据也不丢，是「用普通机器扛海量数据」那套做法里负责存文件的一件。
 - term: git bisect
   full: Git Bisect（Git 二分定位）
   explain: Git 自带的功能：在提交历史里二分查找，每次测中间那个提交有没有问题，快速定位引入 bug 的那一次提交。
@@ -461,6 +470,9 @@
 - term: happens-before
   full: happens-before（先行发生关系）
   explain: 若一个操作先行于另一个，后者保证能看见前者以及前者之前的所有修改。
+- term: Hadoop
+  full: Hadoop（开源分布式存储与计算框架）
+  explain: 开源框架，核心两件套是照着 Google 的 GFS 和 MapReduce 做的，让普通公司也能用一堆普通机器存海量数据、做海量计算，分布式这套做法就是经它普及到全行业的。
 - term: HashMap
   full: Java HashMap（哈希表实现）
   explain: Java 标准库的哈希表：拉链法处理冲突，负载因子默认 0.75 时扩容，链过长且容量足够时把链改成红黑树。
@@ -674,6 +686,9 @@
 - term: MAP_SHARED
   full: shared mapping flag（共享映射标志）
   explain: mmap 时用这个标志，改动对其他映射同一文件的进程可见，并会写回文件。
+- term: MapReduce
+  full: MapReduce（分布式批量计算模型）
+  explain: Google 2004 年论文公开的计算模型：先把一个大任务拆成许多小块、分给多台机器同时算，再把各块的结果汇总起来；写程序的人只管这两步，分工、重试、机器坏了怎么办都由框架兜底。
 - term: MEM
   full: Memory（访存）
   explain: 流水线的第四级，真正读写数据缓存和内存。
