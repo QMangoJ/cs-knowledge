@@ -106,7 +106,7 @@ steps:
     - id: m-acid
       from: d
       to: l
-      label: undo 保 A，redo + fsync 保 D
+      label: undo 保证原子性，redo 加 fsync 保证持久性
       active: true
   log:
   - mode: 机制

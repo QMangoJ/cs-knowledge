@@ -324,7 +324,7 @@ steps:
   canvas:
     kind: datastate
     structure: array
-    caption: 断电后：刷过盘的甲键活，停在缓存里的乙键按配置丢
+    caption: 断电后：刷过盘的甲键还在，停在缓存里的乙键按配置丢失
     rows:
     - label: 恢复后
       cells:
@@ -334,7 +334,7 @@ steps:
         mark: active
     - label: 已刷文件
       cells:
-      - v: "[[SSTable]] 直接可用"
+      - v: SSTable 直接可用
         mark: found
       - v: 对应日志可删
   log:
