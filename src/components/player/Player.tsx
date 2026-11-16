@@ -167,7 +167,9 @@ export function Player({ topic, initialStep, nextTopic, nav }: { topic: ViewTopi
             )}
             <p className="eyebrow">{t.steps} {index + 1} / {total}</p>
             <h2><Tx text={step.title} terms={topic.terms} /></h2>
-            <p className="tldr"><Tx text={step.tldr} terms={topic.terms} /></p>
+            {/* The overview step's tldr IS the premise, which the stage cover shows
+                large on the same screen — printing it here too repeats it. */}
+            {step.special !== "overview" && <p className="tldr"><Tx text={step.tldr} terms={topic.terms} /></p>}
             <div className="body" dangerouslySetInnerHTML={{ __html: step.bodyHtml }} />
             {step.code && (
               <figure className="codeblock">
@@ -261,13 +263,14 @@ export function Player({ topic, initialStep, nextTopic, nav }: { topic: ViewTopi
  *  own material presented large; full text lives in the details column. */
 function SpecialStage({ step, topic }: { step: ViewStep; topic: ViewTopic }) {
   if (step.special === "overview") {
+    // Cover rule: every text appears exactly once on this screen. The summary and the
+    // position live in the details column (topic header + position card), the overview
+    // kv lives there too — so the stage carries only the premise, large. Reprinting the
+    // summary/position here as well showed the same paragraphs twice side by side.
     return (
       <div className="special-stage">
         <p className="ss-kicker">{t.overview}</p>
-        <p className="ss-summary"><Tx text={topic.summary} terms={topic.terms} /></p>
-        {topic.position && <p className="ss-position"><Tx text={topic.position} terms={topic.terms} /></p>}
         <p className="ss-premise"><Tx text={topic.premise} terms={topic.terms} /></p>
-        <ul className="ss-keys">{topic.overview.map((o) => <li key={o.key}>{plainText(o.key)}</li>)}</ul>
       </div>
     );
   }
