@@ -5,7 +5,7 @@ import { Canvas } from "@/components/renderers";
 import type { ViewStep, ViewTopic } from "@/lib/view";
 import { t, REPO_URL } from "@/i18n";
 import { issueUrl, stepPath } from "@/lib/paths";
-import { plainText } from "@/lib/terms";
+import { plainText, plainCode } from "@/lib/terms";
 import { MarkDone } from "./Quiz";
 import { Tx, GlossPopover, type PopState } from "./Term";
 
@@ -173,7 +173,7 @@ export function Player({ topic, initialStep, nextTopic, nav }: { topic: ViewTopi
               <figure className="codeblock">
                 <figcaption>{step.code.lang}{step.code.note ? ` · ${plainText(step.code.note)}` : ""}</figcaption>
                 <pre><code>{step.code.code.split("\n").map((ln, li) => (
-                  <span key={li} className={step.code!.highlight === li + 1 ? "cl hl" : "cl"}>{ln || " "}</span>
+                  <span key={li} className={step.code!.highlight === li + 1 ? "cl hl" : "cl"}>{plainCode(ln, topic.terms) || " "}</span>
                 ))}</code></pre>
               </figure>
             )}
@@ -192,7 +192,7 @@ export function Player({ topic, initialStep, nextTopic, nav }: { topic: ViewTopi
             {step.special === "terminal" && topic.terminal && topic.terminal.length > 0 && (
               <div className="term-list">
                 {topic.terminal.map((c, i) => (
-                  <div key={i} className="term-item"><code>{c.cmd}</code>{c.note && <p><Tx text={c.note} terms={topic.terms} /></p>}</div>
+                  <div key={i} className="term-item"><code>{plainCode(c.cmd, topic.terms)}</code>{c.note && <p><Tx text={c.note} terms={topic.terms} /></p>}</div>
                 ))}
               </div>
             )}
@@ -217,7 +217,7 @@ export function Player({ topic, initialStep, nextTopic, nav }: { topic: ViewTopi
                     <ol>
                       {topic.cited.map((c, i) => (
                         <li key={i}>
-                          <a href={c.url} target="_blank" rel="noopener noreferrer">[{i + 1}] {c.title} · {c.locator} ↗</a>
+                          <a href={c.url} target="_blank" rel="noopener noreferrer">[{i + 1}] {plainText(c.title)} · {plainText(c.locator)} ↗</a>
                           <span className="src-steps">（第 {c.steps.join("、")} 步）</span>
                           <p className="claim"><Tx text={c.claim} terms={topic.terms} /></p>
                         </li>
@@ -275,7 +275,7 @@ function SpecialStage({ step, topic }: { step: ViewStep; topic: ViewTopic }) {
     return (
       <div className="special-stage">
         <div className="term-window">
-          {(topic.terminal ?? []).map((c, i) => <p key={i}><code><span className="term-prompt">$ </span>{c.cmd}</code></p>)}
+          {(topic.terminal ?? []).map((c, i) => <p key={i}><code><span className="term-prompt">$ </span>{plainCode(c.cmd, topic.terms)}</code></p>)}
         </div>
       </div>
     );

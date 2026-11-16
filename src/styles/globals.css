@@ -55,7 +55,10 @@ details.more[open] > summary{margin-bottom:10px}
 .canvas-wrap{border:1px solid var(--line-soft);border-radius:var(--radius-lg);background:var(--panel);padding:28px 24px}
 .swimlane{width:100%;height:auto;display:block}
 .sl-lane-bg{fill:var(--panel)} .sl-lane-bg.alt{fill:var(--line-soft)}
-.sl-lane-label{height:100%;display:flex;align-items:center;color:var(--ink-soft);font-size:13px;line-height:1.3}
+.sl-lane-label{height:100%;display:flex;align-items:center;color:var(--ink-soft);font-size:13px;line-height:1.3;overflow-wrap:anywhere}
+/* The label text sits in a span so it is a real flex item: a bare text node becomes an
+   anonymous item that cannot shrink below its longest unbreakable run and clips. */
+.sl-lane-label > span{min-width:0;overflow-wrap:anywhere}
 .sl-actor{transition:transform var(--dur-move) var(--ease-out)}
 .sl-actor rect{fill:var(--panel);stroke:var(--line-mid);stroke-width:1;transition:fill var(--dur-fast),stroke var(--dur-fast)}
 .sl-actor.hl rect{fill:var(--line-soft);stroke:var(--active);stroke-width:2}

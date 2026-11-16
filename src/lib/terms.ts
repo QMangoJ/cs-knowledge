@@ -29,6 +29,17 @@ export function plainText(text: string): string {
   return text.replace(MARKER_RE, (_m, a: string, b?: string) => (b ? a : a).trim());
 }
 
+/** For code lines and terminal commands: strip a marker only when its key is a known
+ *  glossary term of the topic, so genuine code syntax that merely looks like a marker
+ *  (e.g. the JS nested array `[[src, 0]]`) is left byte-identical. */
+export function plainCode(text: string, terms: Record<string, unknown>): string {
+  return text.replace(MARKER_RE, (m, a: string, b?: string) => {
+    const display = a.trim();
+    const key = (b ?? a).trim();
+    return key in terms ? display : m;
+  });
+}
+
 /** All glossary keys referenced by markers in the given texts. */
 export function collectKeys(texts: string[]): Set<string> {
   const keys = new Set<string>();
