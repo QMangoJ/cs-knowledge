@@ -43,7 +43,10 @@ export function toView(t: Topic, sources: Map<string, SourceDef>, glossary: Map<
     derivation: "original", sources: [], log: [], ...base,
   });
   const steps: ViewStep[] = [
-    synth({ id: "x-overview", title: "概况", special: "overview", tldr: t.premise, bodyHtml: md(t.premise) }),
+    // bodyHtml stays empty: the premise already renders once as this step's tldr in the
+    // details column (and once on the stage cover). Putting it in the body too printed
+    // the same paragraph twice back-to-back in the details column.
+    synth({ id: "x-overview", title: "概况", special: "overview", tldr: t.premise, bodyHtml: "" }),
     ...t.steps.map(({ body, ...s }) => ({ ...s, bodyHtml: md(body) })),
   ];
   if (t.terminal && t.terminal.length > 0) {
