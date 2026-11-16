@@ -411,8 +411,10 @@ details.ref-sol summary{cursor:pointer;font-weight:700}
 }
 
 /* ================= synthesized steps: 概况 / 终端 / 设计 ================= */
-.special-stage{width:100%;max-width:720px;margin:0 auto;padding:8px 4px;font-family:var(--font-cjk)}
+.special-stage{width:100%;max-width:720px;margin:auto;padding:8px 4px;font-family:var(--font-cjk)}
 .ss-kicker{margin:0 0 10px;font-size:var(--fs-xs);color:var(--ink-muted);letter-spacing:.06em}
+.ss-summary{margin:0 0 12px;font-size:var(--fs-md);line-height:1.8;color:var(--ink)}
+.ss-position{margin:0 0 16px;font-size:var(--fs-sm);line-height:1.75;color:var(--ink-soft)}
 .ss-premise{margin:0;font-size:var(--fs-lg);line-height:1.8;color:var(--ink-strong)}
 .ss-keys{list-style:none;display:flex;flex-wrap:wrap;gap:8px;padding:0;margin:18px 0 0}
 .ss-keys li{border:1px solid var(--active);color:var(--active);border-radius:99px;padding:3px 12px;font-size:var(--fs-sm)}

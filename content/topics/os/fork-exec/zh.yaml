@@ -6,28 +6,28 @@ status: published
 license: CC-BY-4.0
 title: 进程的诞生：fork + exec + wait
 summary: 在终端敲下一个命令，bash 是怎样把它变成一个新运行的程序的。
-premise: 以在 Linux 的 bash 里输入 ls 为例。
+premise: 你在终端里敲下一个命令，比如 ls，屏幕上立刻就跑出了结果，这个新程序到底是怎么被创建出来的？本课以在 Linux 的 bash 里输入 ls 为例，看 shell 怎样先复制自己、再把子进程换成 ls。
 position: 紧接调用号这条线索的是进程管理板块：bash 启动 ls，用的正是 fork、execve 这组系统调用背后的机制。这里拆开 fork 返回两次的约定、写时复制如何只拷页表，以及不 wait 就会留下僵尸的回收协议。读完便可复述敲下一条命令后进程树如何多出一个节点，也能分辨 exec 换映像与再造进程的差别。
 bridge:
   prev: 系统调用课把入口定格在 syscall 指令与寄存器传参上，本课直接穿过这扇门，用 fork 的双返回值在父子之间分岔出两条执行流。
   next: 子进程被 exec 换上新映像后便想独占 CPU 狂奔，可核心只有一个，内核凭什么在它陷入死循环时仍能把 CPU 夺回来分给别人？
 overview:
   - key: 一句话总结
-    value: fork 复制自己，exec 换成新程序，wait 等它结束
+    value: 新进程的诞生分三步，fork 先把当前进程复制一份，exec 再把子进程换成要跑的新程序，wait 让父进程等它结束。三步分开，中间就留出了布置子进程的机会。
   - key: 什么是进程
-    value: 正在运行的程序：代码 + 内存 + 打开的文件 + 运行状态
+    value: 进程就是一个正在运行的程序，它包括代码、内存、打开的文件和当前的运行状态。同样一个程序开两个窗口，就是两个进程，各跑各的互不干扰。
   - key: 为什么分两步
-    value: fork 和 exec 之间，可以先布置子进程（如重定向输出）
+    value: fork 和 exec 分成两步，中间这段时间可以先布置子进程，比如把它的输出重定向到文件。shell 的重定向和管道，都是在这个空档里安排好的。
   - key: 常见用法
     value: shell 运行命令、管道 a | b 都是这套动作；Node.js 里启动子进程跑外部命令的 child_process，底层走的也是同一套
   - key: 收尾
-    value: 父进程不 wait，子进程会变成僵尸进程
+    value: 父进程如果不调用 wait 来收尾，子进程结束后会变成僵尸进程。它已经不干活了，只剩一条退出记录占着位置，等父进程来取走。
   - key: 进程状态
     value: 运行（R）：正在跑或排队等 CPU；睡眠（S/D）：睡下等事件或磁盘，D 连信号都叫不醒；停止（T）：被信号暂停（如调试时）；僵尸（Z）：已退出、只等父进程来收退出码
   - key: 进程 vs 线程
-    value: Linux 上都用 clone 创建：线程共享地址空间，进程各有一份
+    value: Linux 上进程和线程都用 clone 创建，区别在于共享多少东西。线程共享同一片地址空间，进程则各有一份，clone 时的标志决定了到底共享哪些。
   - key: posix_spawn / vfork
-    value: 不需要在中间布置时，可一步创建并执行，开销更小
+    value: 如果不需要在中间布置子进程，可以用 posix_spawn 一步把创建和执行做完，开销更小。vfork 是更早的省法，只适合很受限的场景，现在一般优先用 posix_spawn。
 visual: swimlane
 lanes:
   - id: parent

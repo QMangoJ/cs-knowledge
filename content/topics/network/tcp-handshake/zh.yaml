@@ -6,14 +6,14 @@ status: published
 license: CC-BY-4.0
 title: TCP 三次握手与四次挥手
 summary: 连接建立要三次握手、断开要四次挥手，背后是序号、确认与状态机的严丝合缝。
-premise: 以浏览器（客户端）连接一台推理服务（服务器）为例，看 SYN/ACK 与 seq 号如何对齐。
+premise: 浏览器要向一台服务器发数据之前，双方素未谋面，连对方在不在、自己发的字节该从哪个序号开始数都没对齐，直接发就会乱套。本课看 TCP 怎样在正式发数据之前先把这些事谈妥，样本是浏览器（客户端）连接一台推理服务（服务器），重点看 SYN 与 ACK 报文和 seq 序号如何对齐，顺带看连接结束时为什么还要再走一遍挥手流程。
 position: 本课属于「建立可靠连接」板块，也是计算机网络路径的入口站，因为任何请求发出前都得先让双方对齐初始序号、确认双向可达，坐标系没立住后面无从谈起。学完你能用序号与确认号算清为什么两次握手挡不住迟到的旧
   SYN，也能解释四次挥手里 TIME_WAIT 为何要守满 2MSL。
 bridge:
   next: 连接既已从 CLOSED 走到 ESTABLISHED，下一课顺着这条现成通道追问一次 HTTPS 请求的完整一生：DNS、TLS 握手与 chunked 流式响应如何把往返账叠到首 token 上。
 overview:
 - key: 一句话总结
-  value: 握手是双方交换初始序号并确认对方收得到，挥手是各自关闭发送方向
+  value: 握手是双方交换初始序号并确认对方收得到，挥手是各自关闭自己的发送方向。先把序号的起点对齐，后面每个字节排第几、丢没丢、要不要重传才都有了统一的计数标准。
 - key: 为什么三次
   value: 三次握手的核心理由（RFC 9293）是防旧的重复 SYN 让双方对连接状态产生混乱，两次做不到
 - key: 关键字段
@@ -21,7 +21,7 @@ overview:
 - key: 状态
   value: CLOSED → SYN_SENT/SYN_RCVD → ESTABLISHED；关闭经 FIN_WAIT/TIME_WAIT
 - key: 代价
-  value: 建连要 1 个 RTT 才能发数据，TLS 还要再叠加握手
+  value: 建连要 1 个 RTT 才能发数据，TLS 还要再叠加握手。也就是说连接刚建好时一个来回已经花掉了，用户请求的第一个字节还没出发；短连接频繁新建时，这笔固定开销会占掉总时间的很大一块。
 - key: 在终端里看一看
   value: ss -tn state time-wait　看 TIME_WAIT 连接；tcpdump -i any port 443　抓握手包
 visual: swimlane

@@ -226,6 +226,8 @@ function SpecialStage({ step, topic }: { step: ViewStep; topic: ViewTopic }) {
     return (
       <div className="special-stage">
         <p className="ss-kicker">{t.overview}</p>
+        <p className="ss-summary">{topic.summary}</p>
+        {topic.position && <p className="ss-position">{topic.position}</p>}
         <p className="ss-premise">{topic.premise}</p>
         <ul className="ss-keys">{topic.overview.map((o) => <li key={o.key}>{o.key}</li>)}</ul>
       </div>

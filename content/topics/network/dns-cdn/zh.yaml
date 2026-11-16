@@ -6,7 +6,7 @@ status: published
 license: CC-BY-4.0
 title: DNS 解析与 CDN：名字如何变成最近的服务器
 summary: 递归与迭代查询、多级缓存与 TTL，再到 CDN 边缘节点为什么能让全球访问都快。
-premise: 以第一次打开 cs.ki-toko.com、在东京与圣保罗各访问一次为例。
+premise: 你在浏览器里输入一个域名，电脑根本不认识这个名字，它只认 IP 地址，中间是谁把名字问成了地址、又凭什么让你连上的服务器离你很近？本课用第一次打开 cs.ki-toko.com 为例，并在东京与圣保罗各访问一次做对照，看同一次访问在两地走出的解析与就近接入有什么不同。
 position: 本课归入「名字变地址」板块，专补上一课请求旅程里被压缩成一步的 DNS 环节：域名不先解析成 IP，后面的 TCP 握手连对象都找不到。学完你能画出根、顶级域到权威的迭代链条，也能用 TTL
   的定量账判断一次故障切换到底要提前多久降 TTL 才来得及。
 bridge:
@@ -20,7 +20,7 @@ overview:
 - key: 记录
   value: A/AAAA 给 IP，CNAME 给别名（CDN 调度的关键抓手）
 - key: TTL
-  value: 缓存有效期，秒级权衡新鲜与查询量
+  value: TTL 是缓存有效期，是在新鲜与查询量之间的秒级权衡。TTL 设得长，解析结果被反复使用、查询量小，但记录改了之后要等旧缓存过期才生效；TTL 设得短，变更生效快，代价是大家更频繁地回来重新问。
 - key: 在终端里看一看
   value: dig cs.ki-toko.com　看解析结果与 TTL；dig +trace　看逐级迭代
 visual: swimlane

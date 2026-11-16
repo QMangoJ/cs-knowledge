@@ -6,7 +6,7 @@ status: published
 license: CC-BY-4.0
 title: 一个 HTTP 请求的一生：从点击到流式响应
 summary: DNS、TCP、TLS、请求、响应一次走完，并讲清 LLM API 为什么用流式输出。
-premise: 以浏览器请求 https://api.example.com/v1/chat（一次流式推理调用）为例。
+premise: 你在网页上点一下，或者调用一次流式推理接口，从这一下点击到第一个字出现在屏幕上，中间到底经过了哪些步骤、各花了多少时间？本课跟着一个具体请求走完它的一生，样本是浏览器请求 https://api.example.com/v1/chat，也就是一次流式推理调用，看它怎样建连、发请求、再一段一段地收响应。
 position: 本课落在「一次请求的旅程」板块，紧接上一课握手抵达 ESTABLISHED 之后的那一刻：通道既已对齐序号，下一步就看请求怎样沿它走完 TLS 验证与响应回程。学完你能逐段拆出冷启动约 3 个 RTT 的构成，也能说清
   SSE 为何用 chunked 分块就能实现逐 token 推送而不必动用 WebSocket。
 bridge:
@@ -16,7 +16,7 @@ overview:
 - key: 一句话总结
   value: 一次 HTTPS 请求 = DNS 解析 + TCP 握手 + TLS 握手 + 请求/响应，可能叠加 3–4 个 RTT 才见到数据
 - key: TLS
-  value: 用证书验证身份、用 (EC)DHE 协商出对称会话密钥，之后全程对称加密
+  value: TLS 用证书验证身份、用 (EC)DHE 协商出对称会话密钥，之后全程对称加密。先用证书确认对面确实是你要连的服务器，再协商出一把只有双方知道的钥匙，后面的大量数据都用这把钥匙加密，速度比全程用非对称加密快得多。
 - key: 流式响应
   value: chunked 传输或 SSE：服务器边生成边发，客户端边收边渲染
 - key: SSE vs WebSocket
