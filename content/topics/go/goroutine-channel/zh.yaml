@@ -104,12 +104,12 @@ steps:
     - label: 1 万个执行流的栈
       cells:
       - v: "10–80 GB"
-        sub: 线程：每线程栈 1–8MB 固定预留
+        sub: 每线程 1–8MB
       - v: 约 20 MB
-        sub: goroutine：每协程 2KB 起步、按需长大
+        sub: 2KB 起按需长
         mark: active
       - v: 约千倍
-        sub: 差距：决定了能不能一连接一执行流
+        sub: 决定写法上限
         mark: active
   log:
   - at: 账一
@@ -139,12 +139,12 @@ steps:
     - label: 栈的管理方式
       cells:
       - v: 固定预留
-        sub: 线程栈：定下不能动、只能多给
+        sub: 定死只能多给
       - v: "2KB 起步"
-        sub: goroutine 栈：不够时整段拷贝扩容
+        sub: 不够整段扩容
         mark: active
       - v: 无感
-        sub: 程序员：不设大小、不管伸缩
+        sub: 不设不管
         mark: active
   log:
   - at: 机制
@@ -172,14 +172,14 @@ steps:
     - label: 谁是谁
       cells:
       - v: 任务
-        sub: G：goroutine，可开几十万个
+        sub: 可开几十万个
       - v: 工人
-        sub: M：操作系统线程，按需增减
+        sub: 线程按需增减
       - v: 工位×8
-        sub: P：带本地队列，个数=GOMAXPROCS
+        sub: 决定并行上限
         mark: active
       - v: M 先拿 P
-        sub: 规则：没 P 的线程跑不了 G
+        sub: 没 P 跑不了
   log:
   - at: 要点
     text: 并行度看 P，不看 G 也不看 M 的数量
@@ -206,13 +206,13 @@ steps:
     - label: 分活规则
       cells:
       - v: 偷一半
-        sub: 某 P 队列空：从别的 P 队列尾部取
+        sub: 从别处尾部取
         mark: active
       - v: P 转交
-        sub: M 卡系统调用：队列换个线程继续跑
+        sub: 队列换线程跑
         mark: active
       - v: 交 netpoller
-        sub: 等网络数据：线程不陪等、数据到再唤醒
+        sub: 线程不陪等
         mark: active
   log:
   - at: 目标
@@ -246,12 +246,12 @@ steps:
     - label: 两种通道
       cells:
       - v: 必须会合
-        sub: 无缓冲：发送等接收到场才完成
+        sub: 等接收到场
         mark: active
       - v: 先放仓库
-        sub: 带缓冲：没满时发送方放下就走
+        sub: 没满放下就走
       - v: 传值即同步
-        sub: 共同点：交接建立先后关系
+        sub: 交接即先后
         mark: active
   log:
   - at: 语义
@@ -279,12 +279,12 @@ steps:
     - label: 组织方式对比
       cells:
       - v: 数据不动人动
-        sub: 共享内存+锁：锁错一处就出竞态
+        sub: 锁错就竞态
       - v: 数据流动
-        sub: channel 流水线：所有权随交接转移
+        sub: 所有权随交接
         mark: active
       - v: 计数器类状态
-        sub: 例外：直接用 Mutex 更顺手
+        sub: Mutex 更顺手
   log:
   - at: 出处
     text: CSP（Hoare, 1978）→ Go 的语言级实现
@@ -320,12 +320,12 @@ steps:
     - label: select 的 case
       cells:
       - v: 先到先处理
-        sub: 结果通道：多个就绪时随机挑一
+        sub: 多就绪随机挑
         mark: active
       - v: 200ms 超时
-        sub: 定时通道：time.After 提供
+        sub: time.After
       - v: 有就收没有走
-        sub: default：非阻塞模式
+        sub: 非阻塞模式
   log:
   - at: 坑
     text: 已关闭的通道在 select 里永远就绪，循环里要防空转
@@ -352,11 +352,11 @@ steps:
     - label: 死锁图鉴 · 上
       cells:
       - v: 当场 fatal
-        sub: 自发自收：全部 goroutine 睡死才触发
+        sub: 全睡死才触发
       - v: 静默挂死
-        sub: 忘了 close：range 永远等下一条
+        sub: 永远等下一条
       - v: 发送方关
-        sub: 规矩：接收方永不关通道
+        sub: 接收方不关
         mark: active
   log:
   - at: 原则
@@ -384,11 +384,11 @@ steps:
     - label: 死锁图鉴 · 下
       cells:
       - v: 互相卡发送
-        sub: 循环等待：堆栈里成对停在 chan send
+        sub: 成对停在发送
       - v: 越积越多
-        sub: 泄漏：每次请求丢一个 goroutine
+        sub: 每次丢一个
       - v: select+取消
-        sub: 防御：阻塞操作都要有逃生口
+        sub: 阻塞要有逃生口
         mark: active
   log:
   - at: 纪律
@@ -416,11 +416,11 @@ steps:
     - label: 边界检查
       cells:
       - v: 太细不划算
-        sub: 任务粒度：调度开销盖过任务本身
+        sub: 开销盖过任务
       - v: 先想清
-        sub: 协调问题：所有权、收尾、顺序
+        sub: 所有权与收尾
       - v: 先顺序后并发
-        sub: 顺序：瓶颈测出来再改
+        sub: 测出瓶颈再改
         mark: active
   log:
   - at: 收束

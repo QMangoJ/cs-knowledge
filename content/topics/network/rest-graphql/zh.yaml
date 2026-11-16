@@ -103,13 +103,13 @@ steps:
     - label: 三端的胃口
       cells:
       - v: 约 35 个字段
-        sub: 管理后台：地址、物流、优惠全要
+        sub: 几乎全要
       - v: 6 个字段
-        sub: App 列表：其余全是浪费的流量
+        sub: 其余是浪费
       - v: 3 个字段
-        sub: 手表卡片：状态与金额
+        sub: 只看状态金额
       - v: 取多或取少
-        sub: 固定接口的病：总有一端不合身
+        sub: 总有一端不合身
   log:
   - at: 分岔口
     text: 合同定死在服务器，还是让客户端点菜
@@ -136,12 +136,12 @@ steps:
     - label: URL 风格对照
       cells:
       - v: /orders/123
-        sub: 资源式：名词定位、方法表动作
+        sub: 名词加方法
         mark: active
       - v: /getOrder?id=123
-        sub: 动作式：每个动作造一个新词
+        sub: 每动作造新词
       - v: /orders/123/items
-        sub: 层级：归属关系写在路径里
+        sub: 归属写在路径
         mark: active
   log:
   - at: 判据
@@ -169,16 +169,16 @@ steps:
     - label: 方法速查
       cells:
       - v: 查 · 幂等
-        sub: GET：不许有副作用
+        sub: 不许有副作用
         mark: active
       - v: 整体替换 · 幂等
-        sub: PUT：重发结果不变
+        sub: 重发不变
         mark: active
       - v: 删 · 幂等
-        sub: DELETE：删十次等于删一次
+        sub: 删十次一样
         mark: active
       - v: 建 · 不幂等
-        sub: POST：重发会多一份，要配幂等键
+        sub: 要配幂等键
   log:
   - at: 事故线
     text: 重试是否安全，先看方法再谈实现
@@ -205,14 +205,14 @@ steps:
     - label: 状态码分工
       cells:
       - v: 成功
-        sub: 2xx：201=已创建并给新 URL
+        sub: 201 已创建
         mark: active
       - v: 调用方的错
-        sub: 4xx：400 参数、404 不存在、409 冲突
+        sub: 参数/不存在/冲突
       - v: 服务器的错
-        sub: 5xx：一般可重试、要告警
+        sub: 可重试要告警
       - v: 永远 200
-        sub: 反例：监控、重试、缓存全部失灵
+        sub: 三件全失灵
   log:
   - at: 原则
     text: 状态码做第一层分类，业务 code 只做细分
@@ -249,12 +249,12 @@ steps:
     - label: 错误体的读者
       cells:
       - v: 稳定错误码
-        sub: 机器：做分支与文案映射、永不改名
+        sub: 永不改名
         mark: active
       - v: 可读说明
-        sub: 人：给用户看、给日志留
+        sub: 给人看留日志
       - v: 不抛堆栈
-        sub: 红线：内部细节不外泄
+        sub: 细节不外泄
   log:
   - at: 标准
     text: RFC 9457 是现成的答案，不必自创
@@ -281,11 +281,11 @@ steps:
     - label: offset 的账
       cells:
       - v: 越深越慢
-        sub: 性能账：跳过=逐行数过去再丢掉
+        sub: 逐行数过去
       - v: 会重会漏
-        sub: 正确性账：翻页期间插入新数据即错位
+        sub: 插入即错位
       - v: 小数据+跳页
-        sub: 适用区：后台表格仍是它的地盘
+        sub: 后台表格适用
         mark: active
   log:
   - at: 判断线
@@ -313,15 +313,15 @@ steps:
     - label: 游标的账
       cells:
       - v: 恒定成本
-        sub: 换来：顺索引定位书签、与深度无关
+        sub: 与深度无关
         mark: active
       - v: 不重不漏
-        sub: 换来：插入新数据不挤动已翻位置
+        sub: 插入不挤动
         mark: active
       - v: 跳页与总数
-        sub: 放弃：只有上一页/下一页
+        sub: 只有上下页
       - v: 稳定排序键
-        sub: 前提：id 或时间+id 复合键
+        sub: 要唯一排序键
         mark: active
   log:
   - at: 对照
@@ -349,13 +349,13 @@ steps:
     - label: 版本策略
       cells:
       - v: 加字段加接口
-        sub: 安全变更：老客户端无感、直接上线
+        sub: 老端无感
         mark: active
       - v: "/v1 与 /v2 并行"
-        sub: REST：流量降下来再下线旧版
+        sub: 流量降再下线
         mark: active
       - v: 不升版本
-        sub: GraphQL："@deprecated 标记、只增不减"
+        sub: 标记弃用只增不减
         mark: active
   log:
   - at: 纪律
@@ -393,12 +393,12 @@ steps:
     - label: 点菜模式
       cells:
       - v: 只有一个
-        sub: 端点：POST /graphql
+        sub: 就一个端点
         mark: active
       - v: schema
-        sub: 合同：类型系统写明全部字段
+        sub: 写明全部字段
       - v: 与查询同形
-        sub: 返回：点到的才给
+        sub: 点到才给
         mark: active
   log:
   - at: 出身
@@ -426,12 +426,12 @@ steps:
     - label: N+1 的账
       cells:
       - v: 51 条 SQL
-        sub: 天真实现：1 次查列表 + 50 次查人
+        sub: 1+50 次查询
       - v: 2 条 SQL
-        sub: DataLoader：批量 IN 查询 + 请求内缓存
+        sub: 批量加缓存
         mark: active
       - v: REST 也会犯
-        sub: 提醒：只是 GraphQL 更容易中招
+        sub: GraphQL 易中招
   log:
   - at: 标配
     text: 上 GraphQL 就要同时上 DataLoader
@@ -458,11 +458,11 @@ steps:
     - label: 三笔账
       cells:
       - v: HTTP 缓存失效
-        sub: 缓存：靠客户端缓存或持久化查询补
+        sub: 要另起一套
       - v: 深查询可打爆库
-        sub: 复杂度：限深、算成本、限批量
+        sub: 限深算成本
       - v: 全是 200
-        sub: 监控：按操作名与字段重新打点
+        sub: 按操作名打点
   log:
   - at: 共性
     text: 都能解，都要自己出工程量
@@ -489,16 +489,16 @@ steps:
     - label: 选谁
       cells:
       - v: 资源稳+要缓存
-        sub: REST：对外开放、第三方生态
+        sub: 开放与生态
         mark: active
       - v: 多端+字段差异大
-        sub: GraphQL：聚合视图、前端迭代快
+        sub: 聚合与快迭代
         mark: active
       - v: REST 对外
-        sub: 并用：GraphQL 网关对内聚合
+        sub: 网关对内聚合
         mark: active
       - v: 约束→取舍→补救
-        sub: 面试答法：背优劣点拿不到分
+        sub: 背优劣没分
   log:
   - at: 收束
     text: 选型题答的是账，不是立场

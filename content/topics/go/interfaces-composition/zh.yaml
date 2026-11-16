@@ -103,16 +103,16 @@ steps:
     - label: 依赖关系
       cells:
       - v: 只认 Charge
-        sub: 订单模块：接口由使用方定义
+        sub: 使用方定义
         mark: active
       - v: 有此方法
-        sub: 渠道 A 客户端：直接可用
+        sub: 直接可用
         mark: active
       - v: 也有此方法
-        sub: 渠道 B 的 SDK：第三方、从未声明
+        sub: 第三方未声明
         mark: active
       - v: 测试替身
-        sub: 假支付：同样凑齐一个方法
+        sub: 凑齐一方法
   log:
   - at: 关键点
     text: 接口写在使用方的地盘上，不在实现方的声明里
@@ -139,12 +139,12 @@ steps:
     - label: 关系怎么成立
       cells:
       - v: 写 implements
-        sub: 声明式：关系登记在实现方
+        sub: 登记在实现方
       - v: 核对方法集
-        sub: Go：赋值那一刻编译器检查
+        sub: 赋值时检查
         mark: active
       - v: 编译期
-        sub: 安全网：方法缺失直接编不过
+        sub: 缺方法编不过
         mark: active
   log:
   - at: 对比
@@ -172,12 +172,12 @@ steps:
     - label: 接口的位置
       cells:
       - v: 大而全
-        sub: 跟着实现方：使用方被迫依赖整包
+        sub: 被迫依赖整包
       - v: 只写所需
-        sub: 跟着使用方：依赖被裁到最小
+        sub: 依赖裁到最小
         mark: active
       - v: 收接口返结构体
-        sub: 函数签名：入口宽、出口实
+        sub: 入口宽出口实
         mark: active
   log:
   - at: 惯例
@@ -211,14 +211,14 @@ steps:
     - label: 谁满足 io.Reader
       cells:
       - v: os.File
-        sub: 文件：磁盘数据
+        sub: 磁盘数据
       - v: net.Conn
-        sub: 网络连接：远端数据
+        sub: 远端数据
       - v: 包装 Reader
-        sub: 解压/解密流：层层套娃、消费方无感
+        sub: 层层包装无感
         mark: active
       - v: 只需 1 个方法
-        sub: 共同点：要求少、满足者多
+        sub: 要求少满足多
         mark: active
   log:
   - at: 原则
@@ -256,12 +256,12 @@ steps:
     - label: 嵌入的账
       cells:
       - v: 方法与字段
-        sub: 得到：内层的直接借用
+        sub: 直接借用
         mark: active
       - v: is-a 关系
-        sub: 没得到：外层不是内层的子类
+        sub: 不是子类
       - v: 同名取外层
-        sub: 遮蔽：最近一层说了算
+        sub: 最近层说了算
         mark: active
   log:
   - at: 分工
@@ -289,12 +289,12 @@ steps:
     - label: 组合 vs 继承
       cells:
       - v: 设计期 vs 装配期
-        sub: 耦合位置：树钉死 vs 拼装可见
+        sub: 钉死 vs 可见
         mark: active
       - v: 继承波及全树
-        sub: 改基类的影响：组合只动装配处
+        sub: 组合只动装配
       - v: 稳定的 is-a 树
-        sub: 继承更强处：如 UI 控件层级
+        sub: 如 UI 控件树
   log:
   - at: 态度
     text: 默认组合，但说得出继承赢在哪
@@ -329,13 +329,13 @@ steps:
     - label: 错误的传递方式
       cells:
       - v: 结果+error
-        sub: 返回：并排放在返回值里
+        sub: 与结果并排
         mark: active
       - v: 当场表态
-        sub: 调用方：处理、包装或忽略都要写出来
+        sub: 必须当场表态
         mark: active
       - v: 单方法接口
-        sub: error 本质：Error() string
+        sub: 就一个方法
   log:
   - at: 收益
     text: 失败路径在代码里全程可见
@@ -362,12 +362,12 @@ steps:
     - label: 失败的分流
       cells:
       - v: error 返回
-        sub: 日常错误：文件不存在、网络超时、参数错
+        sub: 文件、网络、参数
         mark: active
       - v: panic
-        sub: 程序错误：索引越界等逻辑已崩的局面
+        sub: 逻辑已崩局面
       - v: recover 转 error
-        sub: 库的边界：别把 panic 漏给调用方
+        sub: 不漏给调用方
   log:
   - at: 分界
     text: 业务错误是正常输入，程序错误才是异常
@@ -394,11 +394,11 @@ steps:
     - label: 代价与补救
       cells:
       - v: 样板重复
-        sub: 代价一：if err != nil 高频出现
+        sub: 高频出现
       - v: 上下文丢失
-        sub: 代价二：裸返回只剩底层一句
+        sub: 裸返回丢上下文
       - v: "%w 逐层包装"
-        sub: 补救：错误链 + Is/As 判定
+        sub: 错误链可追溯
         mark: active
   log:
   - at: 纪律
@@ -426,13 +426,13 @@ steps:
     - label: 回答框架
       cells:
       - v: 主动删
-        sub: 立场：与大团队长寿命目标冲突
+        sub: 与目标冲突
         mark: active
       - v: 接口+组合+error
-        sub: 替代：多态、复用、失败各有归属
+        sub: 各有归属
         mark: active
       - v: 要认账
-        sub: 代价：不可见与啰嗦及补救
+        sub: 不可见与啰嗦
   log:
   - at: 收束
     text: 三课一条线：一切关系与控制流都写在明处

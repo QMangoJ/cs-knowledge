@@ -1,0 +1,11 @@
+import { chromium } from "playwright-core";
+const b = await chromium.launch({ executablePath: process.env.CHROME, args: ["--no-sandbox"] });
+const base = "http://127.0.0.1:4174";
+const d = await (await b.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
+await d.goto(base + "/go/origins/4/", { waitUntil: "networkidle" });
+await d.screenshot({ path: "/tmp/shot-origins4.png" });
+const m = await (await b.newContext({ viewport: { width: 390, height: 844 } })).newPage();
+await m.goto(base + "/network/rest-graphql/11/", { waitUntil: "networkidle" });
+await m.screenshot({ path: "/tmp/shot-rest11-mobile.png" });
+await b.close();
+console.log("done");

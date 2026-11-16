@@ -99,11 +99,11 @@ steps:
     - label: 三笔账
       cells:
       - v: "45 分钟"
-        sub: 编译：C++ 一次构建的量级
+        sub: 一次构建的量级
       - v: 多核
-        sub: 硬件：单核提速停滞后靠核数涨
+        sub: 靠核数涨性能
       - v: 千人规模
-        sub: 代码库：同一批服务代码多人维护
+        sub: 多人维护同一批代码
   log:
   - at: "2007-09"
     text: 三位设计者在等构建时开始在白板上画新语言
@@ -134,13 +134,13 @@ steps:
     - label: 约束 → 回答
       cells:
       - v: 并发内置
-        sub: 多核：goroutine 与 channel 进语言
+        sub: 协程与通道进语言
         mark: active
       - v: 等待便宜
-        sub: 网络服务：海量连接各占一个协程
+        sub: 每连接一个协程
         mark: active
       - v: 极简+快编译
-        sub: 大代码库：少特性、依赖简单
+        sub: 少特性、依赖简单
         mark: active
   log:
   - at: 标尺
@@ -168,14 +168,14 @@ steps:
     - label: 关键字计数
       cells:
       - v: "25"
-        sub: Go：Go 1 至今不变
+        sub: Go 1 至今不变
         mark: active
       - v: "50+"
-        sub: Java：量级对比
+        sub: 量级对比
       - v: "90+"
-        sub: C++：量级对比
+        sub: 量级对比
       - v: 只有 for
-        sub: 循环语法：没有 while 与 do-while
+        sub: 没有 while
         mark: active
   log:
   - at: 效果
@@ -205,12 +205,12 @@ steps:
     - label: 编译一个文件
       cells:
       - v: 整张网
-        sub: C++：头文件传递包含、层层解析
+        sub: 头文件层层解析
       - v: 只读直接依赖
-        sub: Go：读已编译的导出信息
+        sub: 只读导出信息
         mark: active
       - v: 编译报错
-        sub: 未用导入：逼依赖图保持干净
+        sub: 逼依赖保持干净
         mark: active
   log:
   - at: 账
@@ -238,12 +238,12 @@ steps:
     - label: 部署清单
       cells:
       - v: 运行时+库+代码
-        sub: 虚拟机型语言：版本要逐个对齐
+        sub: 版本逐个对齐
       - v: 1 个文件
-        sub: Go：静态链接、自带运行时
+        sub: 静态链接自带运行时
         mark: active
       - v: 可小到几十 MB
-        sub: Docker 镜像：scratch 镜像只放二进制
+        sub: 镜像只放它
         mark: active
   log:
   - at: 效果
@@ -273,12 +273,12 @@ steps:
     - label: 并发原语在哪
       cells:
       - v: 一连接一线程
-        sub: 老模型：线程贵、要池化算计
+        sub: 线程贵要算计
       - v: 一连接一协程
-        sub: Go：go 关键字直接启动
+        sub: go 关键字启动
         mark: active
       - v: GC 托管
-        sub: 内存：换内存安全与开发速度
+        sub: 托管内存回收
         mark: active
   log:
   - at: 下一课
@@ -306,12 +306,12 @@ steps:
     - label: 多态怎么来
       cells:
       - v: 先建树
-        sub: 继承：关系提前声明、改基类波及全树
+        sub: 改基类波及全树
       - v: 方法对上就算
-        sub: Go 接口：不声明、编译器核对方法集
+        sub: 编译器核对方法集
         mark: active
       - v: 靠组合
-        sub: 复用：把现成类型嵌进来借用
+        sub: 嵌进来借用
         mark: active
   log:
   - at: 第三课
@@ -345,13 +345,13 @@ steps:
     - label: 三条路的代价
       cells:
       - v: 慢在人
-        sub: 手写每份：等于没有泛型
+        sub: 等于没有泛型
       - v: 编译慢+膨胀
-        sub: 编译期全展开：C++ 模板的路
+        sub: C++ 模板的路
       - v: 运行慢
-        sub: 运行时装箱：早期 Java 的路
+        sub: 早期 Java 的路
       - v: 类型参数+约束
-        sub: 1.18 方案：检查在编译期、实现取平衡
+        sub: 编译期检查
         mark: active
   log:
   - at: "2009"
@@ -381,12 +381,12 @@ steps:
     - label: 承诺的账
       cells:
       - v: 升级不坏代码
-        sub: 使用者得到：敢把生产系统压上来
+        sub: 敢压生产系统
         mark: active
       - v: 特性近乎永久
-        sub: 设计者背上：准入门槛被推到极高
+        sub: 准入门槛极高
       - v: 进化慢而稳
-        sub: 结果：六个月一版、极少破例
+        sub: 半年一版极少破例
         mark: active
   log:
   - at: 收束
