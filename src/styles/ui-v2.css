@@ -1,0 +1,100 @@
+/* ================= UI v2 sample (gated by .uiv2) =================
+ * Every rule in this file is scoped under .uiv2, which is only ever added by
+ * the gated sample surfaces (distributed subject section + cap-consistency
+ * reader). Non-sample pages never carry the class, so nothing here can leak.
+ *
+ * Type ladder (modular, ratio 1.25): 13 / 16 / 20 / 25 / 31.
+ *   meta 13 · body & lesson names 16 · step titles 20 · block headings 25 ·
+ *   subject name 31  →  first-level headings are ≥1.4× the lesson-name size.
+ * Text hierarchy uses the stepped ink tokens only (strong = headings,
+ * ink = body, soft = secondary, muted = meta) — no border stacking. */
+
+/* ---------- shared bits ---------- */
+.uiv2 .v2-progress{flex:1;height:8px;background:var(--line-soft);border-radius:99px;overflow:hidden;min-width:80px}
+.uiv2 .v2-progress > div{height:100%;background:var(--ok);transition:width var(--dur-slow) var(--ease-out)}
+
+/* ================= subject page sample (home, distributed section) ================= */
+.uiv2-subject .v2-subject-name{font-size:31px;line-height:1.3;color:var(--ink-strong);margin:0}
+.uiv2-subject .v2-tagline{font-family:var(--font-cjk);font-size:16px;line-height:1.8;color:var(--ink-soft);margin:10px 0 0;max-width:46em}
+.uiv2-subject .v2-progress-row{display:flex;align-items:center;gap:14px;margin-top:18px;max-width:560px}
+.uiv2-subject .v2-progress-text{font-size:13px;color:var(--ink-soft);white-space:nowrap;font-family:var(--font-cjk)}
+.uiv2-subject .v2-block{margin-top:36px}
+.uiv2-subject .v2-block-name{font-size:25px;line-height:1.35;color:var(--ink-strong);margin:0}
+.uiv2-subject .v2-block-blurb{font-family:var(--font-cjk);font-size:16px;line-height:1.8;color:var(--ink-soft);margin:6px 0 0;max-width:46em}
+.uiv2-subject .v2-rows{list-style:none;margin:16px 0 0;padding:0;display:grid;gap:10px}
+.uiv2-subject .v2-row{display:flex;align-items:center;gap:16px;background:var(--panel);border-radius:var(--radius-lg);padding:14px 18px;text-decoration:none;color:inherit;transition:background var(--dur-fast)}
+.uiv2-subject a.v2-row:hover{background:var(--line-soft)}
+.uiv2-subject a.v2-row:focus-visible{outline:2px solid var(--active);outline-offset:2px}
+.uiv2-subject .v2-row-main{min-width:0}
+.uiv2-subject .v2-row-title{font-size:16px;font-weight:700;color:var(--ink-strong);font-family:var(--font-cjk);line-height:1.5}
+.uiv2-subject .v2-row-meta{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:3px;font-size:13px;color:var(--ink-muted)}
+.uiv2-subject .v2-status{margin-left:auto;flex:none;font-size:13px;color:var(--ink-muted);white-space:nowrap;font-family:var(--font-cjk)}
+.uiv2-subject .v2-status.done{color:var(--ok);font-weight:700}
+.uiv2-subject .v2-row.disabled{opacity:.55}
+.uiv2-subject .v2-row.gap{background:transparent;border:1.5px dashed var(--warn)}
+.uiv2-subject .v2-row.gap .v2-row-title{color:var(--ink-soft)}
+
+/* ================= reader sample (cap-consistency player) ================= */
+/* v2-only controls stay hidden until the wide layout is active, so below the
+   breakpoint the DOM behaves exactly like the current player. */
+.uiv2 .v2-only{display:none}
+.uiv2 .v2-tree{display:none}
+
+@container (min-width:1200px){
+  /* --- top bar: one progress readout (text + bar), segments retire --- */
+  .uiv2 .v2-only{display:inline-flex}
+  .uiv2 .p-segments{display:none}
+  .uiv2 .p-stepcount{display:none}
+  .uiv2 .v2-progress-wrap{display:flex;align-items:center;gap:12px;flex:1 1 240px;max-width:420px;min-width:160px}
+  .uiv2 .v2-progress-text{font-size:13px;color:var(--ink-soft);white-space:nowrap}
+  .uiv2 .v2-ctl{font:inherit;font-size:13px;height:30px;padding:0 10px;border:1px solid var(--line-mid);border-radius:var(--radius);background:var(--panel);color:var(--ink-soft);cursor:pointer;white-space:nowrap}
+  .uiv2 .v2-ctl:hover{color:var(--ink-strong);background:var(--line-soft)}
+  .uiv2 .v2-ctl[aria-pressed="true"]{border-color:var(--active);color:var(--active);font-weight:700}
+  .uiv2 .v2-fs-group{display:inline-flex;gap:4px;align-items:center}
+  .uiv2 .v2-fs-label{font-size:13px;color:var(--ink-muted)}
+
+  /* --- three columns; details collapsible --- */
+  .uiv2 .p-grid{grid-template-columns:300px minmax(0,1fr) 400px}
+  .uiv2 .p-grid.details-collapsed{grid-template-columns:300px minmax(0,1fr) 0px}
+  .uiv2 .p-grid.details-collapsed .p-details{display:none}
+
+  /* --- nav tree replaces the flat step list in the rail --- */
+  .uiv2 .p-rail .steplist{display:none}
+  .uiv2 .v2-tree{display:flex;flex-direction:column;gap:20px}
+  .uiv2 .v2-tree-blockname{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;font:inherit;font-size:13px;letter-spacing:.05em;color:var(--ink-muted);background:none;border:none;padding:2px 6px;cursor:pointer;text-align:left}
+  .uiv2 .v2-tree-blockname:hover{color:var(--ink-strong)}
+  .uiv2 .v2-tree-topics{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:2px}
+  .uiv2 .v2-tree-topic > a{display:block;padding:5px 8px;border-radius:6px;color:var(--ink-soft);text-decoration:none;font-family:var(--font-cjk);font-size:15px;line-height:1.5}
+  .uiv2 .v2-tree-topic > a:hover{color:var(--ink-strong);background:var(--line-soft)}
+  .uiv2 .v2-done{color:var(--ok);margin-left:6px;font-weight:700}
+  .uiv2 .v2-tree-topicname{display:block;padding:5px 8px;color:var(--active);font-weight:700;font-family:var(--font-cjk);font-size:15px;line-height:1.5}
+  .uiv2 .v2-tree-steps{list-style:none;margin:2px 0 4px;padding:0 0 0 10px;display:grid;gap:2px}
+  .uiv2 .v2-tree-steps a{display:flex;gap:8px;padding:4px 8px;border-left:2px solid transparent;color:var(--ink-muted);text-decoration:none;font-family:var(--font-cjk);font-size:13.5px;line-height:1.45}
+  .uiv2 .v2-tree-steps a:hover{color:var(--ink-strong);background:var(--line-soft)}
+  .uiv2 .v2-tree-steps .n{font-family:var(--font-mono);color:var(--ink-muted);min-width:1.2em;flex:none}
+  .uiv2 .v2-tree-steps li.done a{color:var(--ink-soft)}
+  .uiv2 .v2-tree-steps li.done .n{color:var(--ok)}
+  .uiv2 .v2-tree-steps li.current a{border-left-color:var(--active);color:var(--ink-strong);background:var(--line-soft)}
+
+  /* --- reading type: body 16/1.8 on the 1.25 ladder --- */
+  .uiv2 .p-details{font-size:16px}
+  .uiv2 .step h2{font-size:20px;line-height:1.45}
+  .uiv2 .step .body{font-size:16px;line-height:1.8}
+  .uiv2 .step .tldr{font-size:16px;line-height:1.8}
+  .uiv2 .topic-intro h1{font-size:25px;line-height:1.4}
+  .uiv2 .topic-intro .summary{font-size:16px;line-height:1.8}
+  .uiv2 .ss-premise{font-size:20px;line-height:1.8}
+  .uiv2 .points ul{font-size:16px;line-height:1.8}
+  .uiv2 .design-item p{font-size:16px;line-height:1.8}
+  .uiv2 .design-item h4{font-size:16px}
+  .uiv2 .p-details .kv{font-size:15px;line-height:1.7}
+  .uiv2 .in-step-sources a,.uiv2 .in-step-sources .claim{font-size:14px}
+  .uiv2 .logbar-scroll table{font-size:14px}
+  .uiv2 .position-card p{line-height:1.8}
+
+  /* --- reading setting: large text (details column only) --- */
+  .uiv2.fs-large .step .body{font-size:18px;line-height:1.85}
+  .uiv2.fs-large .step .tldr{font-size:18px;line-height:1.85}
+  .uiv2.fs-large .points ul{font-size:18px;line-height:1.85}
+  .uiv2.fs-large .design-item p{font-size:18px;line-height:1.85}
+}
