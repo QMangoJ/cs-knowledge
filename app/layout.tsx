@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   icons: { icon: "/favicon.svg", apple: "/apple-touch-icon.png" },
   appleWebApp: { capable: true, title: t.siteName, statusBarStyle: "black-translucent" },
 };
-export const viewport: Viewport = { themeColor: [{ media: "(prefers-color-scheme: dark)", color: "#0b1020" }, { color: "#fcfdfe" }] };
+export const viewport: Viewport = { viewportFit: "cover", themeColor: [{ media: "(prefers-color-scheme: dark)", color: "#0b1020" }, { color: "#fcfdfe" }] };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const { subjects } = loadContent();

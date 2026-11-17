@@ -164,6 +164,19 @@
      follow the content inside the same fixed-height column. */
   .uiv2.player2{padding-bottom:14px}
   .uiv2 .p-rail{margin-top:auto}
+  /* Top compression (Daniel, 2026-11-17): on phones the top stack — crumb,
+     step row, segments, step chips — pushed the stage card a third of the
+     way down the screen. Same elements, tighter packing: row gaps 18px to
+     6px, crumb one size down, slimmer done button and chips. Nothing is
+     removed: station chip, step count, font-size toggle, done button,
+     segments and step chips all stay. */
+  .uiv2 .p-topbar{gap:6px 10px;padding:6px 0 8px}
+  .uiv2 .p-crumb{font-size:var(--fs-xs);gap:4px;line-height:1.45}
+  .uiv2 .p-station{padding:0 7px}
+  .uiv2 .p-topright{gap:8px}
+  .uiv2 .p-topright .mark-done{padding:5px 10px}
+  .uiv2 .step-chips{padding:0 0 4px}
+  .uiv2 .step-chips .chip{padding:3px 10px}
   /* menus first (step chips = the sub-menu's mobile form), then the content
      area, then the rail's extras — same stacking idea as the current player */
   .uiv2 .p-content{order:3;flex:1 1 auto;min-height:0}

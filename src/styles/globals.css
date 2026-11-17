@@ -464,6 +464,10 @@ details.ref-sol summary{cursor:pointer;font-weight:700}
   .sidenav{display:none}
   .sidenav.drawer{display:block;position:fixed;top:0;left:0;bottom:0;z-index:40;width:min(300px,84vw);transform:translateX(-105%);visibility:hidden;transition:transform var(--dur-base) var(--ease-out),visibility 0s linear var(--dur-base);box-shadow:0 0 40px rgba(6,12,28,.35);border-right:1px solid var(--line-mid)}
   .sidenav.drawer.open{transform:none;visibility:visible;transition:transform var(--dur-base) var(--ease-out),visibility 0s}
+  /* iOS safe area: the drawer's list must clear the home indicator; the
+     panel background already runs to the screen edge, only the scrollable
+     content needs the extra bottom room (needs viewport-fit=cover). */
+  .sidenav.drawer{padding-bottom:calc(24px + env(safe-area-inset-bottom))}
   .nav-toggle{display:inline-flex}
   .nav-backdrop{position:fixed;inset:0;background:rgba(6,12,28,.45);z-index:39}
 }
