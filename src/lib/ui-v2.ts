@@ -9,9 +9,12 @@ export const V2_READER_TOPIC_ID = "distributed/cap-consistency";
 /** Sample pulled from production 2026-11-17 (Daniel: mixed old/new sections
  *  on mobile read as a mess). Code stays in tree; gates off until the sample
  *  is reworked as a coherent whole (nav + mobile + desktop) and approved
- *  from screenshots before going live again. */
+ *  from screenshots before going live again.
+ *  reader-form-sample branch only: the reader gate is OPEN here so the
+ *  merged-content-area form can be screenshot-reviewed locally. This branch
+ *  is never deployed; main keeps both gates off. */
 export const isV2Subject = (subject: string): boolean => false;
-export const isV2Reader = (topicId: string): boolean => false;
+export const isV2Reader = (topicId: string): boolean => topicId === V2_READER_TOPIC_ID;
 
 /** localStorage key for the reader font-size setting ("std" | "large"). */
 export const READER_FS_KEY = "cs-reader-fs";

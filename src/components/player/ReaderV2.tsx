@@ -21,26 +21,29 @@ export type ReaderNavData = {
 type NextTopic = { href: string; title: string } | null;
 
 /** UI v2 sample reader (gated to one topic; see lib/ui-v2.ts).
- *  Same DOM skeleton and class names as Player, so below the 1200px container
- *  breakpoint every existing rule applies unchanged and the layout is the
- *  current one. At ≥1200px (ui-v2.css, .uiv2 scope) the rail becomes a subject
- *  nav tree, the details column gains a collapse toggle, the top bar shows a
- *  single progress readout, and a two-level font-size setting applies to the
- *  details column. The stage itself (canvas, one step per screen, manual
- *  navigation, scroll inside the stage) is the Player's, untouched. */
+ *  Form sample (Daniel's spec, 2026-11-17): the left keeps two columns — the
+ *  shell's site nav plus this rail (subject tree / step list) — while the
+ *  right merges the old stage and details into ONE content area. A step with
+ *  a canvas visual puts text left and the visual right (sticky); a step
+ *  without one reads in a single column, stage content first, then details
+ *  (the overview step is then naturally premise → intro → position). The
+ *  content area scrolls internally, the page itself never scrolls, and the
+ *  prev/next controls sit at the bottom of the content area. The old
+ *  collapse-details toggle goes away: merging the two areas is its
+ *  replacement. One step per screen and manual navigation are unchanged. */
 export function ReaderV2({ topic, initialStep, nextTopic, nav, readerNav }: {
   topic: ViewTopic; initialStep: number; nextTopic: NextTopic; nav: PlayerNav; readerNav: ReaderNavData;
 }) {
   const total = topic.steps.length;
   const { index, goTo, next, prev } = usePlayer(topic.subject, topic.slug, total, initialStep);
   const step = topic.steps[index]!;
+  const hasVisual = !!step.canvas;
   const rows = topic.steps.slice(0, index + 1).flatMap((s, si) => s.log.map((r, ri) => ({ r, key: `${si}-${ri}`, fresh: si === index })));
   const caption = step.canvas && step.canvas.kind !== "swimlane" ? step.canvas.caption : undefined;
   const subjectName = t.subjects[topic.subject];
 
   useProgressVersion();
   const mounted = useMounted();
-  const [detailsOpen, setDetailsOpen] = useState(true);
   const [fsLarge, setFsLarge] = useState(false);
   useEffect(() => {
     try { setFsLarge(localStorage.getItem(READER_FS_KEY) === "large"); } catch { /* private mode */ }
@@ -150,14 +153,11 @@ export function ReaderV2({ topic, initialStep, nextTopic, nav, readerNav }: {
               <button type="button" className="v2-ctl" aria-pressed={!fsLarge} onClick={() => applyFs(false)}>标准</button>
               <button type="button" className="v2-ctl" aria-pressed={fsLarge} onClick={() => applyFs(true)}>大</button>
             </span>
-            <button type="button" className="v2-only v2-ctl" aria-expanded={detailsOpen} onClick={() => setDetailsOpen((v) => !v)}>
-              {detailsOpen ? "收起详情" : "展开详情"}
-            </button>
             <MarkDone topicId={topic.id} />
           </div>
         </header>
 
-        <div className={(rows.length > 0 || caption ? "p-grid" : "p-grid no-log") + (detailsOpen ? "" : " details-collapsed")}>
+        <div className={rows.length > 0 || caption ? "p-grid" : "p-grid no-log"}>
           <aside className="p-rail">
             <nav className="v2-tree" aria-label="本学科课程">
               {readerNav.blocks.map((b) => {
@@ -215,8 +215,11 @@ export function ReaderV2({ topic, initialStep, nextTopic, nav, readerNav }: {
             ))}
           </nav>
 
-          <section className="p-stage" aria-label="画布">
-            <div className="canvas-wrap stage-card">
+          <section className={hasVisual ? "p-content has-visual" : "p-content"} aria-label="内容">
+            <div className="p-content-scroll">
+              <div className="p-content-main">
+                <div className="p-visual">
+                  <div className="canvas-wrap stage-card">
               {step.log.length > 0 && (
                 <p className="now-bar" aria-live="polite"><b>{t.nowHappening}</b>{plainText(step.log.map((r) => topic.logColumns.map((c) => r[c.key]).filter(Boolean).join(" · ")).join("；"))}</p>
               )}
@@ -227,18 +230,8 @@ export function ReaderV2({ topic, initialStep, nextTopic, nav, readerNav }: {
                 <ul className="regs">{step.canvas.registers.map((r) => <li key={r.name} className={r.changed ? "changed" : ""}><code>{plainText(r.name)}</code> <Tx text={r.value} terms={topic.terms} /></li>)}</ul>
               )}
             </div>
-            <div className="stepnav stage-controls" role="toolbar" aria-label="步骤导航">
-              <button type="button" onClick={prev} disabled={index === 0}>← {t.prev}</button>
-              <input className="scrub" type="range" min={0} max={total - 1} value={index} aria-label={t.scrub}
-                onChange={(e) => goTo(Number(e.target.value))} />
-              <span className="count">{index + 1} / {total}</span>
-              {index < total - 1
-                ? <button type="button" onClick={next}>{t.next} →</button>
-                : nextTopic ? <a className="btn" href={nextTopic.href}>{t.nextTopic}：{nextTopic.title} →</a> : <button type="button" disabled>{t.next} →</button>}
-            </div>
-          </section>
-
-          <article className="step p-details" aria-live="polite">
+                </div>
+                <article className="step p-details" aria-live="polite">
             {index === 0 && (
               <header className="topic-intro">
                 <p className="eyebrow">{subjectName} · {nav.blockName} · 第 {nav.station} / {nav.totalStations} 站</p>
@@ -326,10 +319,10 @@ export function ReaderV2({ topic, initialStep, nextTopic, nav, readerNav }: {
                 </p>
               </>
             )}
-          </article>
-
-          {(rows.length > 0 || caption) && (
-            <section className="log p-logbar" aria-label={t.log}>
+                </article>
+              </div>
+              {(rows.length > 0 || caption) && (
+                <section className="log p-logbar" aria-label={t.log}>
               <div className="logbar-head">
                 <h3>{t.log}</h3>
                 {topic.legend && <ul className="legend">{topic.legend.map((l) => <li key={l.key}><b>{l.key}</b><Tx text={l.label} terms={topic.terms} /></li>)}</ul>}
@@ -346,6 +339,17 @@ export function ReaderV2({ topic, initialStep, nextTopic, nav, readerNav }: {
               )}
             </section>
           )}
+            </div>
+            <div className="stepnav p-content-nav" role="toolbar" aria-label="步骤导航">
+              <button type="button" onClick={prev} disabled={index === 0}>← {t.prev}</button>
+              <input className="scrub" type="range" min={0} max={total - 1} value={index} aria-label={t.scrub}
+                onChange={(e) => goTo(Number(e.target.value))} />
+              <span className="count">{index + 1} / {total}</span>
+              {index < total - 1
+                ? <button type="button" onClick={next}>{t.next} →</button>
+                : nextTopic ? <a className="btn" href={nextTopic.href}>{t.nextTopic}：{nextTopic.title} →</a> : <button type="button" disabled>{t.next} →</button>}
+            </div>
+          </section>
         </div>
       </div>
       <GlossPopover pop={pop} terms={topic.terms} onClose={() => setPop(null)} />
