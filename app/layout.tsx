@@ -12,7 +12,9 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: t.siteName,
   description: t.tagline,
-  icons: { icon: "/favicon.svg" },
+  manifest: "/manifest.webmanifest",
+  icons: { icon: "/favicon.svg", apple: "/apple-touch-icon.png" },
+  appleWebApp: { capable: true, title: t.siteName, statusBarStyle: "black-translucent" },
 };
 export const viewport: Viewport = { themeColor: [{ media: "(prefers-color-scheme: dark)", color: "#0b1020" }, { color: "#fcfdfe" }] };
 
