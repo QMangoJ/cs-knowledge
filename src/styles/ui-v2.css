@@ -151,6 +151,19 @@
 }
 
 @container (max-width:1119px){
+  /* Space use at the bottom (Daniel, 2026-11-17): globals gives .player2 a
+     96px bottom padding — clearance for the fixed step bar from the old
+     page-scroll design. In this shell the main column is fixed-height with
+     internal scroll (.site-main:has(> .player2) never scrolls), so the 96px
+     is dead space that strands the rail's two blocks (学习目标 / 与 AI 工程的
+     连接) mid-screen with a blank band under them. Drop it to a small
+     breathing gap and let the rail hug the grid's bottom edge: the content
+     column flex-grows, the slack lands inside the scroll area under the
+     intro, and the blocks sit just above the fixed bar. On steps whose
+     content is taller than the screen nothing changes — the blocks simply
+     follow the content inside the same fixed-height column. */
+  .uiv2.player2{padding-bottom:14px}
+  .uiv2 .p-rail{margin-top:auto}
   /* menus first (step chips = the sub-menu's mobile form), then the content
      area, then the rail's extras — same stacking idea as the current player */
   .uiv2 .p-content{order:3;flex:1 1 auto;min-height:0}
