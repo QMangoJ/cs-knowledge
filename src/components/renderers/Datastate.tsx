@@ -149,8 +149,8 @@ export function Datastate({ state }: { state: DatastateState }) {
         <div className="ds-legend" aria-label="颜色图例">
           <span><i style={{ background: "var(--line-soft)", borderColor: "var(--active)" }} />active 当前比较/处理中</span>
           <span><i style={{ background: "var(--active)" }} />found 已找到/最终位置</span>
-          <span><i style={{ background: "#e8f3ec", borderColor: "#3f8f5f" }} />done 已完成</span>
-          <span><i style={{ background: "#fff4e5", borderColor: "#c77700" }} />pivot 基准元素</span>
+          <span><i style={{ background: "var(--done-fill)", borderColor: "var(--done-line)" }} />done 已完成</span>
+          <span><i style={{ background: "var(--pivot-fill)", borderColor: "var(--pivot-line)" }} />pivot 基准元素</span>
           <span><i style={{ background: "var(--panel)", opacity: 0.35 }} />muted 已排除</span>
           <span><i style={{ background: "var(--line-soft)" }} />visited 已访问</span>
         </div>

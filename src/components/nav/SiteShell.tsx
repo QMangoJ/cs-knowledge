@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { plainText } from "@/lib/terms";
 import { t } from "@/i18n";
+import { ThemeToggle } from "./ThemeToggle";
 
 export type NavTopic = { id: string; title: string; href: string };
 export type NavSubject = { id: string; name: string; topics: NavTopic[] };
@@ -142,7 +143,10 @@ export function SiteShell({ nav, children }: { nav: NavSubject[]; children: Reac
           <button type="button" className="nav-toggle" aria-expanded={open} aria-label={open ? "关闭课程菜单" : "打开课程菜单"} onClick={() => setOpen((v) => !v)}>☰</button>
           <Link href="/">{t.siteName}</Link>
         </div>
-        <span className="hint">{t.keyboardHint}</span>
+        <div className="header-right">
+          <span className="hint">{t.keyboardHint}</span>
+          <ThemeToggle />
+        </div>
       </header>
       <div className="shell-row">
         <aside className={navCollapsed ? "sidenav collapsed" : "sidenav"} ref={desktopNavRef}>
