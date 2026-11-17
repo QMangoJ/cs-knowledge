@@ -1,6 +1,7 @@
 import { marked } from "marked";
 import type { Topic, SourceDef, GlossaryEntry } from "./schema";
 import { collectKeys, termsInHtml } from "./terms";
+import { stringsFor, type Lang, type Strings } from "@/i18n";
 
 /** Serializable props for the client Player: body pre-rendered to HTML at build time.
  *  The player step list is synthesized: 概况 (premise + overview) first, the topic's own
@@ -24,7 +25,8 @@ export function extendedStepCount(t: Topic): number {
   return t.steps.length + 2 + (t.terminal && t.terminal.length > 0 ? 1 : 0);
 }
 
-export function toView(t: Topic, sources: Map<string, SourceDef>, glossary: Map<string, GlossaryEntry> = new Map()): ViewTopic {
+export function toView(t: Topic, sources: Map<string, SourceDef>, glossary: Map<string, GlossaryEntry> = new Map(), lang: Lang = "zh"): ViewTopic {
+  const s: Strings = stringsFor(lang);
   const terms: Record<string, TermInfo> = {};
   for (const key of collectKeys([JSON.stringify(t)])) {
     const g = glossary.get(key);
@@ -47,19 +49,19 @@ export function toView(t: Topic, sources: Map<string, SourceDef>, glossary: Map<
     // the premise, and the premise renders exactly once on this screen — large, on the
     // stage cover. (Summary and position live in the details header/card, so the stage
     // must not reprint them either.)
-    synth({ id: "x-overview", title: "概况", special: "overview", tldr: t.premise, bodyHtml: "" }),
+    synth({ id: "x-overview", title: s.overview, special: "overview", tldr: t.premise, bodyHtml: "" }),
     ...t.steps.map(({ body, ...s }) => ({ ...s, bodyHtml: md(body) })),
   ];
   if (t.terminal && t.terminal.length > 0) {
     steps.push(synth({
-      id: "x-terminal", title: "在终端里看一看", special: "terminal",
-      tldr: "把这一课的概念落到真命令上：先猜输出，再对照正文核对。",
-      bodyHtml: md("正文里讲的机制，大多能在一条命令的输出里找到影子。跑之前先猜一遍它会打印什么、哪一段对应正文的哪句话，再看注脚核对。"),
+      id: "x-terminal", title: s.terminal, special: "terminal",
+      tldr: s.terminalTldr,
+      bodyHtml: md(s.terminalBody),
     }));
   }
   steps.push(synth({
-    id: "x-design", title: "为什么这样设计", special: "design",
-    tldr: "本课每个机制背后的根本问题、方案选择、权衡与底层根源，附全部出处。",
+    id: "x-design", title: s.design, special: "design",
+    tldr: s.designTldr,
     bodyHtml: "",
   }));
   const { steps: _rawSteps, ...rest } = t;

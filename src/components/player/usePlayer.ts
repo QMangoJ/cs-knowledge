@@ -1,16 +1,19 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { stepPath } from "@/lib/paths";
+import type { Lang } from "@/i18n";
 
-/** Parse the 0-based step index from a pathname like /os/syscall/3/. */
+/** Parse the 0-based step index from a pathname like /os/syscall/3/
+ *  (the English tree's /en prefix is stripped before matching). */
 export function indexFromPath(pathname: string, subject: string, slug: string, total: number): number | null {
-  const m = pathname.match(new RegExp(`^/${subject}/${slug}/(?:(\\d+)/?)?$`));
+  const p = pathname.replace(/^\/en(?=\/)/, "");
+  const m = p.match(new RegExp(`^/${subject}/${slug}/(?:(\\d+)/?)?$`));
   if (!m) return null;
   const n = m[1] ? Number(m[1]) - 1 : 0;
   return n >= 0 && n < total ? n : null;
 }
 
-export function usePlayer(subject: string, slug: string, total: number, initial: number) {
+export function usePlayer(subject: string, slug: string, total: number, initial: number, lang: Lang = "zh") {
   const [index, setIndex] = useState(initial);
   const idxRef = useRef(index);
   useEffect(() => { idxRef.current = index; }, [index]);
@@ -20,8 +23,8 @@ export function usePlayer(subject: string, slug: string, total: number, initial:
     if (n === idxRef.current) return;
     idxRef.current = n;
     setIndex(n);
-    if (push) window.history.pushState({ step: n }, "", stepPath(subject, slug, n));
-  }, [subject, slug, total]);
+    if (push) window.history.pushState({ step: n }, "", stepPath(subject, slug, n, lang));
+  }, [subject, slug, total, lang]);
 
   const next = useCallback(() => goTo(idxRef.current + 1), [goTo]);
   const prev = useCallback(() => goTo(idxRef.current - 1), [goTo]);

@@ -175,6 +175,22 @@ export const SubjectInfo = z.object({
 });
 export const JourneyStep = z.object({ subject: z.enum(["os", "co", "dsa", "network", "data", "distributed", "math", "ai", "go", "backend"]), title: z.string().min(1), text: z.string().min(1) });
 export const SubjectsFile = z.object({ subjects: z.array(SubjectInfo), journey: z.array(JourneyStep).min(1) });
+
+/* ---- English overlay (content/subjects.en.yaml) ----
+ * Same subjects in the same order as subjects.yaml; blocks align by position
+ * (topics stay defined in the Chinese canonical file). The loader validates
+ * ids and block counts against subjects.yaml and falls back per field. */
+export const SubjectInfoEn = z.object({
+  id: SubjectInfo.shape.id,
+  tagline: z.string().min(1),
+  blocks: z.array(z.object({
+    name: z.string().min(1),
+    blurb: z.string().min(1),
+    gaps: z.array(z.object({ title: z.string().min(1), note: z.string().min(1) })).default([]),
+  })),
+});
+export const SubjectsEnFile = z.object({ subjects: z.array(SubjectInfoEn), journey: z.array(JourneyStep) });
+export type SubjectInfoEn = z.infer<typeof SubjectInfoEn>;
 export type SubjectBlock = z.infer<typeof SubjectBlock>;
 export type SubjectInfo = z.infer<typeof SubjectInfo>;
 export type JourneyStep = z.infer<typeof JourneyStep>;

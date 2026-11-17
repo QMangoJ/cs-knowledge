@@ -5,7 +5,8 @@ import { plainText } from "@/lib/terms";
 import { doneKey, isDone, useMounted, useProgressVersion } from "@/lib/progress";
 import type { SubjectInfo } from "@/lib/schema";
 import type { HomeTopic } from "./Home";
-import { t } from "@/i18n";
+import { fmt } from "@/i18n";
+import { useLang } from "@/i18n/client";
 
 /** UI v2 sample: subject page (home section) for the gated subject only.
  *  Layout: big subject name → subject progress (same localStorage store as the
@@ -13,6 +14,7 @@ import { t } from "@/i18n";
  *  per lesson (name / steps / minutes / completion state). No lesson summaries
  *  here: rows carry titles + meta only, so nothing on screen repeats. */
 export function SubjectSectionV2({ name, info, topics }: { name: string; info: SubjectInfo; topics: HomeTopic[] }) {
+  const { lang, s: t } = useLang();
   useProgressVersion();
   const mounted = useMounted();
   const byId = new Map(topics.map((x) => [x.id, x]));
@@ -32,17 +34,17 @@ export function SubjectSectionV2({ name, info, topics }: { name: string; info: S
     const done = mounted && isDone(doneKey(x.id));
     const meta = (
       <span className="v2-row-meta">
-        <span>{x.steps} 步</span>
-        {x.minutes && <span>约 {x.minutes} {t.minutes}</span>}
-        {x.level && <span>{x.level}</span>}
+        <span>{fmt(t.stepsBadge, { n: x.steps })}</span>
+        {x.minutes && <span>{fmt(t.minutesBadge, { n: x.minutes })}</span>}
+        {x.level && <span>{t.levels[x.level as keyof typeof t.levels] ?? x.level}</span>}
         {x.status === "draft" && <span>{t.draft}</span>}
       </span>
     );
     const status = x.status === "coming-soon"
       ? <span className="v2-status">{t.comingSoon}</span>
       : done
-        ? <span className="v2-status done">✓ 已学完</span>
-        : <span className="v2-status">未完成</span>;
+        ? <span className="v2-status done">✓ {t.statusDoneText}</span>
+        : <span className="v2-status">{t.statusTodoText}</span>;
     const inner = (
       <>
         <span className="v2-row-main">
@@ -56,7 +58,7 @@ export function SubjectSectionV2({ name, info, topics }: { name: string; info: S
       <li key={x.id} className="v2-row disabled">{inner}</li>
     ) : (
       <li key={x.id}>
-        <Link className="v2-row" href={stepPath(x.subject, x.slug, 0)}>{inner}</Link>
+        <Link className="v2-row" href={stepPath(x.subject, x.slug, 0, lang)}>{inner}</Link>
       </li>
     );
   };
@@ -66,8 +68,8 @@ export function SubjectSectionV2({ name, info, topics }: { name: string; info: S
       <h2 className="v2-subject-name">{name}</h2>
       <p className="v2-tagline">{info.tagline}</p>
       <div className="v2-progress-row">
-        <span className="v2-progress-text">已完成 {doneCount} / {countable.length} 课</span>
-        <div className="v2-progress" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="学科进度">
+        <span className="v2-progress-text">{fmt(t.subjectDoneLine, { done: doneCount, total: countable.length })}</span>
+        <div className="v2-progress" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={t.subjectProgressLabel}>
           <div style={{ width: `${pct}%` }} />
         </div>
         <span className="v2-progress-text">{pct}%</span>

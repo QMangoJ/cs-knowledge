@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePlayer } from "./usePlayer";
 import { Canvas } from "@/components/renderers";
 import type { ViewTopic } from "@/lib/view";
-import { t, REPO_URL } from "@/i18n";
+import { fmt, prefixPath, REPO_URL } from "@/i18n";
+import { useLang } from "@/i18n/client";
 import { issueUrl, stepPath } from "@/lib/paths";
 import { plainText, plainCode } from "@/lib/terms";
 import { doneKey, isDone, useMounted, useProgressVersion } from "@/lib/progress";
@@ -34,8 +35,9 @@ type NextTopic = { href: string; title: string } | null;
 export function ReaderV2({ topic, initialStep, nextTopic, nav, readerNav }: {
   topic: ViewTopic; initialStep: number; nextTopic: NextTopic; nav: PlayerNav; readerNav: ReaderNavData;
 }) {
+  const { lang, s: t } = useLang();
   const total = topic.steps.length;
-  const { index, goTo, next, prev } = usePlayer(topic.subject, topic.slug, total, initialStep);
+  const { index, goTo, next, prev } = usePlayer(topic.subject, topic.slug, total, initialStep, lang);
   const step = topic.steps[index]!;
   const hasVisual = !!step.canvas;
   const rows = topic.steps.slice(0, index + 1).flatMap((s, si) => s.log.map((r, ri) => ({ r, key: `${si}-${ri}`, fresh: si === index })));
@@ -150,7 +152,7 @@ export function ReaderV2({ topic, initialStep, nextTopic, nav, readerNav }: {
           <ol className="v2-tree-steps">
             {topic.steps.map((s, i) => (
               <li key={s.id} className={i === index ? "current" : i < index ? "done" : ""}>
-                <a href={stepPath(topic.subject, topic.slug, i)} aria-current={i === index ? "step" : undefined}
+                <a href={stepPath(topic.subject, topic.slug, i, lang)} aria-current={i === index ? "step" : undefined}
                   onClick={(e) => { e.preventDefault(); goTo(i); }}>
                   <span className="n">{i < index ? "✓" : i + 1}</span>
                   <span>{plainText(s.title)}</span>
@@ -163,7 +165,7 @@ export function ReaderV2({ topic, initialStep, nextTopic, nav, readerNav }: {
     }
     return (
       <li key={tp.id} className="v2-tree-topic">
-        <Link href={stepPath(tp.subject, tp.slug, 0)} prefetch={false}>
+        <Link href={stepPath(tp.subject, tp.slug, 0, lang)} prefetch={false}>
           {plainText(tp.title)}{done && <span className="v2-done" aria-label={t.done}>✓</span>}
         </Link>
       </li>
@@ -175,12 +177,12 @@ export function ReaderV2({ topic, initialStep, nextTopic, nav, readerNav }: {
       <div className="app-screen">
         <header className="p-topbar">
           <div className="p-crumb">
-            <a href="/">{subjectName}</a>
+            <a href={prefixPath(lang, "/")}>{subjectName}</a>
             <span aria-hidden="true"> › </span>
             <span>{nav.blockName}</span>
             <span aria-hidden="true"> › </span>
             <b>{plainText(topic.title)}</b>
-            <span className="p-station">{subjectName}第 {nav.station} 站 / 共 {nav.totalStations} 站</span>
+            <span className="p-station">{fmt(t.stationText, { subject: subjectName, station: nav.station, total: nav.totalStations })}</span>
           </div>
           <div className="p-segments" role="progressbar" aria-valuemin={1} aria-valuemax={total} aria-valuenow={index + 1} aria-label={`${t.steps} ${index + 1} / ${total}`}>
             {topic.steps.map((s, i) => (
@@ -190,17 +192,17 @@ export function ReaderV2({ topic, initialStep, nextTopic, nav, readerNav }: {
             ))}
           </div>
           <div className="v2-only v2-progress-wrap">
-            <span className="v2-progress-text">第 {index + 1} / {total} 步</span>
+            <span className="v2-progress-text">{fmt(t.progressTextShort, { index: index + 1, total })}</span>
             <div className="v2-progress" role="progressbar" aria-valuemin={1} aria-valuemax={total} aria-valuenow={index + 1} aria-label={`${t.steps} ${index + 1} / ${total}`}>
               <div style={{ width: `${((index + 1) / total) * 100}%` }} />
             </div>
           </div>
           <div className="p-topright">
-            <span className="p-stepcount">第 {index + 1} 步 / 共 {total} 步</span>
-            <span className="v2-only v2-fs-group" role="group" aria-label="字号">
-              <span className="v2-fs-label">字号</span>
-              <button type="button" className="v2-ctl" aria-pressed={!fsLarge} onClick={() => applyFs(false)}>标准</button>
-              <button type="button" className="v2-ctl" aria-pressed={fsLarge} onClick={() => applyFs(true)}>大</button>
+            <span className="p-stepcount">{fmt(t.stepCountText, { index: index + 1, total })}</span>
+            <span className="v2-only v2-fs-group" role="group" aria-label={t.fontSizeLabel}>
+              <span className="v2-fs-label">{t.fontSizeLabel}</span>
+              <button type="button" className="v2-ctl" aria-pressed={!fsLarge} onClick={() => applyFs(false)}>{t.fontStd}</button>
+              <button type="button" className="v2-ctl" aria-pressed={fsLarge} onClick={() => applyFs(true)}>{t.fontLarge}</button>
             </span>
             <MarkDone topicId={topic.id} />
           </div>
@@ -209,9 +211,9 @@ export function ReaderV2({ topic, initialStep, nextTopic, nav, readerNav }: {
         <div className={rows.length > 0 || caption ? "p-grid" : "p-grid no-log"}
           style={{ "--v2-rail-w": railW ? `${railW}px` : undefined, "--v2-visual-pct": visualPct ? `${visualPct}%` : undefined } as React.CSSProperties}>
           <aside className="p-rail" ref={railRef}>
-            <div className="v2-rail-handle" role="separator" aria-orientation="vertical" aria-label="拖动调整步列表宽度"
+            <div className="v2-rail-handle" role="separator" aria-orientation="vertical" aria-label={t.railDragLabel}
               tabIndex={0} onPointerDown={onRailDrag} onKeyDown={railKeys} />
-            <nav className="v2-tree" aria-label="本学科课程">
+            <nav className="v2-tree" aria-label={t.subjectTopicsLabel}>
               {readerNav.blocks.map((b) => {
                 const closed = closedBlocks.has(b.name);
                 return (
@@ -235,7 +237,7 @@ export function ReaderV2({ topic, initialStep, nextTopic, nav, readerNav }: {
               <ol>
                 {topic.steps.map((s, i) => (
                   <li key={s.id} className={i === index ? "current" : i < index ? "done" : ""}>
-                    <a href={stepPath(topic.subject, topic.slug, i)} aria-current={i === index ? "step" : undefined}
+                    <a href={stepPath(topic.subject, topic.slug, i, lang)} aria-current={i === index ? "step" : undefined}
                       onClick={(e) => { e.preventDefault(); goTo(i); }}>
                       <span className="n">{i < index ? "✓" : i + 1}</span>
                       <span className="sl-text"><span className="sl-title">{plainText(s.title)}</span><span className="sl-sub">{plainText(s.tldr)}</span></span>
@@ -261,23 +263,23 @@ export function ReaderV2({ topic, initialStep, nextTopic, nav, readerNav }: {
 
           <nav className="step-chips" aria-label={t.steps}>
             {topic.steps.map((s, i) => (
-              <a key={s.id} href={stepPath(topic.subject, topic.slug, i)} className={i === index ? "chip current" : i < index ? "chip done" : "chip"}
+              <a key={s.id} href={stepPath(topic.subject, topic.slug, i, lang)} className={i === index ? "chip current" : i < index ? "chip done" : "chip"}
                 aria-current={i === index ? "step" : undefined}
                 onClick={(e) => { e.preventDefault(); goTo(i); }}>{i < index ? "✓ " : `${i + 1} · `}{plainText(s.title)}</a>
             ))}
           </nav>
 
-          <section className={hasVisual ? "p-content has-visual" : "p-content"} aria-label="内容">
+          <section className={hasVisual ? "p-content has-visual" : "p-content"} aria-label={t.contentLabel}>
             <div className="p-content-scroll">
               <div className="p-content-main">
                 <div className="p-visual">
                   {hasVisual && (
-                    <div className="v2-visual-handle" role="separator" aria-orientation="vertical" aria-label="拖动调整图文宽度比例"
+                    <div className="v2-visual-handle" role="separator" aria-orientation="vertical" aria-label={t.visualDragLabel}
                       tabIndex={0} onPointerDown={onVisualDrag} onKeyDown={visualKeys} />
                   )}
                   <div className="canvas-wrap stage-card">
               {step.log.length > 0 && (
-                <p className="now-bar" aria-live="polite"><b>{t.nowHappening}</b>{plainText(step.log.map((r) => topic.logColumns.map((c) => r[c.key]).filter(Boolean).join(" · ")).join("；"))}</p>
+                <p className="now-bar" aria-live="polite"><b>{t.nowHappening}</b>{plainText(step.log.map((r) => topic.logColumns.map((c) => r[c.key]).filter(Boolean).join(" · ")).join(t.sentSep))}</p>
               )}
               <div className="stage-body">
                 {step.special ? <SpecialStage step={step} topic={topic} /> : <Canvas state={step.canvas!} lanes={topic.lanes} />}
@@ -290,14 +292,14 @@ export function ReaderV2({ topic, initialStep, nextTopic, nav, readerNav }: {
                 <article className="step p-details" aria-live="polite">
             {index === 0 && (
               <header className="topic-intro">
-                <p className="eyebrow">{subjectName} · {nav.blockName} · 第 {nav.station} / {nav.totalStations} 站</p>
+                <p className="eyebrow">{subjectName} · {nav.blockName} · {fmt(t.stationShort, { station: nav.station, total: nav.totalStations })}</p>
                 <h1><Tx text={topic.title} terms={topic.terms} /></h1>
                 <p className="summary"><Tx text={topic.summary} terms={topic.terms} /></p>
                 {(topic.level || topic.minutes || (topic.prereq && topic.prereq.length > 0)) && (
                   <p className="topic-meta">
-                    {topic.level && <span className="badge">{t.level} · {topic.level}</span>}
-                    {topic.minutes && <span className="badge">约 {topic.minutes} {t.minutes}</span>}
-                    {topic.prereq && topic.prereq.length > 0 && <span className="badge">{t.prereq}：{topic.prereq.join("、")}</span>}
+                    {topic.level && <span className="badge">{t.level} · {t.levels[topic.level as keyof typeof t.levels] ?? topic.level}</span>}
+                    {topic.minutes && <span className="badge">{fmt(t.minutesBadge, { n: topic.minutes })}</span>}
+                    {topic.prereq && topic.prereq.length > 0 && <span className="badge">{t.prereq}{t.colon}{topic.prereq.join(t.listSep)}</span>}
                   </p>
                 )}
                 {topic.position && (
@@ -325,7 +327,7 @@ export function ReaderV2({ topic, initialStep, nextTopic, nav, readerNav }: {
             {step.points && step.points.length > 0 && (
               <div className="points"><h3>{t.points}</h3><ul>{step.points.map((pt) => <li key={pt}><Tx text={pt} terms={topic.terms} /></li>)}</ul></div>
             )}
-            {step.mistake && <p className="mistake"><b>{t.mistake}：</b><Tx text={step.mistake} terms={topic.terms} /></p>}
+            {step.mistake && <p className="mistake"><b>{t.mistake}{t.colon}</b><Tx text={step.mistake} terms={topic.terms} /></p>}
             {step.keyFields && step.keyFields.length > 0 && (
               <details className="more"><summary>{t.keyFields}</summary>
                 <dl className="kv">{step.keyFields.map((k) => <div key={k.key}><dt>{k.key}</dt><dd><Tx text={k.value} terms={topic.terms} /></dd></div>)}</dl>
@@ -348,10 +350,10 @@ export function ReaderV2({ topic, initialStep, nextTopic, nav, readerNav }: {
                     {topic.design.map((d) => (
                       <div key={d.mechanism} className="design-item">
                         <h4><Tx text={d.mechanism} terms={topic.terms} /></h4>
-                        <p><b>{t.dProblem}：</b><Tx text={d.problem} terms={topic.terms} /></p>
-                        <p><b>{t.dChoice}：</b><Tx text={d.choice} terms={topic.terms} /></p>
-                        <p><b>{t.dTradeoff}：</b><Tx text={d.tradeoff} terms={topic.terms} /></p>
-                        <p><b>{t.dRoot}：</b><Tx text={d.root} terms={topic.terms} /></p>
+                        <p><b>{t.dProblem}{t.colon}</b><Tx text={d.problem} terms={topic.terms} /></p>
+                        <p><b>{t.dChoice}{t.colon}</b><Tx text={d.choice} terms={topic.terms} /></p>
+                        <p><b>{t.dTradeoff}{t.colon}</b><Tx text={d.tradeoff} terms={topic.terms} /></p>
+                        <p><b>{t.dRoot}{t.colon}</b><Tx text={d.root} terms={topic.terms} /></p>
                       </div>
                     ))}
                   </div>
@@ -363,7 +365,7 @@ export function ReaderV2({ topic, initialStep, nextTopic, nav, readerNav }: {
                       {topic.cited.map((c, i) => (
                         <li key={i}>
                           <a href={c.url} target="_blank" rel="noopener noreferrer">[{i + 1}] {plainText(c.title)} · {plainText(c.locator)} ↗</a>
-                          <span className="src-steps">（第 {c.steps.join("、")} 步）</span>
+                          <span className="src-steps">{fmt(t.srcStepsText, { steps: c.steps.join(t.listSep) })}</span>
                           <p className="claim"><Tx text={c.claim} terms={topic.terms} /></p>
                         </li>
                       ))}
@@ -396,14 +398,14 @@ export function ReaderV2({ topic, initialStep, nextTopic, nav, readerNav }: {
             </section>
           )}
             </div>
-            <div className="stepnav p-content-nav" role="toolbar" aria-label="步骤导航">
+            <div className="stepnav p-content-nav" role="toolbar" aria-label={t.stepNavLabel}>
               <button type="button" onClick={prev} disabled={index === 0}>← {t.prev}</button>
               <input className="scrub" type="range" min={0} max={total - 1} value={index} aria-label={t.scrub}
                 onChange={(e) => goTo(Number(e.target.value))} />
               <span className="count">{index + 1} / {total}</span>
               {index < total - 1
                 ? <button type="button" onClick={next}>{t.next} →</button>
-                : nextTopic ? <a className="btn" href={nextTopic.href}>{t.nextTopic}：{nextTopic.title} →</a> : <button type="button" disabled>{t.next} →</button>}
+                : nextTopic ? <a className="btn" href={nextTopic.href}>{t.nextTopic}{t.colon}{nextTopic.title} →</a> : <button type="button" disabled>{t.next} →</button>}
             </div>
           </section>
         </div>

@@ -9,9 +9,9 @@ export function generateStaticParams() {
 }
 export async function generateMetadata({ params }: P) {
   const { subject, topic } = await params;
-  return topicMetadata(subject, topic, 0);
+  return topicMetadata(subject, topic, 0, "en");
 }
 export default async function Page({ params }: P) {
   const { subject, topic } = await params;
-  return <TopicPage subject={subject} slug={topic} index={0} />;
+  return <TopicPage subject={subject} slug={topic} index={0} lang="en" />;
 }

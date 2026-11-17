@@ -3,8 +3,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { plainText } from "@/lib/terms";
-import { t } from "@/i18n";
+import { prefixPath, stringsFor, type Lang } from "@/i18n";
+import { LangProvider } from "@/i18n/client";
 import { ThemeToggle } from "./ThemeToggle";
+import { LangToggle } from "./LangToggle";
 
 export type NavTopic = { id: string; title: string; href: string };
 export type NavSubject = { id: string; name: string; topics: NavTopic[] };
@@ -43,7 +45,10 @@ function scrollCurrentIntoView(aside: HTMLElement | null) {
   aside.scrollTop = Math.max(0, itemTop - aside.clientHeight * 0.25);
 }
 
-export function SiteShell({ nav, children }: { nav: NavSubject[]; children: React.ReactNode }) {
+export function SiteShell({ lang, nav, children }: { lang: Lang; nav: NavSubject[]; children: React.ReactNode }) {
+  const s = stringsFor(lang);
+  const homeHref = prefixPath(lang, "/");
+  const codingHref = prefixPath(lang, "/coding/");
   const pathname = usePathname() ?? "/";
   const [open, setOpen] = useState(false);
   /** Expanded subjects per the user's stored preference; null until
@@ -71,7 +76,7 @@ export function SiteShell({ nav, children }: { nav: NavSubject[]; children: Reac
   }, []);
   const currentSubjectId =
     nav.find((s) => s.topics.some((x) => isCurrent(pathname, x.href)))?.id ??
-    (isCurrent(pathname, "/coding/") ? CODING_SUBJECT_ID : null);
+    (isCurrent(pathname, codingHref) ? CODING_SUBJECT_ID : null);
   const isSubjectOpen = (id: string) =>
     id === currentSubjectId || (storedOpen?.includes(id) ?? false);
   const toggleSubject = (id: string) => {
@@ -127,31 +132,33 @@ export function SiteShell({ nav, children }: { nav: NavSubject[]; children: Reac
   };
 
   const renderList = (prefix: string) => (
-    <nav className="sidenav-list" aria-label="全部课程">
-      <Link href="/" prefetch={false} className={pathname === "/" ? "sn-home current" : "sn-home"} aria-current={pathname === "/" ? "page" : undefined}>首页</Link>
-      {nav.map((s) => subjectBlock(prefix, s.id, s.name, s.topics))}
-      {subjectBlock(prefix, CODING_SUBJECT_ID, t.coding, [
-        { id: "coding-practice", title: "Codility 风格练习与模拟考", href: "/coding/" },
+    <nav className="sidenav-list" aria-label={s.navLabel}>
+      <Link href={homeHref} prefetch={false} className={norm(pathname) === norm(homeHref) ? "sn-home current" : "sn-home"} aria-current={norm(pathname) === norm(homeHref) ? "page" : undefined}>{s.home}</Link>
+      {nav.map((sub) => subjectBlock(prefix, sub.id, sub.name, sub.topics))}
+      {subjectBlock(prefix, CODING_SUBJECT_ID, s.coding, [
+        { id: "coding-practice", title: s.codingNavTitle, href: codingHref },
       ])}
     </nav>
   );
 
   return (
+    <LangProvider value={{ lang, s }}>
     <div className="shell">
       <header className="site-header">
         <div className="header-left">
-          <button type="button" className="nav-toggle" aria-expanded={open} aria-label={open ? "关闭课程菜单" : "打开课程菜单"} onClick={() => setOpen((v) => !v)}>☰</button>
-          <Link href="/">{t.siteName}</Link>
+          <button type="button" className="nav-toggle" aria-expanded={open} aria-label={open ? s.menuClose : s.menuOpen} onClick={() => setOpen((v) => !v)}>☰</button>
+          <Link href={homeHref}>{s.siteName}</Link>
         </div>
         <div className="header-right">
-          <span className="hint">{t.keyboardHint}</span>
+          <span className="hint">{s.keyboardHint}</span>
+          <LangToggle />
           <ThemeToggle />
         </div>
       </header>
       <div className="shell-row">
         <aside className={navCollapsed ? "sidenav collapsed" : "sidenav"} ref={desktopNavRef}>
           <button type="button" className="sn-collapse-btn" aria-expanded={!navCollapsed}
-            aria-label={navCollapsed ? "展开课程导航" : "收起课程导航"} title={navCollapsed ? "展开课程导航" : "收起课程导航"}
+            aria-label={navCollapsed ? s.navExpand : s.navCollapse} title={navCollapsed ? s.navExpand : s.navCollapse}
             onClick={toggleNavCollapsed}>{navCollapsed ? "»" : "«"}</button>
           {!navCollapsed && renderList("sb")}
         </aside>
@@ -159,7 +166,8 @@ export function SiteShell({ nav, children }: { nav: NavSubject[]; children: Reac
         <aside className={open ? "sidenav drawer open" : "sidenav drawer"} ref={drawerNavRef}>{renderList("dr")}</aside>
         <main className="site-main">{children}</main>
       </div>
-      <footer className="site-footer">{t.footer}</footer>
+      <footer className="site-footer">{s.footer}</footer>
     </div>
+    </LangProvider>
   );
 }

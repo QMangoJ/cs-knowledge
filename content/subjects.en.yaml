@@ -1,0 +1,168 @@
+# English counterparts for content/subjects.yaml: same subjects in the same
+# order, blocks aligned by position (topics stay defined in subjects.yaml).
+# The loader (src/lib/content.ts) validates ids and block counts against the
+# Chinese canonical file and falls back per field when a translation is absent.
+subjects:
+- id: dsa
+  tagline: "Data structures & algorithms decide how data is laid out and how it is found: the same data, arranged differently, can make lookup and update differ by orders of magnitude."
+  blocks:
+  - name: "Lookup by name and by order"
+    blurb: "A hash table goes straight to a name in one step; binary search halves the candidates every time in an ordered world."
+  - name: "Divide and conquer"
+    blurb: "Cut a big problem into smaller copies of itself, solve those, and merge the answers — sorting is the classic training ground."
+  - name: "Tree structures"
+    blurb: "Trade a parent–child hierarchy for efficient operations on a changing set — heaps mind the priorities, search trees keep the order."
+  - name: "Walking a graph"
+    blurb: "First learn to visit every corner of a graph, then learn to find the shortest road across a weighted one."
+  - name: "Remembering subproblem answers"
+    blurb: "When subproblems overlap heavily, store the answers you have already computed and an exponential explosion collapses into a polynomial."
+  - name: "Greedy: take the best move in front of you"
+    blurb: "No looking back, no tables: pick the best option at every step. Choose the right problem structure and this is the cheapest correct algorithm there is."
+  - name: "Patterns in strings"
+    blurb: "Find a small pattern in a long text: study the pattern itself first, then let the text pass by only once."
+  - name: "Problems you can't compute your way out of: the complexity ceiling"
+    blurb: "Some problems are not waiting for a cleverer solver: hard to solve, quick to verify, and tied to each other in difficulty — NP-completeness closes the subject."
+- id: co
+  tagline: "Architecture looks one level down: in the end, code becomes instructions flowing through a CPU, and data lies in memory as bits — this layer is where fast and slow are decided."
+  blocks:
+  - name: "From code to an executable"
+    blurb: "Source code is translated and linked into something the machine can read, then loaded into memory to wait its turn."
+  - name: "How instructions execute"
+    blurb: "The CPU fetches, decodes, and executes in an endless loop; the pipeline overlaps instructions so they run staggered, like shifts."
+  - name: "The memory hierarchy and caches"
+    blurb: "From registers down to main memory, each level is bigger and slower; the cache uses locality to keep hot data as close to the CPU as possible."
+  - name: "Calls, and the shapes data takes"
+    blurb: "Function calls push and pop frames on the stack; numbers are stored as bit patterns — two's complement and floating point."
+  - name: "Parallel hardware"
+    blurb: "When one core is not enough: a GPU runs tens of thousands of threads, trading latency for throughput."
+  - name: "More than one master: devices and multi-core shared memory"
+    blurb: "The CPU is not memory's only user: devices move data themselves over the bus with DMA, and cores reading and writing at once must agree on what order they see."
+- id: os
+  tagline: "The operating system is the steward between programs and hardware: there is exactly one CPU, one memory, one disk, one set of devices, and it shares them safely among many programs at once."
+  blocks:
+  - name: "The system-call interface"
+    blurb: "The one controlled door between user space and kernel space — a program that wants the hardware, a file, or the network has to knock on it first."
+  - name: "Process management"
+    blurb: "How processes are born and how they take turns on the CPU — the scheduling desk where one core serves every program."
+  - name: "Memory management"
+    blurb: "Every program gets the illusion of memory all to itself, and the physical pages are only filled in when it actually touches them."
+  - name: "Concurrency and synchronisation"
+    blurb: "When several threads of execution change the same data at once, locks and synchronisation keep the race in a cage."
+  - name: "The file system"
+    blurb: "Raw bytes on a disk, organised into named files and directories that persist — and can be recovered after a crash."
+  - name: "I/O and devices"
+    blurb: "How a program waits for outside data without waiting stupidly: from blocking and polling all the way to epoll."
+- id: network
+  tagline: "Computer networks are about one thing: how data gets from one machine to another reliably, in order, and by the shortest route."
+  blocks:
+  - name: "Establishing a reliable connection"
+    blurb: "On top of unreliable IP, the three-way handshake first lines up both sides' initial sequence numbers — only then does data start to flow."
+  - name: "The journey of one request"
+    blurb: "From click to response: resolve, connect, encrypt, send the request, stream the data back — the whole trip in one go."
+  - name: "Names into addresses"
+    blurb: "A domain name is resolved to an IP through layers of delegation, then a CDN points it at the server nearest the user."
+  - name: "The tempo of sending"
+    blurb: "Once the connection is up, how fast to send is a separate problem: overwhelm neither the receiver nor the network."
+  - name: "How the transport layer evolved"
+    blurb: "Head-of-line blocking was fought three times, until QUIC finally moved the transport layer into user space and rewrote it."
+  - name: "Interfaces as contracts: RPC and serialisation"
+    blurb: "How services talk to each other: write the interface as a contract first, then squeeze the data into binary — the gRPC and Protocol Buffers combination."
+- id: data
+  tagline: "Data storage answers the questions that begin once data hits the disk: how should it be laid out so reads are fast, changes are safe, and a crash loses nothing?"
+  blocks:
+  - name: "Indexes: find it before you read it"
+    blurb: "The way to avoid scanning the whole table is a B+ tree that is friendly to disk pages and points the way."
+  - name: "Inside the engine: pages, logs, and one read/write trip"
+    blurb: "The index brings you to the page; this lesson covers what happens once the page is in memory — changes are journaled first and written to disk later, over one complete read/write journey through the system."
+  - name: "Transactions: the rules under concurrency and crashes"
+    blurb: "Several writers changing data at once, and a crash halfway through, are covered by ACID, multi-versioning, and the write-ahead log."
+  - name: "Storage optimised for writes"
+    blurb: "When writes matter more than reads, replace in-place updates with sequential appends and background merging."
+  - name: "How queries execute"
+    blurb: "SQL only says what you want: the optimiser prices every candidate route with statistics, and the executor fetches the pages along the cheapest one."
+  - name: "Locks and deadlocks"
+    blurb: "When transactions change data concurrently, locks keep the writes in order; their granularity and scope decide how deadlock comes knocking."
+  - name: "Replication: one ledger, many copies"
+    blurb: "The primary's changes are written as a ledger shared across machines and replayed by replicas catching up — read scaling and disaster recovery both start here."
+- id: distributed
+  tagline: "A distributed system trades the certainty of one machine for a shared, approximate version of the facts maintained by many: latency, partitions, and clocks that each tell their own time are its permanent background noise."
+  blocks:
+  - name: "Where the difficulty is: a world of partial failure"
+    blurb: "The single machine's silent assumptions expire one by one: calls arrive late, you can't tell whether a peer is dead, clocks disagree — this lesson lays out the enemy's list first."
+  - name: "The consistency spectrum"
+    blurb: "The gap between replicas can never be eliminated, only priced: from strong to eventual consistency, every notch you loosen buys back latency and availability."
+  - name: "Consensus: getting machines to agree on one thing"
+    blurb: "Leaders, terms, majorities: how Raft reaches a decision everyone accepts, in a world where peers die and messages run late."
+  - name: "Time, and transactions across machines"
+    blurb: "When wall clocks can't order events, count causality instead; when atomicity across machines gets expensive, first ask whether you can skip it — logical clocks and the trade-offs of 2PC live here."
+  - name: "Advanced: making calls reliable"
+    blurb: "Synchronous calls are fragile by birth in a partially failing world: hand what can be async to a queue, keep the rest alive with rate limiting, backoff retries, and circuit breakers, and let discovery, configuration, and gradual rollouts govern it all at scale."
+- id: go
+  tagline: "Go is a backend language rewritten for the era of many cores, networks, and huge codebases: keep the language small, bake concurrency into the syntax, and ship the deployment as a single file."
+  blocks:
+  - name: "Why Go: design and trade-offs"
+    blurb: "Start from Google's position in 2007: slow builds, cores going unused, languages growing ever more complex — every Go trade-off is an answer to one of those three bills."
+  - name: "Concurrency: goroutines and channels"
+    blurb: "Concurrency comes from the language, not a library: lightweight goroutines, values passed over channels, and a scheduler underneath that spreads tens of thousands of them over a handful of threads."
+  - name: "The type system: interfaces and composition"
+    blurb: "No inheritance, no classes: types satisfy interfaces automatically through their method sets, reuse comes from embedding existing types, and errors are returned explicitly, layer by layer."
+- id: backend
+  tagline: "Backend engineering is everything after the service is written: how code is packaged into containers, orchestrated on a cluster, released safely down a pipeline, and — when something breaks — traced to the root cause with logs, metrics, and traces."
+  blocks:
+  - name: "Packaging: containers and Docker"
+    blurb: "Solve 'it works on my machine' first: package the app together with its environment as an image, and let the kernel's isolation and limits mechanisms run many of them steadily on one machine."
+  - name: "Orchestration: Kubernetes"
+    blurb: "Once containers reach scale, nobody can place them by hand: declare the state you want, and placement, restocking replicas, version changes, and self-healing are the orchestrator's job."
+  - name: "Releasing: CI/CD and rollout strategies"
+    blurb: "Merging code is only the start: the pipeline strings build, test, and deploy into one automated line, and blue-green and canary decide how big a step the new version takes toward real users."
+  - name: "Observability: logs, metrics, and tracing"
+    blurb: "Shipping is not the finish line: the three kinds of data a system emits decide whether an incident takes minutes to root-cause, or a whole night of guessing on the box."
+- id: math
+  tagline: "Math foundations are the thread running under every other subject: probability is the language of uncertainty, and cache hits, queueing delays, and model outputs are all measured in it in the end."
+  blocks:
+  - name: "The language of probability"
+    blurb: "Conditional probability, Bayes, and expectation — the shared base under judgement, estimation, and experimental readouts."
+- id: ai
+  tagline: "Artificial intelligence swaps 'writing rules' for 'turning knobs': give a program enough examples and a scoreboard, and it learns the mapping nobody can quite put into words."
+  blocks:
+  - name: "How learning happens"
+    blurb: "One pass forward, one pass back: the loss deals out blame along the chain rule to every weight, and gradient descent turns each knob by one small notch."
+  - name: "Attention and the Transformer"
+    blurb: "Every word looks back over the whole sentence, weighted by relevance: attention connects any two words in one hop, and lets a sentence be trained in parallel for the first time."
+  - name: "The ledger of training"
+    blurb: "Parameters, gradients, optimiser state, activations — four kinds of tenants live in GPU memory; then count the compute per token and see why training is expensive."
+  - name: "The ledger of inference"
+    blurb: "Generating word by word is slow for a reason: read the whole prompt first, then emit one token at a time; the KV cache, continuous batching, and speculative decoding are all ways of balancing bandwidth against memory."
+  - name: "From model to always-on system: the architecture around an agent"
+    blurb: "The model only answers one inference at a time: to keep it on duty unattended takes an event-driven shell — inbox, timers, memory, permissions, and an outbox."
+journey:
+- subject: dsa
+  title: "Writing the program"
+  text: "Data is organised first: which structure holds it and which algorithm processes it decide the order of magnitude a program is born with."
+- subject: co
+  title: "Running on hardware"
+  text: "The program becomes a stream of instructions flowing through the CPU's pipeline and caches, its numbers processed as bit patterns — two's complement and floating point."
+- subject: os
+  title: "Hosted by the kernel"
+  text: "It is created, scheduled, and isolated as a process, and every touch of the hardware goes through the door of the system call."
+- subject: network
+  title: "Talking to the outside world"
+  text: "Programs rarely keep to themselves: requests and responses cross an unreliable network and still have to arrive reliably, in order, and by the nearest route."
+- subject: data
+  title: "Data hits the disk"
+  text: "Data that must outlive the process goes to a storage engine: indexes, transactions, and logs decide whether it reads fast and survives a crash."
+- subject: distributed
+  title: "Beyond one machine"
+  text: "When one machine can no longer hold it — or be trusted not to fail — the program learns to work with many: negotiating a shared version of the facts over messages, and accepting that it can only ever be an approximation."
+- subject: go
+  title: "A language fit for the job"
+  text: "Beyond one machine, a program has to cooperate with a fleet of machines for the long haul, so it changes into a language born for exactly that: Go puts concurrency into the syntax itself, so tens of thousands of goroutines read like ordinary code."
+- subject: backend
+  title: "Truly going to work"
+  text: "Code written in a language still has to report for duty: packed into containers, orchestrated on a cluster, released down a pipeline — and when something breaks, logs, metrics, and traces find the root cause."
+- subject: math
+  title: "Math underneath it all"
+  text: "Probability and expectation run through everything: hit rates, latency distributions, and how much a model's output can be trusted only make sense in its terms."
+- subject: ai
+  title: "The program learns from data"
+  text: "The rules are no longer written by hand: give it enough examples and a scoreboard, and it turns its hundreds of millions of knobs to the right positions by itself."

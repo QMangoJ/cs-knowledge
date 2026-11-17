@@ -1,9 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useLang } from "@/i18n/client";
 
 type Theme = "light" | "dark";
 
-/** localStorage key shared with the pre-paint script in app/layout.tsx,
+/** localStorage key shared with the pre-paint script in RootShell,
  *  which sets <html data-theme> before first paint from this key (or the
  *  system preference on a first visit). Keep the two in sync. */
 export const THEME_KEY = "cs-theme";
@@ -19,6 +20,7 @@ function applyTheme(next: Theme) {
 /** Sun/moon theme switch in the site header. Renders a stable placeholder
  *  until mount (SSR has no data-theme), then reflects the live theme. */
 export function ThemeToggle() {
+  const { s } = useLang();
   const [theme, setTheme] = useState<Theme | null>(null);
   useEffect(() => {
     setTheme(document.documentElement.dataset.theme === "dark" ? "dark" : "light");
@@ -29,7 +31,7 @@ export function ThemeToggle() {
     try { localStorage.setItem(THEME_KEY, next); } catch { /* private mode */ }
     setTheme(next);
   };
-  const label = theme === "dark" ? "切换到浅色模式" : "切换到深色模式";
+  const label = theme === "dark" ? s.themeToLight : s.themeToDark;
   return (
     <button type="button" className="theme-toggle" aria-label={label} title={label} onClick={toggle}>
       {theme === "dark" ? (

@@ -18,6 +18,9 @@ code{font-family:var(--font-mono)}
 .theme-toggle:hover{border-color:var(--active);color:var(--ink-strong)}
 .theme-toggle:focus-visible{outline:2px solid var(--active);outline-offset:2px}
 .theme-toggle svg{width:17px;height:17px;display:block}
+.lang-toggle{display:inline-flex;align-items:center;justify-content:center;height:var(--ctl-h);padding:0 var(--sp-2);border:1px solid var(--line-mid);border-radius:var(--radius);background:var(--panel);color:var(--ink-soft);font-size:var(--fs-sm);font-weight:600;line-height:1;text-decoration:none;flex:none}
+.lang-toggle:hover{border-color:var(--active);color:var(--ink-strong)}
+.lang-toggle:focus-visible{outline:2px solid var(--active);outline-offset:2px}
 .hint,.muted{color:var(--ink-muted)}
 .site-footer{padding:var(--sp-5);border-top:1px solid var(--line-mid);color:var(--ink-soft);font-size:var(--fs-xs);flex:none}
 .card{background:var(--panel);border:1px solid var(--line-mid);border-radius:var(--radius);padding:var(--sp-4)}

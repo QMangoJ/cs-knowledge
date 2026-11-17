@@ -1,6 +1,8 @@
 "use client";
 import { useLayoutEffect, useRef, useState } from "react";
 import { parseSegments } from "@/lib/terms";
+import { fmt } from "@/i18n";
+import { useLang } from "@/i18n/client";
 import type { TermInfo } from "@/lib/view";
 
 /** Text with glossary markers rendered as clickable term buttons.
@@ -35,6 +37,7 @@ export type PopState = { key: string; rect: { top: number; bottom: number; left:
  *  when there is not enough room below. Fixed positioning keeps it out of
  *  the stage/details scroll containers, so it can never be clipped by them. */
 export function GlossPopover({ pop, terms, onClose }: { pop: PopState; terms: Record<string, TermInfo>; onClose: () => void }) {
+  const { s } = useLang();
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
   useLayoutEffect(() => {
@@ -57,12 +60,12 @@ export function GlossPopover({ pop, terms, onClose }: { pop: PopState; terms: Re
       ref={ref}
       className="gloss-pop"
       role="dialog"
-      aria-label={`术语解释：${pop.key}`}
+      aria-label={fmt(s.termDialogLabel, { key: pop.key })}
       style={pos ? { left: pos.left, top: pos.top } : { left: 8, top: 8, visibility: "hidden" }}
     >
       <div className="gloss-pop-head">
         <b>{pop.key}</b>
-        <button type="button" className="gloss-pop-x" aria-label="关闭术语解释" onClick={onClose}>
+        <button type="button" className="gloss-pop-x" aria-label={s.closeTermLabel} onClick={onClose}>
           ×
         </button>
       </div>

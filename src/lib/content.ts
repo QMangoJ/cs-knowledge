@@ -2,12 +2,56 @@ import fs from "node:fs";
 import path from "node:path";
 import YAML from "yaml";
 import { z } from "zod";
-import { GlossaryEntry, SourceDef, SubjectsFile, Topic, checkTopic, type Issue, type JourneyStep, type SubjectInfo, type Topic as TopicT } from "./schema";
+import { GlossaryEntry, SourceDef, SubjectsEnFile, SubjectsFile, Topic, checkTopic, type Issue, type JourneyStep, type SubjectInfo, type SubjectInfoEn, type Topic as TopicT } from "./schema";
 import { MARKER_RE } from "./terms";
+import type { Lang } from "@/i18n";
 
 export class ContentError extends Error {}
 
-export type Content = { topics: Topic[]; sources: Map<string, SourceDef>; subjects: SubjectInfo[]; journey: JourneyStep[]; issues: Issue[]; glossary: Map<string, GlossaryEntry> };
+export type Content = {
+  topics: Topic[];
+  /** English lesson overlays keyed by topic id (content/topics/** /en.yaml).
+   *  Absent lessons fall back to the Chinese canonical topic at render time. */
+  topicsEn: Map<string, Topic>;
+  sources: Map<string, SourceDef>;
+  subjects: SubjectInfo[];
+  journey: JourneyStep[];
+  subjectsEn: SubjectInfoEn[];
+  journeyEn: JourneyStep[];
+  issues: Issue[];
+  glossary: Map<string, GlossaryEntry>;
+};
+
+/** Subjects/journey in the requested language: English fields from
+ *  subjects.en.yaml where present, Chinese canonical values everywhere else. */
+export function localizedSubjects(c: Content, lang: Lang): SubjectInfo[] {
+  if (lang === "zh") return c.subjects;
+  const enById = new Map(c.subjectsEn.map((s) => [s.id, s]));
+  return c.subjects.map((s) => {
+    const en = enById.get(s.id);
+    if (!en) return s;
+    return {
+      ...s,
+      tagline: en.tagline,
+      blocks: s.blocks.map((b, i) => {
+        const eb = en.blocks[i];
+        return eb ? { ...b, name: eb.name, blurb: eb.blurb, gaps: eb.gaps.length ? eb.gaps : b.gaps } : b;
+      }),
+    };
+  });
+}
+
+export function localizedJourney(c: Content, lang: Lang): JourneyStep[] {
+  if (lang === "zh") return c.journey;
+  const enBySubject = new Map(c.journeyEn.map((j) => [j.subject, j]));
+  return c.journey.map((j) => enBySubject.get(j.subject) ?? j);
+}
+
+/** The topic to render for a language: the en.yaml overlay when it exists. */
+export function topicForLang(c: Content, topic: Topic, lang: Lang): Topic {
+  if (lang === "zh") return topic;
+  return c.topicsEn.get(topic.id) ?? topic;
+}
 
 /** Recommended path inside a subject: its pageable topics in `order` sequence. */
 export function subjectPath(topics: TopicT[], subject: string): TopicT[] {
@@ -62,11 +106,14 @@ export function checkCoherence(topics: TopicT[], subjects: SubjectInfo[]): Issue
   return out;
 }
 
-function walk(dir: string): string[] {
+function walk(dir: string): { file: string; lang: Lang }[] {
   if (!fs.existsSync(dir)) return [];
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
     const p = path.join(dir, e.name);
-    return e.isDirectory() ? walk(p) : e.name === "zh.yaml" ? [p] : [];
+    if (e.isDirectory()) return walk(p);
+    if (e.name === "zh.yaml") return [{ file: p, lang: "zh" as Lang }];
+    if (e.name === "en.yaml") return [{ file: p, lang: "en" as Lang }];
+    return [];
   });
 }
 
@@ -85,6 +132,30 @@ export function readContent(root = path.join(process.cwd(), "content")): Content
   }
   const subjects = subParsed.data?.subjects ?? [];
   const journey = subParsed.data?.journey ?? [];
+  // English overlay for subjects/journey (optional file; validated against the
+  // Chinese canonical structure so a drifted translation fails the build).
+  let subjectsEn: SubjectInfoEn[] = [];
+  let journeyEn: JourneyStep[] = [];
+  const enSubPath = path.join(root, "subjects.en.yaml");
+  if (fs.existsSync(enSubPath)) {
+    const enParsed = SubjectsEnFile.safeParse(YAML.parse(fs.readFileSync(enSubPath, "utf8")));
+    if (!enParsed.success) {
+      for (const e of enParsed.error.issues) issues.push({ level: "error", where: `subjects.en.yaml ${e.path.join(".")}`, msg: e.message });
+    } else {
+      subjectsEn = enParsed.data.subjects;
+      journeyEn = enParsed.data.journey;
+      const zhById = new Map(subjects.map((s) => [s.id, s]));
+      for (const es of subjectsEn) {
+        const zs = zhById.get(es.id);
+        if (!zs) { issues.push({ level: "error", where: "subjects.en.yaml", msg: `英文学科 ${es.id} 在 subjects.yaml 里不存在` }); continue; }
+        if (es.blocks.length !== zs.blocks.length) issues.push({ level: "error", where: `subjects.en.yaml ${es.id}`, msg: `英文板块数 ${es.blocks.length} 与中文 ${zs.blocks.length} 不一致（按位置对齐）` });
+      }
+      const zhJourneySubjects = new Set(journey.map((j) => j.subject));
+      for (const ej of journeyEn) {
+        if (!zhJourneySubjects.has(ej.subject)) issues.push({ level: "error", where: "subjects.en.yaml journey", msg: `英文 journey 的学科 ${ej.subject} 不在中文 journey 里` });
+      }
+    }
+  }
   // Glossary: the merged glossary.yaml plus per-subject glossary-frag-*.yaml fragments.
   const glossary = new Map<string, GlossaryEntry>();
   const glossFiles = ["glossary.yaml", ...fs.readdirSync(root).filter((f) => /^glossary-frag-.+\.yaml$/.test(f)).sort()];
@@ -104,7 +175,9 @@ export function readContent(root = path.join(process.cwd(), "content")): Content
     }
   }
   const topics: Topic[] = [];
-  for (const file of walk(path.join(root, "topics")).sort()) {
+  const topicsEn = new Map<string, Topic>();
+  const files = walk(path.join(root, "topics")).sort((a, b) => a.file.localeCompare(b.file));
+  for (const { file, lang } of files) {
     const rel = path.relative(root, file);
     const r = Topic.safeParse(YAML.parse(fs.readFileSync(file, "utf8")));
     if (!r.success) {
@@ -112,7 +185,11 @@ export function readContent(root = path.join(process.cwd(), "content")): Content
       continue;
     }
     issues.push(...checkTopic(r.data, sources));
-    topics.push(r.data);
+    // English overlays skip the cross-topic coherence and glossary-marker
+    // scans below: those run on the Chinese canonical tree only (the English
+    // glossary does not exist yet; revisit when the first subject is translated).
+    if (lang === "en") topicsEn.set(r.data.id, r.data);
+    else topics.push(r.data);
   }
   topics.sort((a, b) => a.subject.localeCompare(b.subject) || a.order - b.order);
   issues.push(...checkCoherence(topics, subjects));
@@ -139,7 +216,7 @@ export function readContent(root = path.join(process.cwd(), "content")): Content
       if (!glossary.has(key)) issues.push({ level: "error", where: t.id, msg: `术语标记 [[${key}]] 不在术语表（glossary.yaml / glossary-frag-*.yaml）` });
     }
   }
-  return { topics, sources, subjects, journey, issues, glossary };
+  return { topics, topicsEn, sources, subjects, journey, subjectsEn, journeyEn, issues, glossary };
 }
 
 let cache: Content | undefined;
