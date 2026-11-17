@@ -6,8 +6,12 @@
 export const V2_SUBJECT_ID = "distributed";
 export const V2_READER_TOPIC_ID = "distributed/cap-consistency";
 
-export const isV2Subject = (subject: string): boolean => subject === V2_SUBJECT_ID;
-export const isV2Reader = (topicId: string): boolean => topicId === V2_READER_TOPIC_ID;
+/** Sample pulled from production 2026-11-17 (Daniel: mixed old/new sections
+ *  on mobile read as a mess). Code stays in tree; gates off until the sample
+ *  is reworked as a coherent whole (nav + mobile + desktop) and approved
+ *  from screenshots before going live again. */
+export const isV2Subject = (subject: string): boolean => false;
+export const isV2Reader = (topicId: string): boolean => false;
 
 /** localStorage key for the reader font-size setting ("std" | "large"). */
 export const READER_FS_KEY = "cs-reader-fs";
