@@ -119,10 +119,13 @@
 .uiv2 .p-content-scroll .p-logbar{margin-top:18px}
 .uiv2 .p-content-nav{flex:none;margin-top:10px}
 
+/* drag handles exist only where the side-by-side layouts exist */
+.uiv2 .v2-rail-handle,.uiv2 .v2-visual-handle{display:none}
+
 @container (min-width:1120px){
   /* one rail + one content column; restated here so the old three-column
      areas from globals cannot auto-place the merged section */
-  .uiv2 .p-grid{grid-template-columns:300px minmax(0,1fr);grid-template-rows:minmax(0,1fr);
+  .uiv2 .p-grid{grid-template-columns:var(--v2-rail-w,300px) minmax(0,1fr);grid-template-rows:minmax(0,1fr);
     grid-template-areas:"rail content"}
   .uiv2 .p-content{grid-area:content}
   /* undo globals' grid-child sizing tricks: details/visual are no longer
@@ -131,7 +134,17 @@
   .uiv2 .p-visual .canvas-wrap{overflow:visible}
   .uiv2 .p-content.has-visual .p-content-main{flex-direction:row}
   .uiv2 .p-content.has-visual .p-details{flex:1 1 0}
-  .uiv2 .p-content.has-visual .p-visual{flex:0 0 46%;position:sticky;top:0}
+  .uiv2 .p-content.has-visual .p-visual{flex:0 0 var(--v2-visual-pct,46%);position:sticky;top:0}
+  /* --- draggable widths: rail right edge + the text/visual divider --- */
+  .uiv2 .p-rail{position:relative}
+  /* right:0, fully inside the rail — the rail scrolls (overflow-y:auto), so
+     any part sticking out past its right edge would be clipped and unhittable */
+  .uiv2 .v2-rail-handle{display:block;position:absolute;top:0;bottom:0;right:0;width:14px;cursor:col-resize;z-index:6;touch-action:none}
+  .uiv2 .v2-rail-handle::after{left:11px}
+  .uiv2 .v2-visual-handle{display:block;position:absolute;top:0;bottom:0;left:-13px;width:14px;cursor:col-resize;z-index:6;touch-action:none}
+  .uiv2 .v2-rail-handle::after,.uiv2 .v2-visual-handle::after{content:"";position:absolute;top:0;bottom:0;left:6px;width:2px;background:transparent;transition:background var(--dur-fast)}
+  .uiv2 .v2-rail-handle:hover::after,.uiv2 .v2-rail-handle:focus-visible::after,
+  .uiv2 .v2-visual-handle:hover::after,.uiv2 .v2-visual-handle:focus-visible::after{background:var(--active)}
   .uiv2 .p-content:not(.has-visual) .p-content-main{flex-direction:column}
   .uiv2 .p-content:not(.has-visual) .p-visual{width:100%}
   .uiv2 .p-content:not(.has-visual) .p-details{width:100%}

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePlayer } from "./usePlayer";
 import { Canvas } from "@/components/renderers";
@@ -52,6 +52,55 @@ export function ReaderV2({ topic, initialStep, nextTopic, nav, readerNav }: {
     setFsLarge(large);
     try { localStorage.setItem(READER_FS_KEY, large ? "large" : "std"); } catch { /* private mode */ }
   };
+  // Draggable widths (sample): the step-list rail and, on visual steps, the
+  // text/visual split. Both persist; CSS vars carry them into ui-v2.css.
+  const RAIL_W_KEY = "cs-v2-rail-w";
+  const VISUAL_PCT_KEY = "cs-v2-visual-pct";
+  const clampRail = (w: number) => Math.min(480, Math.max(220, Math.round(w)));
+  const clampPct = (p: number) => Math.min(62, Math.max(28, Math.round(p * 10) / 10));
+  const [railW, setRailW] = useState<number | null>(null);
+  const [visualPct, setVisualPct] = useState<number | null>(null);
+  const railRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    try {
+      const w = Number(localStorage.getItem(RAIL_W_KEY));
+      if (w) setRailW(clampRail(w));
+      const p = Number(localStorage.getItem(VISUAL_PCT_KEY));
+      if (p) setVisualPct(clampPct(p));
+    } catch { /* private mode */ }
+  }, []);
+  useEffect(() => { try { if (railW !== null) localStorage.setItem(RAIL_W_KEY, String(railW)); } catch { /* ignore */ } }, [railW]);
+  useEffect(() => { try { if (visualPct !== null) localStorage.setItem(VISUAL_PCT_KEY, String(visualPct)); } catch { /* ignore */ } }, [visualPct]);
+  const startDrag = (e: React.PointerEvent, onMove: (dx: number) => void) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const move = (ev: PointerEvent) => onMove(ev.clientX - startX);
+    const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+  const onRailDrag = (e: React.PointerEvent) => {
+    const startW = railRef.current?.getBoundingClientRect().width ?? railW ?? 300;
+    startDrag(e, (dx) => setRailW(clampRail(startW + dx)));
+  };
+  const onVisualDrag = (e: React.PointerEvent) => {
+    const main = (e.currentTarget as HTMLElement).closest(".p-content-main");
+    const mainW = main?.getBoundingClientRect().width ?? 0;
+    if (!mainW) return;
+    const startPct = visualPct ?? 46;
+    startDrag(e, (dx) => setVisualPct(clampPct(startPct - (dx / mainW) * 100)));
+  };
+  const railKeys = (e: React.KeyboardEvent) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    setRailW((w) => clampRail((w ?? railRef.current?.getBoundingClientRect().width ?? 300) + (e.key === "ArrowRight" ? 8 : -8)));
+  };
+  const visualKeys = (e: React.KeyboardEvent) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    setVisualPct((p) => clampPct((p ?? 46) + (e.key === "ArrowLeft" ? 2 : -2)));
+  };
+
   const [closedBlocks, setClosedBlocks] = useState<ReadonlySet<string>>(new Set());
   const toggleBlock = (name: string) => setClosedBlocks((prevSet) => {
     const s = new Set(prevSet);
@@ -157,8 +206,11 @@ export function ReaderV2({ topic, initialStep, nextTopic, nav, readerNav }: {
           </div>
         </header>
 
-        <div className={rows.length > 0 || caption ? "p-grid" : "p-grid no-log"}>
-          <aside className="p-rail">
+        <div className={rows.length > 0 || caption ? "p-grid" : "p-grid no-log"}
+          style={{ "--v2-rail-w": railW ? `${railW}px` : undefined, "--v2-visual-pct": visualPct ? `${visualPct}%` : undefined } as React.CSSProperties}>
+          <aside className="p-rail" ref={railRef}>
+            <div className="v2-rail-handle" role="separator" aria-orientation="vertical" aria-label="拖动调整步列表宽度"
+              tabIndex={0} onPointerDown={onRailDrag} onKeyDown={railKeys} />
             <nav className="v2-tree" aria-label="本学科课程">
               {readerNav.blocks.map((b) => {
                 const closed = closedBlocks.has(b.name);
@@ -219,6 +271,10 @@ export function ReaderV2({ topic, initialStep, nextTopic, nav, readerNav }: {
             <div className="p-content-scroll">
               <div className="p-content-main">
                 <div className="p-visual">
+                  {hasVisual && (
+                    <div className="v2-visual-handle" role="separator" aria-orientation="vertical" aria-label="拖动调整图文宽度比例"
+                      tabIndex={0} onPointerDown={onVisualDrag} onKeyDown={visualKeys} />
+                  )}
                   <div className="canvas-wrap stage-card">
               {step.log.length > 0 && (
                 <p className="now-bar" aria-live="polite"><b>{t.nowHappening}</b>{plainText(step.log.map((r) => topic.logColumns.map((c) => r[c.key]).filter(Boolean).join(" · ")).join("；"))}</p>
