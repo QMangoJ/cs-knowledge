@@ -1,0 +1,623 @@
+id: dsa/binary-heap
+subject: dsa
+slug: binary-heap
+order: 4
+status: published
+license: CC-BY-4.0
+title: Binary Heaps and Priority Queues
+summary: Always able to hand over "the most urgent one" immediately — insertion and removal both take only [[O(log n)|大 O 记号]].
+premise: Tasks keep arriving, and each time the most urgent one has to be handled first; if you re-sorted all the tasks every time, the cost would be far too high. This lesson looks at how a data structure that watches only the most urgent task achieves this. The sample is a min-heap managing prioritized tasks, where a smaller priority number means more urgent.
+position: This lesson is the first stop of the "Tree Structures" section. It follows merge sort and quicksort paying n log n to buy a complete total order, and proposes a cheaper structure that maintains only a partial order. After this lesson you will be able to compute any node's children on the spot with 2i+1 and 2i+2,
+  and describe how sift-up on insertion and sift-down on removal each repair the one broken stretch of heap order.
+bridge:
+  prev: In the previous lesson, one quicksort partition pinned a single element's final position; this lesson does the opposite — a heap never pins down its internal order, and only repairs the parent–child chain leading to the root during sift-up and sift-down.
+  next: A heap hands tasks out one by one in priority order without caring how the nodes connect to each other. The next lesson, BFS and DFS, tackles this — when nodes are linked by edges into a graph, how do you visit every node exactly once, with none missed and none repeated?
+overview:
+- key: In one sentence
+  value: The heap top is always the smallest (or largest) element; insertion sifts up, removal sifts down. In other words, open the heap top at any moment and you get the most urgent task, and after an insertion or removal the heap pushes the new most urgent task to the top by itself.
+- key: Complexity
+  value: Peeking at the heap top is [[O(1)|大 O 记号]], insertion and removal are [[O(log n)|大 O 记号]], and building a heap in one pass is O(n). Peeking is just a look at the root node, hence the fastest; insertion and removal travel at most one tree height, and the tree height is logarithmic, hence logarithmic time as well.
+- key: Storage
+  value: A complete binary tree is stored directly in an array — no pointers needed. Because a complete binary tree's shape is so regular, the indexes of a parent and its children can be computed directly by formula, so there is no need to store left and right pointers on every node the way an ordinary tree does.
+- key: In practice
+  value: "Task schedulers, timers, [[Top K]], [[Dijkstra]]'s shortest paths, the task queue in React's scheduler — heaps show up in all of them. What they share is the same pattern: new tasks keep arriving, and the most urgent one always has to be taken first."
+- key: Versus sorting
+  value: A heap guarantees only who is smallest, not a fully sorted order — so it is cheaper. For example, if you only want to know the highest score in the class, there is no need to sort everyone's grades completely from high to low; a heap maintains exactly this good-enough order.
+- key: Heap sort
+  value: "Building the heap is O(n); then taking the elements out one by one totals O(n log n) — in place, and not stable. The method: first arrange the array into a heap, then repeatedly take the heap top and move it to the end; when done, the whole array is sorted."
+- key: Not supported
+  value: Looking up an arbitrary element by value is O(n); changing an element's priority requires knowing its index in the array first, and a heap cannot locate by value quickly, so an extra key-to-index record has to be maintained
+- key: Max-heap
+  value: Just flip the comparisons — a min-heap requires each parent to be no greater than its children; flip it to require each parent to be no less than its children, and the heap top becomes the maximum
+visual: datastate
+logColumns:
+- key: mode
+  label: Current state
+- key: event
+  label: What happened
+steps:
+- id: why
+  title: Why do we need a priority queue?
+  tldr: "Set the scene first: tasks keep arriving, and each time the most urgent one has to be handled first. This step does two accounts — how expensive it is to scan a plain array for the most urgent task every time, and where fully re-sorting after every insertion wastes its effort. Once the waste is clear, we pin down what a priority queue promises — and why it can be cheap."
+  body: |-
+    Tasks keep arriving, and each time the most urgent one has to be handled first. Store them in a plain array and every search for the most urgent one scans all the tasks — that is linear; with 10,000 tasks, just finding it takes 10,000 looks, and the time spent actually handling tasks becomes the rounding error.
+
+    Fully sorting all the tasks after every insertion costs even more, and most of the order you paid for is never used — you only care who is most urgent; the relative order of the remaining tasks does not matter at all. Paying for information you will never use is the most typical waste in this kind of scenario.
+
+    A priority queue promises exactly one thing: see the most urgent task in one step at any time, and remove it or insert a new task at logarithmic cost. The heap is the classic structure implementing it: it maintains a partial order, pinning down only parent–child size relations and building no total order — which is why it is a notch cheaper than sorting. Every operation later in this lesson repairs the small piece of this partial order that an insertion or removal broke.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Binary heap lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: A priority queue supports insertion and extracting the minimum
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: tree
+    caption: "Min-heap: the smaller the number, the more urgent; the most urgent is always at the root"
+    tree:
+      nodes:
+      - v: 2
+        mark: found
+      - v: 4
+      - v: 3
+      - v: 7
+      - v: 5
+      - v: 8
+    aux:
+    - label: Finding the most urgent
+      items:
+      - Scan an array, O(n)
+      - Heap looks at the root, [[O(1)|大 O 记号]]
+  log:
+  - mode: 6 tasks in the heap
+    event: "The heap holds 6 tasks, and the requirement is settled: the most urgent one must be removable at any time, and neither insertion nor removal may re-sort the whole table each time."
+  points:
+  - Tasks keep arriving, and the most urgent one must be handled each time; fully sorting every time is too wasteful.
+- id: shape
+  title: "The heap's shape: every parent is smaller than its children"
+  tldr: "The last step settled on maintaining only parent–child size relations; this step looks at what that relation actually looks like: a heap is a complete binary tree, with every parent no greater than its children. First, why the 'complete' shape matters — it is what lets the whole tree be stored directly in an array — then what it means that heap order governs parents and children only, not siblings."
+  body: >-
+    A heap is a complete binary tree: every level except the last is full, and the last level fills from left to right. The complete shape is not aesthetics — it is what lets the tree be stored directly in an array: number the nodes level by level, and node number i (0-based) has its left child at 2i plus 1, its right child at 2i plus 2, and its parent at (i minus 1) divided by 2,
+    rounded down — not one cell wasted.
+
+
+    Heap order governs parents and children only: every parent is no greater than its children (in a min-heap); which sibling is larger does not matter, and uncles and nephews are never compared directly. In the canvas the root is 2, its left child is 4 and its right child is 3 — 3 being smaller than 4 is perfectly legal, because the rules never required left-to-right order.
+
+
+    From the parent–child chains it follows that the root must be the minimum: walking up the parent chain from any node, the values only decrease, never increase. So a heap is not a sorted array — read in array order it gives 2, 4, 3, 7, 5, 8, which is not monotone — but the root's identity carries an iron guarantee. A heap guarantees the extreme value, not the order.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Binary heap lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: A heap stores a complete binary tree in an array and satisfies the heap-order property
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: tree
+    caption: The children of position i are at 2i+1 and 2i+2; parents and children only, siblings do not matter
+    tree:
+      nodes:
+      - v: 2
+        mark: found
+      - v: 4
+      - v: 3
+      - v: 7
+      - v: 5
+      - v: 8
+      showArray: true
+  log:
+  - mode: Heap order holds
+    event: "Heap order holds: every parent is no greater than its children, and the heap top is the most urgent task of all."
+- id: index-proof
+  title: "Where the index formulas come from: a counting proof"
+  tldr: "The last step said children's positions can be computed by formula — but formulas are not decreed. This step counts out the index scheme of left child 2i+1 and right child 2i+2: starting from the first node, count exactly which stretch of indexes the children of all the preceding nodes fill, and the formula lands on its own; finally, reckon what this arithmetic saves over pointer storage."
+  body: >-
+    The index formulas can be counted out: lay the nodes in level order in a line, and the children of the first several nodes occupy exactly one consecutive stretch behind them. Node 0's children occupy indexes 1 and 2; the children of nodes 0 and 1 together occupy indexes 1 through 4; inductively, the children of nodes 0 through i fill exactly indexes 1 through 2i plus
+    2.
+
+
+    So node i's two children are the last two of that stretch: 2i plus 1 and 2i plus 2. Solve backward for the parent: merging the two cases, the parent index equals (child index minus 1) divided by 2, rounded down. A worked example: the parent of index 6 is 5 divided by 2, rounded down to 2; the children of index 2 are 5 and
+    6 — matching the tree in the canvas.
+
+
+    This arithmetic is the foundation of the heap's efficiency: finding a parent or a child is constant time, with no pointers stored. With a pointer tree instead, every node would carry three extra pointers — left child, right child, and parent — multiplying memory use and scattering the nodes across the heap, wrecking the cache. The formulas' precondition is the complete-binary-tree shape constraint: it is the shape that lets arithmetic replace storage.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: "Chapter 6, the array representation of heaps"
+    claim: A complete binary tree can be stored in an array; the children of index i are 2i+1 and 2i+2 (0-based)
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: tree
+    caption: "The children of index 2 are 5 and 6; the parent of index 6 is 2 — all arithmetic, no pointers"
+    tree:
+      nodes:
+      - v: 2
+        mark: found
+      - v: 4
+      - v: 3
+        mark: active
+      - v: 7
+      - v: 5
+      - v: 8
+      - v: 9
+        mark: new
+      showArray: true
+    aux:
+    - label: Formulas (0-based)
+      items:
+      - Left child 2i+1, right child 2i+2
+      - Parent (i−1)/2, rounded down
+      - "Check: node 2 → children 5, 6"
+  log:
+  - mode: Proof
+    event: "The index formulas are proved: children's and parents' positions all come from arithmetic — no pointers need to be stored on the nodes."
+- id: push
+  title: "Insertion: put it at the end, then sift up"
+  tldr: "Shape and indexes are ready — time to act: where does a new task go? This step follows a new task with priority 1 from the end of the array, swapping with its parent level by level as it floats up, and shows why repairing a single chain is enough — and how many steps it takes at most."
+  body: >-
+    A new task with priority 1 arrives: put it at the end of the array first (index 6), keeping the complete binary tree's shape; at this moment only its relation with its parent can be violated: the parent sits at index 2 and is 3; 1 is smaller than 3, so the parent–child order is flipped.
+
+
+    Sifting up repairs along the parent chain, cell by cell: 1 swaps with 3 into index 2; then compare with the new parent at index 0, which is 2 — 1 is smaller than 2, so swap again, up to the root; stop at the root. The two swaps walked the path from index 6 to 2 to 0 — exactly the tree height. Each level up roughly halves the index, so the step count is at most logarithmic: about
+    14 steps cap it for 10,000 tasks.
+
+
+    Sifting up repairs a single chain: every other parent–child pair was already legal, and the only relations that need re-checking are the ones on this chain. If every insertion re-checked the whole tree, the heap would degenerate into repeated sorting.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Binary heap lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: Insertion restores heap order by sifting up, O(log n)
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: tree
+    caption: 1 goes at the end (position 6); smaller than its parent, so swap — 6 → 2 → 0
+    tree:
+      nodes:
+      - v: 1
+        mark: new
+      - v: 4
+      - v: 2
+        mark: active
+      - v: 7
+      - v: 5
+      - v: 8
+      - v: 3
+        mark: active
+    aux:
+    - label: Sift up
+      items:
+      - Put at the end
+      - 1 < 3, swap
+      - 1 < 2, swap — at the root
+  log:
+  - mode: Insertion complete
+    event: "Insertion is complete: the new task with priority 1 sifted up from the end to the root and became the new heap top."
+  code:
+    lang: typescript
+    code: |-
+      class MinHeap {
+        a: number[] = [];
+        push(x: number) { const a = this.a; a.push(x); let i = a.length - 1;
+          while (i > 0) { const p = (i - 1) >> 1; if (a[p]! <= a[i]!) break; [a[p], a[i]] = [a[i]!, a[p]!]; i = p; } }
+        pop(): number | undefined { const a = this.a, top = a[0]; const last = a.pop();
+          if (a.length && last !== undefined) { a[0] = last; let i = 0;
+            for (;;) { const l = 2 * i + 1, r = l + 1; let m = i;
+              if (l < a.length && a[l]! < a[m]!) m = l; if (r < a.length && a[r]! < a[m]!) m = r;
+              if (m === i) break; [a[m], a[i]] = [a[i]!, a[m]!]; i = m; } }
+          return top; }
+      }
+    note: TypeScript implementation of sift-up / sift-down
+- id: pop
+  title: "Removing the top: fill in from the end, then sift down"
+  tldr: "Insertion is learned; removal is its dual action: once the heap top is taken away, the root's place stands empty. This step watches the last element fill in at the root and then swap its way down with the smaller child step by step, and explains why it must swap with the smaller of the two children."
+  body: >-
+    Removing the heap top takes three steps: first take the root, 1, away; then move the array's last element, 3, up to the root in its place (the array's length drops by one and the shape stays unbroken); at this moment the only possible violation is at the root: 3 and its children 4 and 2 need a fresh ruling.
+
+
+    Sifting down swaps with the smaller child: 3's children are 4 and 2; the smaller is 2, and 3 is greater than 2, so swap — 3 lands at index 2. Then look at the new position's children: index 2's children are at indexes 5 and 6, but the array now reaches only index 5, which holds 8; 3 is smaller than 8, so stop. The final heap is
+    2, 4, 3, 7, 5, 8, and the new root 2 is the most urgent of the remaining tasks.
+
+
+    Why must it swap with the smaller child? If the larger one, 4, were swapped up to the root instead, 4 would still be greater than the 2 left below — the violation would merely have moved house. Swapping with the smaller guarantees the node moved up is no greater than both children, repairing one level in one step. The step count is at most the tree height — a dozen or so steps suffice for 10,000 tasks.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Binary heap lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: After the minimum is extracted, heap order is restored by sifting down, O(log n)
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: tree
+    caption: Remove 1; the last element, 3, moves to the root, then swaps with the smaller child, 2
+    tree:
+      nodes:
+      - v: 2
+        mark: active
+      - v: 4
+      - v: 3
+        mark: active
+      - v: 7
+      - v: 5
+      - v: 8
+    aux:
+    - label: Sift down
+      items:
+      - Remove 1
+      - 3 moves to the root
+      - 3 > 2, swap
+  log:
+  - mode: Removal complete
+    event: "Removal is complete: the heap top was taken away, the last element filled in and sifted down, and the new most urgent task has arrived at the heap top."
+- id: heapify
+  title: "Building a heap in one pass: why it is O(n)"
+  tldr: "Building by inserting one by one costs n log n, but when you already hold a whole unordered array there is a cheaper way. This step sifts down one by one starting from the last node that has children and working forward, first settling why the total bill is linear, then naming the one ordering that is easiest to write backwards."
+  body: >-
+    Building by inserting one by one costs O(n log n); the better way is to view the array as a tree first, start from the last node that has children, and sift each node down in turn, working forward. Half the nodes in the tree are leaves and need no work; the higher nodes are fewer, and although they sift deeper, the total work adds up to only
+    O(n). Once the heap is built, repeatedly removing the heap top is heap sort: O(n log n), in place, but not stable.
+
+
+    Concrete numbers: building a heap of a million elements by inserting one by one is on the order of 20 million comparisons (n log n), while heapify bottom-up is on the order of 2 million (O(n), with a constant of about 2n) — a whole order of magnitude apart, which is also why Python's heapify
+    and schedulers building heaps in bulk choose it.
+
+
+    Linear does not come from every node moving only a constant number of times; it comes from the total converging — the greater the height, the fewer the nodes: as the per-node price doubles, the count more than halves. Write the order backwards — sift down top-down starting from the root — and the upper nodes get stirred again and again, and the total degenerates at once. This is the one order that must not be written backwards.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Binary heap lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: Given n elements, sifting down one by one from the last non-leaf node forward takes only O(n) in total.
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: tree
+    caption: "[7, 5, 8, 2, 4, 3]: sift down one by one from position 2, the last position with children, working forward — giving [2, 4, 3, 5, 7, 8]"
+    tree:
+      nodes:
+      - v: 2
+        mark: found
+      - v: 4
+        mark: done
+      - v: 3
+        mark: done
+      - v: 5
+        mark: muted
+      - v: 7
+        mark: muted
+      - v: 8
+        mark: muted
+      showArray: true
+    aux:
+    - label: The process
+      items:
+      - "Position 2: 8 > 3, swap"
+      - "Position 1: 5 > 2, swap"
+      - "Position 0: 7 > 2 swap, then 7 > 4 swap"
+    - label: Leaves (positions 3–5)
+      items:
+      - No work needed
+  log:
+  - mode: Heap built
+    event: "The heap is built: sifting down one by one from the last node with children, working forward, the whole set of elements has been arranged into a heap."
+- id: d-ary-heap
+  title: "d-ary heaps: more children, a shorter tree — how does the bill change?"
+  tldr: "A binary heap gives every node just two children. Enlarge the child count to d and the tree gets shorter — but the sift-up and sift-down bills have to be redone. This step lays the two bills side by side and looks at how large the child count should be, and what decides it."
+  body: >-
+    Enlarge each node's child count from 2 to d and you get a d-ary heap: the tree gets shorter, the children sit between d times i plus 1 and d times i plus d, and the parent is (i minus 1) divided by d, rounded down. The height drops from a logarithm base 2 to a logarithm base d, and the number of sift-down steps drops with it.
+
+
+    But each sift-down step must pick the smallest among d children, so the comparisons per level rise from 1 to d minus 1; sift-up compares against a single parent per step, so fewer steps there is pure profit. The total bill depends on the operation mix: in insertion-heavy, removal-light scenarios (such as scheduling queues), d = 4
+    or even larger is often faster; when removals are dense, the sift-down cost eats the height dividend back.
+
+
+    The hardware bill: one node's children sit consecutively in the array, so a single [[cache line|缓存行]] holds several of them; at d = 4, one sift-down level most likely costs very little extra access. [[CLRS]] sets the d-ary heap as an exercise for readers to derive themselves — the conclusion is always: look at the operation mix first, then fix d.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: "Chapter 6, exercise: d-ary heaps"
+    claim: A d-ary heap's height is a logarithm base d, and the complexity of insertion and extraction varies with d and the operation mix
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "The same million nodes: a binary heap has about 20 levels, a 4-ary heap about 10; sift-up steps halve, but each sift-down level must pick among more children"
+    rows:
+    - label: Height comparison
+      cells:
+      - v: "Binary: ~20 levels"
+        sub: 2 children
+      - v: "4-ary: ~10 levels"
+        sub: 4 children
+      - v: "8-ary: ~7 levels"
+        sub: 8 children
+    aux:
+    - label: The bill
+      items:
+      - "Sift up: fewer steps, pure profit"
+      - "Sift down: d−1 comparisons per level to pick"
+      - Look at the insertion/removal mix first
+  log:
+  - mode: Trade-off
+    event: "The bill is settled: how large the child count should be is decided by the ratio of insertions to removals — there is no optimum detached from the operation mix."
+- id: decrease-key
+  title: "The heap's other half: decreasing a key (decrease-key)"
+  tldr: "In and out are learned; one action is still missing: a task is already in the heap, and its priority has been made smaller. This step shows why sifting up alone repairs things after a decrease, then explains what engineering practice uses to work around it when most languages' heaps do not offer this operation."
+  body: >-
+    First, a term: relaxation is the formal action of the shortest-path lesson later on — it means that after a shorter route is discovered, a node's known distance is decreased. Borrow that action here to look at the heap's problem: a task already in the heap has been made more urgent; how should the heap move it to the right place?
+
+    A priority queue is not only in and out: when [[Dijkstra]] relaxes, a node that just got a shorter distance is often already in the heap, and its key needs to be decreased. The operation is plain: change the value directly, then sift up from that position (sift-up) — the key only got smaller, so only the upward direction needs repair.
+
+
+    Many languages' priority queues (hand-written in JS, Python's [[heapq]]) do not offer decrease-key, so the standard workaround is to push another copy with the new distance, and when the old entry is popped, notice it is stale and skip it ([[lazy deletion|惰性删除]]): the heap may hold several copies of the same node, identified against the dist
+    array. The extra entries number at most one per edge, and the asymptotic complexity does not change.
+
+
+    The dual operation, increase-key (making a key larger), changes the value and then sifts down; together the two let a heap support scheduling scenarios with updates.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: "Chapter 6, priority queues: DECREASE-KEY"
+    claim: After decrease-key makes a key smaller, sifting up along the parent chain is the binary heap's standard operation for supporting priority-queue updates
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: tree
+    caption: After one key is decreased, it sifts up from its original position, and the new minimum arrives at the heap top
+    tree:
+      nodes:
+      - v: 1
+        mark: found
+      - v: 4
+      - v: 3
+      - v: 7
+      - v: 5
+      - v: 8
+    aux:
+    - label: Key-change rules
+      items:
+      - Decreased → sift up
+      - Increased → sift down
+      - No such API → lazy deletion
+  log:
+  - mode: Update
+    event: "The key change is done: the node whose key was decreased has sifted up to its new position, and heap order holds again."
+- id: merge-heaps
+  title: "Merging two heaps: the binary heap's soft spot"
+  tldr: "This step picks on the binary heap's soft spot: when two heaps must become one, it has no ready-made way to merge. First do the bills for the two detours — insert one by one, and concatenate then heapify the whole thing — then pin down when you should simply switch to a different kind of heap."
+  body: >-
+    Merging two heaps into one is not cheap: a binary heap reserves no structural interface for merging. You can only insert the small heap's elements into the large heap one by one — m elements each take a sift-up, and the cost grows as m times log n — or concatenate the two arrays and heapify the whole thing, at linear cost. The latter is actually faster, but it is already this route's floor order of magnitude.
+
+
+    A numeric comparison: merging two heaps of 1,000 elements each, inserting one by one takes about 1,000 times about 11 steps — on the order of ten-odd thousand comparisons in total; concatenating plus heapify is on the order of 4,000. The memory bill is the reverse: concatenation needs a freshly allocated array, while inserting one by one in place needs zero extra space — speed and memory saving stand in direct opposition, the same bill merge sort pays in space for speed.
+
+
+    If the business merges frequently (such as merging sub-queues in parallel scheduling), the binary heap is the wrong tool: mergeable heaps such as the [[binomial heap|二项堆]] press merging down to logarithmic cost, at the price of abandoning array storage and returning to a pointer structure, with a larger constant per single operation. When choosing, list the operation inventory first: whether merging is frequent decides the structure.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: "Chapter 6, building heaps and merging heaps"
+    claim: Concatenating two arrays and building a heap bottom-up yields a heap in linear time
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "Merging two 1,000-element heaps: inserting one by one takes on the order of ten-odd thousand comparisons; concatenate-and-heapify about 4,000 — but it needs a whole new array"
+    rows:
+    - label: Heap A
+      cells:
+      - v: 2
+      - v: 5
+      - v: 9
+      - v: …
+        sub: 1,000 elements
+    - label: Heap B
+      cells:
+      - v: 1
+      - v: 6
+      - v: 8
+      - v: …
+        sub: 1,000 elements
+    - label: After concatenate + heapify
+      cells:
+      - v: 1
+        mark: found
+      - v: 2
+      - v: 8
+      - v: …
+        sub: 2,000 elements
+    aux:
+    - label: The two routes
+      items:
+      - "Insert one by one: saves memory, more comparisons"
+      - "Concatenate + heapify: fewer comparisons, needs a new array"
+      - "Frequent merging: switch to a mergeable heap"
+  log:
+  - mode: Trade-off
+    event: "The merging bill is settled: a binary heap reserves no structural interface for merging, and scenarios with frequent merging should switch to a mergeable heap."
+- id: engineering
+  title: Priority queues in practice
+  tldr: "Finally, the engineering floor: schedulers, timers, and picking the ten largest out of a flood of data all run on the same heap underneath. This step matches each use to its place, then names what a heap cannot do — look up an arbitrary element by value, delete a middle element, traverse in full order — so you do not reach for it for a job it should not do."
+  body: >-
+    React's scheduler manages tasks by expiry time in a min-heap. To find the 10 largest out of a flood of data, keep a min-heap of size 10 (the heap top is the smallest of those 10; replace it only when a new element is larger than it) — no need to sort everything. Walk this once with numbers: the stream brings 42, 7, 19, 88, 3, 56, 24, 71, 9, 31, 60, 15 in turn. The first ten all go into the heap; at that point the heap top is 3, the smallest of the ten. The eleventh, 60, is larger than 3 — pop the 3, put in the 60, and the heap still holds the ten largest seen so far. The twelfth, 15, is larger than the heap top at that point, 7 — replace the same way. From then on, any number smaller than the heap top is skipped outright and never enters the heap. However long the stream runs, the heap's size stays constant at 10 — which is why it dares to handle a flood of data. JS has no built-in heap, so you write one yourself or use a library; Java has
+    [[PriorityQueue]] and Python has [[heapq]]. Timer wheels, request priorities, and [[Top-K|Top K]] retention are all direct heap applications: retaining the largest K elements uses a min-heap of size K, with memory constant at K.
+
+
+    The selection boundary: a heap does not support looking up an arbitrary element by value (only a linear scan), nor efficient deletion of a middle element; it suits only scenarios where elements enter and leave at the heap top. When rankings must be changed at any time, key changes or lazy deletion fill in (previous section); when a full-order traversal is needed, switch to a balanced tree.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Binary heap lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: Heaps are used to implement priority queues
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: tree
+    caption: See the most urgent in [[O(1)|大 O 记号]] at any time; remove or insert in [[O(log n)|大 O 记号]]
+    tree:
+      nodes:
+      - v: 2
+        mark: found
+      - v: 4
+      - v: 3
+      - v: 7
+      - v: 5
+      - v: 8
+    aux:
+    - label: Uses
+      items:
+      - React scheduler
+      - Top 10
+      - PriorityQueue / heapq
+  log:
+  - mode: Wrap-up
+    event: "The selection conclusion boils down to one line: if you only ever need the most urgent one, use a heap; if you need lookup by value or a full-order traversal, switch to another data structure."
+- id: playground
+  title: "Hands-on: build a heap by hand, then take it apart"
+  tldr: "The rules are covered — now it is your turn: first build a heap from a 'reverse-sorted' array and watch the sift-up paths, then remove the heap top one by one and verify the output is naturally increasing; finally run build-by-insertion and one-pass heapify side by side, compare the swap counts, and verify that bottom-up building is cheaper."
+  body: >-
+    First build a heap from the 'reverse-sorted' array: every new element is smaller than its parent and floats up close to the heap top; then build from a 'nearly sorted' array — the last-inserted 2 floats from the end of the array all the way up to around index 1
+    . Once built, keep single-stepping removals: each time the heap top is taken and the last element fills in and sifts down — the removed sequence is strictly increasing; that is heap sort's second half. You can also enter a set of numbers of your own (at most 10) to verify.
+
+
+    Then the comparison: run build-by-insertion and one-pass heapify on the same set of numbers, compare the total swap counts, and verify that bottom-up is cheaper. A self-check question: if the removed sequence is not increasing, the fault is certainly some sift-down that did not swap with the smaller child — go back to that step and replay it single-step to locate it.
+  derivation: original
+  sources: []
+  log: []
+  canvas:
+    kind: lab
+    lab: heap-lab
+    caption: Preset / custom arrays; insertion sift-up + top-removal sift-down, fully visualized
+    cases:
+    - input:
+        values:
+        - 9
+        - 4
+        - 7
+        - 1
+      expect:
+        heapAfterBuild:
+        - 1
+        - 4
+        - 7
+        - 9
+        sorted:
+        - 1
+        - 4
+        - 7
+        - 9
+    - input:
+        values:
+        - 5
+        - 2
+        - 8
+        - 2
+      expect:
+        heapAfterBuild:
+        - 2
+        - 2
+        - 8
+        - 5
+        sorted:
+        - 2
+        - 2
+        - 5
+        - 8
+level: 进阶
+minutes: 28
+prereq:
+- dsa/merge-quick-sort
+objectives:
+- Compute parent/child positions from a complete binary tree's array indexes
+- Describe how sift-up and sift-down restore heap order
+- Explain why building a heap is O(n) rather than O(n log n)
+aiLink: A priority queue is the scheduler's heart — inference services' request priority queues, timers, and event loops all rely on heaps to take the extreme value in O(log n); beam search keeps its top-k candidates at every step, often with the help of a heap or partial sorting. Understand heaps, and you understand how these systems queue.
+design:
+- mechanism: A complete binary tree's level order and its array indexes correspond one to one — a parent's and its children's positions can all be computed on the spot with arithmetic like 2i plus 1, 2i plus 2, and (i minus 1) divided by 2. The tree structure is encoded into the indexes themselves, with no extra storage needed.
+  problem: Store the tree with pointer nodes instead, and every node carries extra pointers for its left and right children (often its parent as well) — memory swells, the nodes scatter across the heap, and walking a sift-up or sift-down path becomes one cache miss after another.
+  choice: Force the tree to keep a complete binary shape (new elements may only fill the end; deletions may only touch the end), trading shape discipline for index arithmetic — finding a relative is a constant-time computation, all elements crowd into one contiguous array, and a sift-up or sift-down path mostly hits the same batch of cache lines along the way.
+  tradeoff: The price is that the shape cannot grow freely — you cannot add nodes on one side only, the way an ordinary binary search tree does, nor merge two heaps efficiently; when those operations are needed you must switch to a mergeable heap, and hand back the array storage and cache-friendliness dividends along with it.
+  root: The root is that information can be stored in position — when the structural rules are regular enough, position itself is the index, and storage and computation can be exchanged for each other. The heap uses the most regular tree shape to trade pointer overhead for arithmetic overhead, buying cache-friendliness along the way — the underlying reason it is cheap.
+- mechanism: Heap order constrains parent–child pairs only, so the whole tree forms just a partial order — the path from the root to any node is monotone, but no order is established between different subtrees. The structure maintains far less information than a complete sort, so an update has far fewer constraints to repair.
+  problem: A scheduling scenario needs only one extreme value each time; maintaining a total order means paying continuously for ordering information that is never used — every insertion must find its exact position in the total order and maintain all the neighboring relations, and the cost cannot be pressed down. Pure waste.
+  choice: Pin down only the heap top — insertions and deletions repair the partial order along a single root-to-leaf path and touch no other node. When the k-th largest or the median is needed, do not force it on the heap; pair structures instead — for example, maintain the median with two heaps facing each other.
+  tradeoff: The price of giving up the total order is incomplete capability — lookup by value, deleting an arbitrary element, and ordered traversal all degenerate to linear or cannot be done at all, so a heap can serve only as a priority queue and cannot pose as an ordered container; the operation inventory must be confirmed before choosing it.
+  root: The root is the exchange rate between information and cost — the stronger the information a data structure maintains, the more constraints every update must repair. The heap trims its information down to just the extreme value being reachable, which is what presses the update cost down — the same principle by which every specialized structure beats a general one.
+- mechanism: Bottom-up heap building settles its total work by height — about half the nodes are leaves, at zero cost; each additional level of height halves the node count while at most doubling a single sift-down's cost, so the levels' totals are pressed by a geometric series to a constant multiple of the element count.
+  problem: Building by inserting one by one costs n log n — when bulk-importing initial data (such as a scheduler cold-starting with its backlog of tasks) you pay a whole logarithmic factor for nothing; and the insertion order affects the intermediate shapes and comparison counts, so the result drifts with the input order.
+  choice: Treat the whole set of data as a complete binary tree as-is, and sift down in reverse order starting from the last non-leaf node — when a node's turn comes, both its subtrees are already legal heaps, so one sift-down makes its whole subtree legal; the induction holds and the total bill is linear.
+  tradeoff: The price is that building cannot be incremental — all the data must be present before you can start, and elements arriving midway can only be inserted one by one afterward; and the bottom-up order is counterintuitive — write it backwards, top-down, and the total degenerates back to the n log n order at once.
+  root: The root lies in the tree's node distribution — the vast majority of nodes crowd into the bottom levels, at near-zero cost, while the expensive high-level nodes are extremely few. Linear does not come from every node being cheap, but from expensive nodes being rare — the same distribution law also explains why top-down must lose.
+quiz:
+- q: With array index i (0-based), what is the left child's index?
+  options:
+  - i + 1
+  - 2i + 1
+  - 2i
+  - i * i
+  answer: 1
+  explain: 0-based — left 2i+1, right 2i+2, parent floor((i-1)/2).
+- q: What is the heap-top element?
+  options:
+  - The median
+  - The extreme value — the minimum (min-heap) or the maximum (max-heap)
+  - The last one inserted
+  - A random one
+  answer: 1
+  explain: A heap guarantees only the extreme value at the top; inside it is a partial order, not a total order.
+- q: What are the complexities of building by inserting one by one, and of bottom-up heapify?
+  options:
+  - Both O(n)
+  - O(n log n) and O(n)
+  - O(n) and O(n log n)
+  - Both O(n²)
+  answer: 1
+  explain: Heapify exploits the fact that most nodes sit at the bottom levels, so its total work converges to O(n).
+legend:
+- key: active
+  label: Element currently being compared / processed
+- key: found
+  label: Found / final position
+- key: done
+  label: Processing complete
+- key: pivot
+  label: Pivot element
+- key: muted
+  label: Ruled out / no longer considered
+- key: visited
+  label: Visited

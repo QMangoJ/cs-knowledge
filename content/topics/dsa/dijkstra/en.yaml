@@ -1,0 +1,1004 @@
+id: dsa/dijkstra
+subject: dsa
+slug: dijkstra
+order: 6
+status: published
+license: CC-BY-4.0
+title: "Dijkstra: Shortest Paths"
+summary: When edges have different lengths, how do you find the shortest route from the starting point to every other place?
+premise: On a map, going from one place to all the others, the roads come in different lengths — the route with the fewest steps is not necessarily the shortest in total distance, so how do you compute the true shortest routes? This lesson walks through the algorithm on a small map with 5 places and roads of different lengths, starting from A and settling, one by one, each place's shortest distance from A.
+position: This lesson stays inside the "Walking on Graphs" section, right after BFS advancing layer by layer with a queue, and swaps the layering criterion from edge count to accumulated edge weight. After it, you will be able to carry out [[relaxation|松弛]] — the single update action — by hand, and use the non-negative edge weight premise to explain why, once the unsettled point with the smallest dist is selected, no detour can ever overtake it.
+bridge:
+  prev: The previous lesson's BFS relied on first-in-first-out to guarantee that whoever arrives first used the fewest edges. This lesson keeps the skeleton of processing the nearest first, but the plain queue must be replaced by a priority queue that takes the minimum by dist before it can cope with weighted edges.
+  next: Every round of Dijkstra has to pull the point with the smallest dist out of the unsettled set quickly. The next lesson, binary search trees, answers a related question — besides a heap, how can an ordered tree support a dynamic set's minimum and range queries just as well?
+overview:
+- key: In one sentence
+  value: Each time, settle the point that is currently nearest to the start and not yet settled, then use it to update its neighbors. That point can be settled on the spot because every other unsettled point is farther from the start — detouring through them and coming back would only be longer, so it can never be improved.
+- key: The premise
+  value: Edge weights cannot be negative. Once a negative-weight edge exists, a distance already settled might be pulled shorter by a negative edge that appears later, and the settling argument above no longer holds — that is when you switch to an algorithm such as [[Bellman-Ford]].
+- key: Complexity
+  value: With a binary heap, about O((V + E) log V). Each point in the graph is extracted and settled at most once, and each edge is used for an update at most once; the heap keeps the cost of each pick of the nearest point at logarithmic level.
+- key: What it leans on
+  value: It leans on a priority queue — a heap — to find the nearest point fast. Every round must pick the smallest-distance point among those not yet settled; scanning linearly every time would make the whole thing slower by an order of magnitude.
+- key: In practice
+  value: Map navigation, network routing (such as [[OSPF]]), and game pathfinding all use it, and [[A*]] is its accelerated version. A* adds an estimate toward the target direction on top of [[Dijkstra]], so the search wastes less effort on detours, but the skeleton is the same.
+- key: The path itself
+  value: Record predecessors, and a final backtrack yields the complete route. Whenever going through some point to a neighbor turns out to be shorter, note down which point that neighbor was reached from; once everything is computed, walk backward from the destination along the records to the start, and that is the shortest route itself.
+- key: Early exit
+  value: With only one destination, you can stop the moment the destination is settled. Because settling proceeds in order of distance, from near to far, once the destination is settled its distance is already the final answer, and the farther points after it never need computing.
+- key: Negative edges
+  value: With negative-weight edges, use Bellman-Ford, whose complexity is O(V·E) and which can also detect a [[negative cycle|负环]]. Instead of settling in one pass, it [[relaxes|松弛]] all the edges over and over for many rounds, letting the influence of negative edges spread slowly — slower, but with a wider range of application.
+- key: Implementation detail
+  value: The common approach is lazy deletion — the same point may be pushed into the heap several times, and stale records are skipped when extracted. When a shorter route to a point is found, instead of hunting down and editing the old record inside the heap, you simply push a fresh copy in; when a record is extracted and turns out to be larger than the currently known distance, you throw it away. Much simpler to implement.
+visual: datastate
+logColumns:
+- key: mode
+  label: Current state
+- key: event
+  label: What happened
+steps:
+- id: why
+  title: Why BFS is not enough
+  tldr: "Set the scene first: a map with lengths on it. From A to C you can take one long road directly, or detour through B over two short segments. This step first settles why step count and total length are two different accounts, and why the unweighted way of advancing by step count picks the wrong route here."
+  body: |-
+    From A to C: one direct road of 10 kilometers, or two segments of 3 kilometers each via B. BFS would pick the route that arrives in one step, but it is actually longer. When edges carry weights, you need an algorithm that adds up total length.
+
+    Do the math in detail: the direct edge weighs 10, the two segments via B total 6. BFS chose the route with only 1 edge by edge count, yet lost on total length — proof that edge count and total length are two different measures. As long as the edge weights are not all equal, ordering by edge count has no reason to match ordering by total length, and this single counterexample disposes of the idea of carrying BFS over to weighted graphs unchanged.
+
+    Routes with more edges being shorter are everywhere in real road networks: a ring expressway traveled in three segments is often shorter in total than one small road cutting through the city. So weighted graphs need a new invariant: maintain, for each point, the currently known best estimate of its shortest distance, and turn estimates into conclusions one by one whenever there are solid grounds. That is the starting point of the greedy idea in the next section. The unweighted case is a special case of the weighted one: when every edge weight equals 1, Dijkstra (the shortest-path algorithm named after its proposer, Edsger W. [[Dijkstra]]) degenerates into BFS.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Shortest-path lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: The shortest path in a weighted graph cannot be obtained by using BFS directly
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: graph
+    caption: "A to C: straight on for 10, or via B for 3 + 3 = 6?"
+    graph:
+      nodes:
+      - id: A
+        x: 3
+        y: 60
+        mark: active
+      - id: B
+        x: 35
+        y: 6
+      - id: C
+        x: 58
+        y: 70
+        mark: active
+      - id: D
+        x: 97
+        y: 92
+      - id: E
+        x: 82
+        y: 6
+      edges:
+      - from: A
+        to: B
+        w: 3
+        mark: found
+      - from: B
+        to: C
+        w: 3
+        mark: found
+      - from: A
+        to: C
+        w: 10
+        mark: active
+      - from: B
+        to: E
+        w: 5
+      - from: C
+        to: D
+        w: 2
+      - from: E
+        to: D
+        w: 7
+    aux:
+    - label: BFS picks
+      items:
+      - A → C (10)
+    - label: The actual shortest
+      items:
+      - A → B → C (6)
+  log:
+  - mode: Initial
+    event: "The initial state is set: A's distance is 0, and every other point's distance is recorded as infinity for now, waiting to be shrunk step by step by [[relaxation|松弛]]."
+  points:
+  - BFS only counts how many steps you take, but roads have different lengths — fewer steps does not mean a shorter distance.
+- id: greedy
+  title: "The core idea: settle the nearest point first"
+  tldr: "The last step set up the job of maintaining each point's shortest-distance estimate. This step looks at the algorithm's core move: each round, pick the unsettled point with the smallest estimate and settle it on the spot. First the reason settling is safe is stated clearly, then the settled set and the meaning of the estimates are pinned down as an invariant, ready for the next step's proof."
+  body: >-
+    Notation first: dist[x] is the currently known best estimate of the shortest distance from the start to x; it keeps being shrunk by [[relaxation|松弛]] until x is settled, when it becomes fixed. S is the set of points already settled. Every round from here on is described in these two terms.
+
+    At the start, only A's distance is 0; everything else is unknown (infinity). Once the nearest point is picked out, its distance cannot become any shorter, because any other route must first pass through a farther point and then add a non-negative stretch of road. This argument depends on edges not being negative — which is also [[Dijkstra]]'s premise.
+
+
+    Why it holds, in one skeletal sentence: let u be the unsettled point with the smallest dist. Any other route to u must first pass through some unsettled point x, and x's dist is no smaller than u's dist; add the non-negative edge weights after that, and the total cannot be smaller (the next section gives the full proof). The settled set is also called
+    S, and the invariant the algorithm maintains is: for every point inside S, dist equals the true shortest distance; for every point outside S, dist equals the best value over paths whose intermediate points all lie inside S. Each round moves one point into S and restores the invariant, until S holds all the points.
+
+
+    Non-negativity is the only property of edge weights that gets used: once a negative edge exists, the detour segment might pull the total length down, the chain of reasoning breaks, and the [[Bellman-Ford]] section further on shows the numbers of that crash.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Dijkstra lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: In a non-negatively weighted graph, the distance of the nearest point extracted each time is already its final value
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: graph
+    caption: "At the start only A is settled at 0; everything else is ∞"
+    graph:
+      nodes:
+      - id: A
+        x: 3
+        y: 60
+        mark: found
+        note: "0"
+      - id: B
+        x: 35
+        y: 6
+        note: ∞
+      - id: C
+        x: 58
+        y: 70
+        note: ∞
+      - id: D
+        x: 97
+        y: 92
+        note: ∞
+      - id: E
+        x: 82
+        y: 6
+        note: ∞
+      edges:
+      - from: A
+        to: B
+        w: 3
+      - from: B
+        to: C
+        w: 3
+      - from: A
+        to: C
+        w: 10
+      - from: B
+        to: E
+        w: 5
+      - from: C
+        to: D
+        w: 2
+      - from: E
+        to: D
+        w: 7
+    table:
+      title: Distance table
+      columns:
+      - Node
+      - Distance
+      - Predecessor
+      rows:
+      - - A
+        - 0
+        - —
+      - - B
+        - ∞
+        - —
+      - - C
+        - ∞
+        - —
+      - - D
+        - ∞
+        - —
+      - - E
+        - ∞
+        - —
+      highlight:
+      - 0
+  log:
+  - mode: A settled
+    event: "A is settled first: its shortest distance is fixed at 0. Next, keep picking the smallest estimate among the unsettled points and settling them."
+- id: proof
+  title: "The correctness proof, in skeleton: invariant plus induction"
+  tldr: "The last step's reason for settling was still intuition; this step tightens it into a checkable proof — state an invariant, verify it holds initially, then prove it still holds after each round moves the smallest point into the settled set. The proof uses non-negative edge weights in exactly one place, and that place is exactly where a negative edge causes the crash."
+  body: >-
+    Tightening the greedy intuition into a checkable proof takes just three steps. First, state the invariant: at the start of each round, every point in the settled set S has dist equal to its true shortest distance from the start, and every point outside S has dist equal to the best value among paths whose intermediate points all lie inside S. The induction base — S
+    containing only the start — obviously holds; a distance of 0 is beyond dispute.
+
+
+    For the induction step, look at this round's pick, u, the point outside S with the smallest dist. Suppose it had a shorter route. Where that route first leaves S, it must pass through some point x outside S, and the part of the route before x yields one candidate for x's dist — so the route's total length is no less than x's
+    dist, and x's dist is no less than u's dist; add the non-negative edges after that, and the total is no less than u's dist, contradicting "shorter". So u's dist is the true value, and u joins S. After [[relaxation|松弛]] through u, the dist of the remaining points outside S
+    is restored to exactly the best value under the new set, and the invariant holds again for the next round. The whole proof uses non-negativity in exactly one place — the segment after leaving S must not be able to pull the total length down — and that pinpoints exactly where a negative edge breaks the settling.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 24, Single-Source Shortest Paths (correctness of Dijkstra)
+    claim: Dijkstra's algorithm is proved by invariant induction — each extracted node with the smallest dist already has its final shortest distance — and the proof crucially uses non-negative edge weights
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: graph
+    caption: "Any detour must first cross some point outside S, so its total cannot be smaller"
+    graph:
+      nodes:
+      - id: A
+        x: 3
+        y: 60
+        mark: done
+        note: "0"
+      - id: B
+        x: 35
+        y: 6
+        mark: done
+        note: "3"
+      - id: C
+        x: 58
+        y: 70
+        mark: active
+        note: u = 6
+      - id: D
+        x: 97
+        y: 92
+        note: ∞
+      - id: E
+        x: 82
+        y: 6
+        mark: visited
+        note: x = 8
+      edges:
+      - from: A
+        to: B
+        w: 3
+        mark: done
+      - from: B
+        to: C
+        w: 3
+        mark: active
+      - from: A
+        to: C
+        w: 10
+      - from: B
+        to: E
+        w: 5
+      - from: C
+        to: D
+        w: 2
+      - from: E
+        to: D
+        w: 7
+    aux:
+    - label: S, settled
+      items:
+      - A 0
+      - B 3
+    - label: To prove
+      items:
+      - u's dist cannot shrink any further
+  log:
+  - mode: Proof
+    event: "The proof is complete: non-negative weights are used only for the segment after leaving the settled set — exactly the spot where a negative edge would puncture the settling."
+- id: relax
+  title: "[[Relaxation|松弛]]: updating neighbors with the newly settled point"
+  tldr: "Once a point is settled, what pushes things forward? The single update action of this step — relaxation: take the newly settled point, try it against its neighbors, and wherever going through it is shorter, rewrite the neighbor's estimate. This step walks the remaining rounds of the whole graph to the end, and separates two things along the way: an estimate being rewritten, and a point being settled."
+  body: >-
+    A to B is 3, shorter than infinity, so B's distance is updated to 3; A to C is 10, so record 10 for now. Next settle B, and discover that reaching C via B takes only 3 plus 3, which is 6 — shorter than 10 — so C is updated to
+    6. This step is called relaxation: continually replacing old routes with better ones.
+
+
+    Fill in the remaining rounds. The unsettled points are now C at 6, E at 8, and D still at infinity. Take the smallest, C, and settle it; relax C's outgoing edge — C to D weighs 2 — so D is updated to 6 plus 2, which is 8. Look at the unsettled points again: E at 8 and D at 8
+    are tied, and either may be taken first; suppose E goes first. Relaxing E to D, weight 7, gives 8 plus 7, which is 15 — not smaller than the existing 8, so no update. Finally take D and settle it; the whole graph is done. The final distances are A at 0, B at 3, C at 6, E at 8, D at 8.
+
+
+    Observe: dist is written smaller more times than points get settled — C was first written as 10 and then changed to 6. Estimates decrease monotonically, while settling happens exactly once. Keeping "written" and "settled" apart is the key to understanding lazy deletion later. Relaxation only fires on strictly smaller; on a tie there is no update, and the predecessor stays with the route that arrived first.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Shortest-path lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: The relaxation operation updates distance estimates
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: graph
+    caption: "After B is settled, reaching C via B takes only 3 + 3 = 6 < 10, so update C"
+    graph:
+      nodes:
+      - id: A
+        x: 3
+        y: 60
+        mark: done
+        note: "0"
+      - id: B
+        x: 35
+        y: 6
+        mark: done
+        note: "3"
+      - id: C
+        x: 58
+        y: 70
+        mark: active
+        note: 10 → 6
+      - id: D
+        x: 97
+        y: 92
+        note: ∞
+      - id: E
+        x: 82
+        y: 6
+        mark: visited
+        note: "8"
+      edges:
+      - from: A
+        to: B
+        w: 3
+        mark: done
+      - from: B
+        to: C
+        w: 3
+        mark: active
+      - from: A
+        to: C
+        w: 10
+        mark: muted
+      - from: B
+        to: E
+        w: 5
+      - from: C
+        to: D
+        w: 2
+      - from: E
+        to: D
+        w: 7
+    table:
+      title: Distance table
+      columns:
+      - Node
+      - Distance
+      - Predecessor
+      rows:
+      - - A
+        - 0
+        - —
+      - - B
+        - 3
+        - A
+      - - C
+        - 10 → 6
+        - A → B
+      - - D
+        - ∞
+        - —
+      - - E
+        - 8
+        - B
+      highlight:
+      - 2
+  log:
+  - mode: Updating
+    event: "Relaxation advanced a round: C's distance was shrunk by the shorter route via B — an estimate is rewritten first, and only later does its turn to be settled come."
+  code:
+    lang: typescript
+    code: |-
+      // Dijkstra skeleton: the priority queue takes the currently nearest point and relaxes all its outgoing edges
+      function dijkstra(graph: Map<string, [string, number][]>, src: string) {
+        const dist = new Map<string, number>([[src, 0]]);
+        const pq: [number, string][] = [[0, src]]; // in real engineering a binary heap is used; here sorting stands in for taking the minimum
+        while (pq.length) { pq.sort((a, b) => a[0] - b[0]); const [d, u] = pq.shift()!;
+          if (d !== dist.get(u)) continue;
+          for (const [v, w] of graph.get(u) ?? []) { const nd = d + w;
+            if (nd < (dist.get(v) ?? Infinity)) { dist.set(v, nd); pq.push([nd, v]); } } }
+        return dist;
+      }
+    note: TypeScript implementation (for the heap, see the binary heap lesson)
+- id: heap
+  title: Speeding it up with a priority queue
+  tldr: "Every round must pick the smallest among the unsettled points, and scanning them all one by one is too slow. This step puts the candidates into a min-heap — first the math on how much the total changes with and without the heap, then an implementation choice: when a distance shrinks, do you edit the old entry inside the heap, or simply push a new one in?"
+  body: >-
+    If you scan all the points every time to find the nearest, things get slow once there are many points. Put the candidate points into a min-heap, ordered by current distance, and taking the nearest costs only O(log V). This is the typical use of the binary heap from the previous topic, and the total comes to about O((V + E) log V).
+
+
+    A numeric comparison: for a graph with 100,000 nodes, the naive O(V²) is on the order of ten billion operations; the heap-optimized O((V+E) log V), on a sparse graph (E a constant multiple of V), is on the order of a few million — maps and scheduling systems can only choose the latter. The implementation choice: when dist
+    shrinks, do you modify the key of the old entry in the heap ([[decrease-key]], which a binary heap does not natively support locating, so an extra index must be maintained), or push a brand-new entry (lazy deletion — old entries are skipped when extracted, once they are found not to match the current dist)?
+
+
+    Lazy deletion lets the heap hold at most E records — slightly more space — but the code is simple and the asymptotic complexity is unchanged, so engineering implementations choose it almost unanimously. What the heap compares is dist, not node numbers; when distances tie, taking either one has no effect on correctness, though it does affect what the predecessors look like.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Dijkstra lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: Implementing Dijkstra's algorithm with a priority queue
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: graph
+    caption: "Candidates sit in a min-heap by current distance; taking the nearest costs O(log V)"
+    graph:
+      nodes:
+      - id: A
+        x: 3
+        y: 60
+        mark: done
+        note: "0"
+      - id: B
+        x: 35
+        y: 6
+        mark: done
+        note: "3"
+      - id: C
+        x: 58
+        y: 70
+        mark: active
+        note: "6"
+      - id: D
+        x: 97
+        y: 92
+      - id: E
+        x: 82
+        y: 6
+        mark: visited
+        note: "8"
+      edges:
+      - from: A
+        to: B
+        w: 3
+        mark: done
+      - from: B
+        to: C
+        w: 3
+        mark: done
+      - from: A
+        to: C
+        w: 10
+      - from: B
+        to: E
+        w: 5
+      - from: C
+        to: D
+        w: 2
+      - from: E
+        to: D
+        w: 7
+    table:
+      title: Min-heap
+      columns:
+      - Node
+      - Distance
+      rows:
+      - - C
+        - 6
+      - - E
+        - 8
+      highlight:
+      - 0
+  log:
+  - mode: Repeat
+    event: "The way forward is settled: candidates sit in a min-heap by current distance, and each round takes the smallest and settles it, until every point is determined."
+- id: zero-one-bfs
+  title: "A peek at [[0-1 BFS]]: when edge weights are only 0 and 1, no heap is needed"
+  tldr: "The heap is fast enough — but when edge weights are only 0 and 1, one more layer can be saved. This step swaps the priority queue for a deque: traverse a 0-weight edge and enter at the front; traverse a 1-weight edge and enter at the back. First a small worked example, then why this monotonicity comes for free, and why it fails at once the moment the weights change shape."
+  body: >-
+    If every edge weight is only 0 or 1, the priority queue can be replaced by a [[deque|双端队列]], giving linear O(V + E). During [[relaxation|松弛]], if the edge traversed weighs 0, the new distance equals the current point's, so the target goes in at the front of the deque; if the edge weighs 1, the new distance is 1 larger, so it goes in at the back. That way the distances inside the deque are always non-decreasing and differ by at most
+    1, and the extraction order is naturally the increasing order [[Dijkstra]] needs — no log factor to pay.
+
+
+    A small worked example: A to B weighs 0, A to C weighs 1, B to C weighs 0. After processing A, B enters at the front and C at the back. Take B first, and use the 0-weight edge to rewrite C to 0 and move it to the front; C's final shortest distance is 0, matching Dijkstra's result. The root of why this works is that distance increments come in only two kinds, differing by 1: the distances of the elements in the deque are clamped between two adjacent integers, so monotonicity comes for free.
+
+
+    The moment a weight of 2 or 0.5 appears, this clamp fails and you must honestly go back to the heap — forcing a mismatched structure onto a problem only produces silently wrong answers. Problems like the cost of passing through walls in a grid, or toggling a switch's state, are often exactly 0 and 1; recognize that structure and you can cut the log factor away.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 24 exercises (Dial's algorithm and optimizations for small integer weights)
+    claim: When edge weights are small integers, a bucket structure or a deque can replace the priority queue; with 0-1 weights a deque suffices to keep the extraction order monotone
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: graph
+    caption: "0-weight edges enter at the front, 1-weight edges at the back; distances in the deque differ by only 0 or 1"
+    graph:
+      nodes:
+      - id: A
+        x: 5
+        y: 50
+        mark: done
+        note: "0"
+      - id: B
+        x: 45
+        y: 15
+        mark: found
+        note: "0"
+      - id: C
+        x: 85
+        y: 50
+        mark: active
+        note: 1 → 0
+      edges:
+      - from: A
+        to: B
+        w: 0
+        mark: found
+      - from: A
+        to: C
+        w: 1
+      - from: B
+        to: C
+        w: 0
+        mark: found
+    aux:
+    - label: The deque
+      items:
+      - In at the front (0-weight edges)
+      - In at the back (1-weight edges)
+    - label: Complexity
+      items:
+      - O(V + E), no log
+  log:
+  - mode: 0-1 BFS
+    event: "This tier holds: with increments of only 0 and 1, the distances in the queue are clamped between two adjacent integers, and monotonicity comes for free."
+- id: path
+  title: Recording the path, not just the distance
+  tldr: "A finished distance table answers only how far; navigation also needs to answer how to get there. This step records the predecessor whenever a [[relaxation|松弛]] succeeds, then walks backward from the destination to the start to assemble the complete route — and glances at the [[shortest-path tree|最短路径树]] that all the predecessor edges form together."
+  body: >-
+    Navigation needs more than how far — it needs how to get there. When C's distance is updated, also record that C's predecessor is B; at the end, backtrack from the destination along the predecessors all the way to the start, and reversed, that is the shortest path. If you only care about the distance to one particular destination, you can stop early the moment that destination is settled, without computing every point.
+
+
+    Assemble the route from A to D out of the predecessor table: from D, its predecessor is C; C's predecessor is B; B's predecessor is A — giving the reversed chain D, C, B, A, which reversed is A, B, C, D, with total length 3 plus 3 plus 2 equal to
+    8, matching the distance table. All the predecessor edges together form a tree rooted at the start, called a shortest-path tree; on it, the path from any point to the root is one of its shortest routes.
+
+
+    If two routes are equally long, the one whose relaxation succeeded first keeps the predecessor slot; a later, equal candidate does not replace it. So which route gets returned depends on the relaxation order — not an error, just an arbitrary choice among ties. If the business requires a secondary criterion to break ties among equal lengths, that criterion has to be written into the relaxation comparison as well.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Shortest-path lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: Whenever a relaxation succeeds, record "which point I came from", and walking backward at the end gives the complete route
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: graph
+    caption: "Each point records its predecessor; backtrack from D along them: D ← C ← B ← A"
+    graph:
+      nodes:
+      - id: A
+        x: 3
+        y: 60
+        mark: found
+        note: 0 (start)
+      - id: B
+        x: 35
+        y: 6
+        mark: found
+        note: 3, pred A
+      - id: C
+        x: 58
+        y: 70
+        mark: found
+        note: 6, pred B
+      - id: D
+        x: 97
+        y: 92
+        mark: found
+        note: 8, pred C
+      - id: E
+        x: 82
+        y: 6
+        mark: done
+        note: 8, pred B
+      edges:
+      - from: A
+        to: B
+        w: 3
+        mark: found
+      - from: B
+        to: C
+        w: 3
+        mark: found
+      - from: A
+        to: C
+        w: 10
+      - from: B
+        to: E
+        w: 5
+      - from: C
+        to: D
+        w: 2
+        mark: found
+      - from: E
+        to: D
+        w: 7
+    aux:
+    - label: Predecessors
+      items:
+      - B ← A
+      - C ← B
+      - D ← C
+      - E ← B
+    - label: A to D
+      items:
+      - A → B → C → D
+      - 3 + 3 + 2 = 8
+  log:
+  - mode: Backtracking
+    event: "The route is assembled: backtrack from the destination along the predecessors all the way to the start, and reversed, that is the complete route."
+- id: bellman
+  title: "What to do with negative edges: [[Bellman-Ford]]'s blunt method"
+  tldr: "Every settling so far rested on non-negative edge weights. This step brings negative edges in — first watch the settling get punctured, then switch to a completely different method: instead of picking the smallest and settling it, [[relax|松弛]] all the edges over and over for many rounds — and at the end it can even tell you whether the graph contains a [[negative cycle|负环]]."
+  body: >-
+    [[Dijkstra]]'s correctness rests on the smallest unsettled node being unable to shrink any further, and a negative edge breaks exactly that. Bellman-Ford takes another road: run V−1 rounds of relaxation over all the edges. After round k, the distances of all shortest paths using at most k edges are correct; a simple path has at most V−1
+    edges, so V−1 rounds suffice. If round V can still relax something, the graph contains a negative-weight cycle (going around it keeps getting shorter, so no shortest path exists).
+
+
+    A two-round worked example: the graph is A to B with weight 6, B to C with weight −2, A to C with weight 5. Initially only A is 0. In the first round, relax all the edges: A to B writes B as 6, B to C writes C as 4, and A to C's 5
+    is no better. The second round scans once more and updates nothing — already converged. Dijkstra, on this graph, would first pick the smaller of B's 6 and C's 5 — C — and settle it at 5 by the direct edge; when B later relaxes out a 4, it can no longer catch up, and the 4 via B is missed. That is exactly the scene of the greedy premise being punctured by a negative edge.
+
+
+    The price is scanning all the edges every round, for a total complexity of O(V·E). The selection rule of thumb: non-negative weights, use Dijkstra; negative weights but no negative cycle, use Bellman-Ford, which also detects negative cycles as a bonus. Slowness is a price, not an error.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 24, the Bellman-Ford algorithm
+    claim: Bellman-Ford relaxes all edges for V−1 rounds to find single-source shortest paths and can detect negative-weight cycles, with complexity O(VE)
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: graph
+    caption: "A→B→C = 6 + (−2) = 4, shorter than the direct 5 — Dijkstra would settle C at 5 first"
+    graph:
+      nodes:
+      - id: A
+        x: 3
+        y: 60
+        mark: done
+        note: "0"
+      - id: B
+        x: 45
+        y: 10
+        mark: done
+        note: "6"
+      - id: C
+        x: 88
+        y: 60
+        mark: done
+        note: "4"
+      edges:
+      - from: A
+        to: B
+        w: 6
+        mark: found
+      - from: B
+        to: C
+        w: -2
+        mark: found
+      - from: A
+        to: C
+        w: 5
+  log:
+  - mode: Relaxation
+    event: "The full-edge relaxation is done: after enough rounds of repeated relaxation, the distances converge; if one more round could still shrink something, the graph contains a negative cycle."
+- id: limits
+  title: Negative edges and engineering applications
+  tldr: "The handling of negative edges is in place; this step wraps up with engineering applications — which algorithm map navigation, network routing, and game pathfinding each stand on. The focus is [[A*]]: how it adds a target-directed estimate onto [[Dijkstra]]'s skeleton, and what guarantee is lost once that estimate overestimates the true distance."
+  body: >-
+    If some road is negative (say, traveling it somehow earns distance back), a point already settled might still have a shorter route, Dijkstra goes wrong, and that is when you use [[Bellman-Ford]]. Map navigation and the network routing protocol [[OSPF]] both build on Dijkstra's idea. Game pathfinding commonly uses A*, which adds to
+    Dijkstra an estimate of roughly how far the destination still is, and searches preferentially toward the target; as long as the estimate never overestimates the true distance (admissible), A* still guarantees a shortest path.
+
+
+    A* is a direct generalization of the Dijkstra skeleton: put the cost already paid plus the heuristic estimate into the priority queue, and always take the candidate with the smallest estimated total cost. If its heuristic value overestimates the true remaining distance — say, multiplying the straight-line distance by a coefficient greater than 1
+    to buy speed — it may miss the optimal route and degenerate into a kind of weighted greedy. Engineering often makes exactly this trade of optimality for speed, but you must know clearly that you have given the guarantee up — you cannot overestimate and still claim shortest.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Shortest-path lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: Negative-weight edges require algorithms such as Bellman-Ford
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: graph
+    caption: "The final shortest routes (bold lines); edges must be non-negative — for negative weights, use Bellman-Ford"
+    graph:
+      nodes:
+      - id: A
+        x: 3
+        y: 60
+        mark: done
+        note: "0"
+      - id: B
+        x: 35
+        y: 6
+        mark: done
+        note: "3"
+      - id: C
+        x: 58
+        y: 70
+        mark: done
+        note: "6"
+      - id: D
+        x: 97
+        y: 92
+        mark: done
+        note: "8"
+      - id: E
+        x: 82
+        y: 6
+        mark: done
+        note: "8"
+      edges:
+      - from: A
+        to: B
+        w: 3
+        mark: found
+      - from: B
+        to: C
+        w: 3
+        mark: found
+      - from: A
+        to: C
+        w: 10
+      - from: B
+        to: E
+        w: 5
+        mark: found
+      - from: C
+        to: D
+        w: 2
+        mark: found
+      - from: E
+        to: D
+        w: 7
+    table:
+      title: Distance table
+      columns:
+      - Node
+      - Distance
+      - Predecessor
+      rows:
+      - - A
+        - 0
+        - —
+      - - B
+        - 3
+        - A
+      - - C
+        - 6
+        - B
+      - - D
+        - 8
+        - C
+      - - E
+        - 8
+        - B
+      highlight: []
+  log:
+  - mode: Done
+    event: "The whole graph is computed: the shortest distances from A to every place are determined, and non-negative edge weights are the premise of this whole settling method."
+- id: second-shortest
+  title: "The boundary of second-shortest paths: why second place is hard to find"
+  tldr: "The shortest route is in hand, but engineering often wants a backup as well. This step first gets the definition of second-shortest straight — may edges be reused, must it be strictly longer than the shortest — then looks at why the original state leaves no room for second place at all, and what extra bookkeeping computing it takes."
+  body: |-
+    Finding the shortest takes one route, but engineering often asks for the strictly second-shortest: a backup route longer than the shortest that, by convention, does not reuse edges — the second option a navigation app offers is exactly that. The difficulty is that greedy settling keeps only each point's champion; runner-up information is thrown away during [[relaxation|松弛]], and by the time the champion route turns out to be unusable, there is nothing left to recover from — the original algorithm's state simply has no slot for second place.
+
+    The common approach is to maintain two distances for each point, the shortest and the second-shortest. During relaxation, candidates are slotted into the two positions by size; a candidate equal to the shortest is skipped, and the search continues for a strictly larger one. The priority queue therefore holds two kinds of state for the same node, and the moment a second-shortest state is popped is its settling moment. The overall framework is still [[Dijkstra]] — only each point's state has grown from one number into a pair of numbers.
+
+    The boundary: if revisiting points and edges is allowed, a second-shortest route might just loop around a small cycle once more — mathematically valid but practically worthless — so problems usually specify a simple path, or no repeated edges. K shortest paths generalize this, and the cost grows fast with K; production systems generally compute only the first two or three and stop.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Advanced discussion in the shortest-path lectures (K shortest paths and suboptimal solutions)
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: Finding second-shortest or K shortest paths requires keeping several candidate distances at each node; the plain shortest-path state is not enough to recover suboptimal paths
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: graph
+    caption: "Each point stores two distances — the champion and the strict runner-up each hold a slot"
+    graph:
+      nodes:
+      - id: A
+        x: 3
+        y: 60
+        mark: done
+        note: 0 and —
+      - id: B
+        x: 35
+        y: 6
+        mark: done
+        note: 3 and 13
+      - id: C
+        x: 58
+        y: 70
+        mark: done
+        note: 6 and 10
+      - id: D
+        x: 97
+        y: 92
+        mark: found
+        note: 8 and 12
+      - id: E
+        x: 82
+        y: 6
+        mark: done
+        note: 8 and 15
+      edges:
+      - from: A
+        to: B
+        w: 3
+        mark: found
+      - from: B
+        to: C
+        w: 3
+        mark: found
+      - from: A
+        to: C
+        w: 10
+      - from: B
+        to: E
+        w: 5
+      - from: C
+        to: D
+        w: 2
+        mark: found
+      - from: E
+        to: D
+        w: 7
+    aux:
+    - label: A to D
+      items:
+      - Shortest 8 (via B, C)
+      - Second 12 (straight to C, then D)
+  log:
+  - mode: Second-shortest
+    event: "The terms for second-shortest are settled first: no algorithm talk before the definition is clear; once it is, each point must maintain two distances — the shortest and the second-shortest."
+- id: playground
+  title: "Hands-on: switch the source and run it again"
+  tldr: "The rules are covered — now switch the source and rerun it yourself: pick different points as the start in turn, and watch the settling order and the distance table change completely. Keep your eyes on the moments when [[relaxation|松弛]] fires, and match each point's rewrite count to the edge that triggered it."
+  body: >-
+    In the lab, pick A and then F as the source: starting from A, C is settled first (distance 2); starting from F, E is settled first (distance 1). Every greedy step looks only at the current dist
+    table — there is no global view. When a relaxation update happens, watch that row: a shorter new distance is always written into the table first, and it is settled only when it becomes the smallest unsettled value.
+
+
+    Compare the two runs on three things. First, the settling order is entirely decided by the source: the same D sits near the back when starting from A, but very near the front when starting from F, because distances are defined relative to the source. Second, the moments of relaxation: a point's dist
+    may be rewritten several times before it is settled — match each rewrite to the edge that triggered it, and relaxation turns from a formula into a ledger. Third, tied distances: when two points have equal dist, settling either one first does not affect the final distances, but it does affect the predecessors and what the path looks like.
+
+
+    When you are done, try predicting: starting from B, who gets settled first, and who will D's predecessor be? Then run it once and check.
+  derivation: original
+  sources: []
+  log: []
+  canvas:
+    kind: lab
+    lab: dijkstra-lab
+    caption: "Pick any of six sources; the settling order and the dist table evolve step by step"
+    cases:
+    - input:
+        source: A
+      expect:
+        dist:
+          A: 0
+          B: 3
+          C: 2
+          D: 7
+          E: 9
+          F: 10
+        order:
+        - A
+        - C
+        - B
+        - D
+        - E
+        - F
+    - input:
+        source: F
+      expect:
+        dist:
+          A: 10
+          B: 8
+          C: 8
+          D: 3
+          E: 1
+          F: 0
+        order:
+        - F
+        - E
+        - D
+        - B
+        - C
+        - A
+level: 进阶
+minutes: 30
+prereq:
+- dsa/bfs-dfs
+- dsa/binary-heap
+objectives:
+- Restate the relaxation operation and the intuition behind the greedy correctness argument
+- Explain why negative edges make Dijkstra fail
+- Use a heap to bring the complexity down to O((V+E) log V)
+aiLink: The shortest-path idea reappears in AI systems in altered forms — routing and CDN scheduling hunting for the lowest-latency node, beam search keeping the best candidates, cost estimates for multi-hop retrieval. Understand the combination of greedy + relaxation + priority queue, and you hold the general skeleton of a whole class of optimization problems.
+design:
+- mechanism: "Why the greedy works — the unsettled node with the smallest dist cannot be overtaken by any other unsettled path, because edge weights are non-negative: any detour must first pass through a node whose dist is no smaller, then add a non-negative edge length, so the total can only be larger, never smaller"
+  problem: Every round, the algorithm must declare one estimate to be the final answer. If it declares too early and a shorter route is discovered later, everything has to be overturned and recomputed, and the whole settle-one-by-one framework loses its meaning — so the timing of each settling declaration must first be guaranteed mathematically right
+  choice: Each round settles only the point with the smallest dist in the unsettled set, and an invariant keeps settled points' distances from ever changing back; every other point's estimate only shrinks monotonically through relaxation, until its turn comes to be the smallest and it is settled. The order admits no shuffling
+  tradeoff: What this buys is the efficiency of settling all the points in a single pass. The price is a hard dependence on non-negative edge weights, and a settling order completely locked by distance — it cannot, like Bellman-Ford, tolerate negative edges letting information spread slowly
+  root: "The root cause is that non-negative edge weights give distances their monotonicity: any route after leaving the settled set only gets longer. That monotonicity is the mathematical foundation the greedy stands on when it dares to conclude early — pull it away, and the invariant induction breaks at the critical step at once"
+- mechanism: "Relaxation is the algorithm's only update action: a candidate distance equals the departure point's distance plus the edge weight, and the estimate and predecessor are rewritten only when it is strictly smaller. The differences between all shortest-path algorithms are, in essence, only about the order in which relaxation is executed"
+  problem: Estimates approach the true values gradually, and the route discovered first is often not the shortest. If the update mechanism did not allow rewriting, or if stale records in the priority queue kept taking effect after a rewrite, the algorithm would make later decisions with expired numbers and propagate the error onward
+  choice: When an estimate shrinks, do not modify the old entry in the priority queue; push the new entry straight in, and when extracting, compare the entry's distance against the current estimate and skip it if they disagree. That is lazy deletion — a few redundant entries buy a simple, reliable implementation
+  tradeoff: "Lazy deletion lets the heap accumulate entries on the same order of magnitude as the edge count — slightly more space, and a few more stale entries to skip — in exchange for not having to implement an indexed decrease-key: shorter code, fewer edge cases, and a smaller surface for errors"
+  root: The root cause is that a binary heap is good at insertion and at taking the minimum, but bad at locating an entry by identity and changing its key. Lazy deletion designs the flow around the heap's strengths, converting key-change needs into the insertion operation it does best — going with the tool's grain instead of fighting it
+- mechanism: "Shortest-path algorithms divide the work by edge-weight conditions: non-negative weights use Dijkstra with a heap, graphs containing negative edges use Bellman-Ford, and when the only weights are 0 and 1 a deque can remove the log factor as well. Every speedup corresponds to one premise"
+  problem: If the most general Bellman-Ford handled every graph, non-negative graphs would also pay the price of V times E — on road networks with hundreds of thousands of nodes that is several orders of magnitude slower than the heap-optimized version, a bill too large for production systems to accept in exchange for generality
+  choice: "Look at the edge-weight structure first, then choose the algorithm: non-negative, enable greedy settling plus a priority queue; steps of only 0 and 1, enable the deque; negative edges, fall back to full-edge multi-round relaxation and detect negative cycles on the side. The premise check is written before the selection action"
+  tradeoff: "Specialization lets each class of graph run near its own complexity floor. The price is that the implementer must verify the premises first: mix a single negative edge into the weights and misuse Dijkstra, and the result is silently wrong rather than an error — the risk has to be blocked by process"
+  root: The root cause is that every speedup stands on an extra assumption — the greedy on non-negativity, the deque on increments clamped between adjacent integers. The stronger the assumption, the faster the speed; algorithm selection is, in essence, trading the problem's real constraints for performance
+quiz:
+- q: What does the relaxation operation do?
+  options:
+  - Delete an edge
+  - If going through u to v is shorter, update v's distance and predecessor
+  - Shrink an edge weight
+  - A visited marker
+  answer: 1
+  explain: The whole algorithm is relaxation repeated; the only difference is the order in which edges get picked.
+- q: Why does Dijkstra not allow negative edges?
+  options:
+  - The code cannot be written
+  - The greedy assumes a settled shortest distance will never be overturned by a shorter route found later, and a negative edge breaks that
+  - Negative edges do not exist in reality
+  - Heaps do not support negative numbers
+  answer: 1
+  explain: A negative edge can give an already-settled node a shorter path; the greedy premise collapses, and Bellman-Ford is needed instead.
+- q: With binary-heap optimization, what is the cost of each extraction of the nearest unsettled node and each neighbor update?
+  options:
+  - O(1)
+  - O(log V)
+  - O(V)
+  - O(E)
+  answer: 1
+  explain: Both heap extraction and updates are O(log V), for a total complexity of O((V+E) log V).
+legend:
+- key: active
+  label: Element currently being compared / processed
+- key: found
+  label: Found / final position
+- key: done
+  label: Processing complete
+- key: pivot
+  label: Pivot element
+- key: muted
+  label: Ruled out / no longer considered
+- key: visited
+  label: Visited

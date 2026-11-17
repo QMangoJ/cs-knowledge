@@ -1,0 +1,755 @@
+id: dsa/string-matching
+subject: dsa
+slug: string-matching
+order: 10
+status: published
+license: CC-BY-4.0
+title: "String Matching: Learn the Pattern Through and Through, and Let the Text Pass Only Once"
+summary: Find a short pattern in a long text. The naive method throws away everything it has already compared; KMP (the Knuth–Morris–Pratt algorithm) precompiles the pattern's self-overlap into the [[π|π 函数]] array, and [[Boyer-Moore]] manages to not even read the text character by character.
+premise: Searching for a word in an editor, or for a keyword in a log — at bottom, both are finding where a small piece of pattern occurs in a long stretch of text. Comparing position by position by brute force does find it, but it gets very slow once the text is long. This lesson looks at how to keep the information already compared and put it to use, so the text passes only once as far as possible. The running example is finding the pattern ABABCABAB in the text ABABDABACDABABCABAB.
+position: The greedy lesson dealt with making irrevocable choices within a set of candidates; this lesson turns its gaze inside one fixed text — the pattern is short, the text is long, and the task is to find every position where the pattern occurs. It forms a new section of its own, "Patterns in Strings", and it is also the final stop of the data structures and algorithms subject. After this lesson you will be able to compute a pattern's [[prefix function|π 函数]]
+  π by hand, explain how the naive method's worst-case complexity is constructed, and choose between KMP and Boyer-Moore according to the alphabet size and the worst-case guarantee you need.
+bridge:
+  prev: The previous lesson's greedy approach fixed each step for good and never looked back, saving the dynamic-programming table; the naive matching in this lesson stands exactly on the opposite side — at every mismatch, it throws away the whole stretch of information it just compared and starts over from the next position. See clearly what this waste looks like first, and you will know what the preprocessing has to buy.
+  next: Each of the previous ten lessons ground out a fast solution for its problem; the closing lesson changes the question — for problems like the traveling salesman and course scheduling, why might there be no fast algorithm at all?
+overview:
+- key: In one sentence
+  value: All progress in matching comes from one and the same thing — keeping the information already compared and putting it to use. The naive approach throws away all previous comparison results at every mismatch and starts over; better algorithms encode that known information into a table or a rule, and on a mismatch jump straight to the next possible position.
+- key: The naive method's account
+  value: The naive method's worst case is Θ((n−m+1)m), and a worst-case input is easy to construct on the spot — for example, a text of all a's paired with a pattern of a…ab. On such an input, every position has to be compared up to the pattern's last character before the mismatch shows, and almost no comparison is ever saved.
+- key: KMP's approach
+  value: "[[KMP]]'s approach is to preprocess the pattern's self-overlap to obtain the [[prefix function|π 函数]] π; the text pointer only moves forward, never back, and the total complexity is Θ(n+m). On a mismatch there is no going back to the original place to compare again — look up the π table and you know how far the pattern should slide forward, and the part already matched is used directly from where it left off."
+- key: BM's approach
+  value: "[[BM|Boyer-Moore]]'s approach is to compare from right to left and let the mismatching character decide the jump; in the best case it needs only about n/m comparisons. Because the comparison starts at the end, the text character revealed by a mismatch can often rule out a whole stretch of alignments at once, and the pattern can jump several cells in one go."
+- key: The hashing approach
+  value: "[[Rabin-Karp]] turns the window into a fingerprint that can be updated in a rolling fashion, and it has the edge in multi-pattern and parallel scenarios. It compares fingerprints first and verifies against the original text only after that; when the window slides, the fingerprint only needs the first character removed and the new character added to update — there is no recomputing the whole stretch at every step."
+- key: Choosing
+  value: For a worst-case guarantee, choose KMP; for average speed, choose a BM variant; for many patterns, choose the [[Aho–Corasick automaton|AC 自动机]]. When choosing, look first at what you are afraid of — if you fear being occasionally very slow, pick the one with a worst-case guarantee; if you hold a whole batch of patterns to find at once, do not scan the text once per pattern.
+visual: datastate
+logColumns:
+- key: mode
+  label: Current state
+- key: event
+  label: What happened
+steps:
+- id: problem
+  title: "The problem: the text is long, the pattern is short, and every position must be found"
+  tldr: "Pin the problem down first: the text is long, the pattern is short, and we want every starting position where the pattern occurs in the text. This step fixes the notation for text, pattern, and shift, then gives the example that runs through the whole lesson — every algorithm that follows runs on the same text and pattern, so their accounts are comparable."
+  body: >-
+    Pin the problem down first. The text T is a string of characters of length n, and the pattern P is a string of length m, with m usually far smaller than n. The task is to find every shift s such that the m characters of T starting at s are character-for-character identical to P. Shifts are counted from 0 — the convention this lesson uses throughout.
+
+    This problem is the kernel of functions you use every day: finding a word in an editor, [[grep]]-ing an error code in a log, locating a base sequence in a genome. Their common shape: one enormous, read-only text; one small pattern to be compared against it again and again; and "position" as the output.
+
+    Here is the example that runs through the whole lesson. The text is ABABDABACDABABCABAB (length 19), and the pattern is ABABCABAB (length 9). The pattern occurs in full at index 10: the nine characters starting there are exactly
+    ABABCABAB. No other position lines up. What an algorithm has to do is make this "scan it once by eye" business fast and reliable.
+
+    Measuring algorithms of this kind means watching two accounts at once: how many character comparisons are made (which decides the scanning cost), and how much preprocessing is paid up front for that (which decides the startup cost). Every algorithm that follows makes a different trade between these two accounts, and the naive method chooses to optimize neither.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 32 String Matching (problem definition and notation)
+    claim: String matching is finding all valid shifts at which a pattern of length m occurs in a text of length n
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: The pattern occurs in full at text index 10; no other position lines up
+    rows:
+    - label: Text T
+      cells:
+      - v: A
+      - v: B
+      - v: A
+      - v: B
+      - v: D
+      - v: A
+      - v: B
+      - v: A
+      - v: C
+      - v: D
+      - v: A
+      - v: B
+      - v: A
+      - v: B
+      - v: C
+      - v: A
+      - v: B
+      - v: A
+      - v: B
+    - label: Pattern P
+      cells:
+      - v: A
+        sub: aligned at index 10
+        mark: found
+      - v: B
+        mark: found
+      - v: A
+        mark: found
+      - v: B
+        mark: found
+      - v: C
+        mark: found
+      - v: A
+        mark: found
+      - v: B
+        mark: found
+      - v: A
+        mark: found
+      - v: B
+        mark: found
+    aux:
+    - label: Answer
+      items:
+      - Shift 10
+      - The only one
+  log:
+  - mode: Definition
+    event: "The problem is defined: the output is every valid shift at which the pattern occurs, not just the first, and shifts are counted from 0."
+  points:
+  - A matching algorithm's two accounts — the number of character comparisons and the preprocessing cost
+  - A read-only, enormous text and a small, definite pattern are the premise of every optimization
+- id: naive
+  title: "The naive method: compare from scratch at every shift, and the worst-case bill is a product"
+  tldr: "Look at the most naive approach first: compare character by character, shift by shift, and on a mismatch move the whole pattern one cell to the right. This step does its account in two cases — good luck and bad luck — then constructs a worst-case input and shows why every shift has to be compared up to the pattern's last character before the mismatch shows."
+  body: >-
+    The naive method (also called [[BF]], Brute Force) has no tricks in its rules at all: starting at shift 0, compare the pattern character by character against the corresponding stretch of text; if everything matches, report that shift; as soon as one character mismatches — or once a hit has been reported — slide the whole pattern one cell to the right and start comparing again from the new shift's first character.
+
+    Its bill is computed in two cases. With good luck (the text and the pattern have nothing to do with each other), each shift mismatches after one or two characters and is done, for about n comparisons in total. With bad luck it is completely different: construct the text as n consecutive a's, and the pattern as m minus 1 a's plus one b. At every shift, the first m minus 1
+    characters all match and only the last character mismatches, so every shift pays m comparisons, and the total bill is (n−m+1) times m — of the order Θ(nm). An all-a text is not at all rare in reality: the long runs of spaces and zeros in logs, the large stretches of padding in binary files, and the long repeated segments in [[DNA]]
+    sequences are all like this.
+
+    Back on the running example, the naive method at shift 0 compares ABAB and then runs into D mismatching C — four comparisons wasted; slide one cell to the right and start from B, and the very first character mismatches; and so it inches along until shift 10
+    before it hits. The total comparisons it makes are far more than the length of the text, and the excess is all repeated labor — "the same text character compared again and again".
+
+    See the waste clearly: when it mismatches at shift 0, we have actually verified with our own hands the piece of information "the first four characters of the text are ABAB" — yet after sliding, the naive method forgets this information completely. All the room for improvement is hidden in this forgetfulness.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 32.1 The Naive String-Matching Algorithm
+    claim: The worst-case number of comparisons of naive matching is Θ((n−m+1)m), reached with repetitive text paired with a near-repetitive pattern
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: An all-a text with an a…ab pattern — every shift fails only at the last character
+    rows:
+    - label: Text (all a)
+      cells:
+      - v: a
+      - v: a
+      - v: a
+      - v: a
+      - v: a
+      - v: a
+      - v: a
+      - v: a
+    - label: Pattern (aaab)
+      cells:
+      - v: a
+        mark: visited
+      - v: a
+        mark: visited
+      - v: a
+        mark: visited
+      - v: b
+        sub: every shift fails here
+        mark: active
+    aux:
+    - label: The bill
+      items:
+      - m comparisons per shift
+      - Θ((n−m+1)m) in total
+  log:
+  - mode: Naive method
+    event: "The naive method is done: a mismatch slides it one cell to the right, all the character information already verified is voided, and all the repeated labor comes from exactly this."
+  points:
+  - The worst-case input is not contrived at all — repetitive text plus a near-repetitive pattern is enough
+  - The essence of the waste is repeated labor — the same text character compared again and again
+  mistake: "Thinking Θ(nm) is only a theoretical worst case that never shows up in practice: repeated stretches are the norm in logs, binary data, and genetic data, not an extreme constructed for the occasion."
+- id: waste
+  title: "The pathology of the waste: the information thrown away at a mismatch is, in fact, ready-made knowledge"
+  tldr: "The naive method's bill is expensive because of repeated labor. This step zooms in on one mismatch: the stretch of prefix that matched before the mismatch has, in fact, already told us a stretch of the text's content. See clearly what this thrown-away knowledge can be cashed in for, and the starting points of the algorithms that follow all fall into place."
+  body: >-
+    Zoom in on the mismatch at shift 0. The first four characters of the pattern ABABC matched the text, and the fifth character mismatched. At this moment we actually hold a piece of certain knowledge in our hands: the four characters of the text starting at index 0 are exactly ABAB. After the naive method slides right to shift 1,
+    it starts comparing again from the pattern's first character — acting as if this knowledge did not exist.
+
+    Yet this knowledge plainly can be used. If we knew the pattern's own structure in advance — for example, that in the prefix ABAB, "AB" is both its prefix and its suffix — then sliding right would not have to mean moving only one cell: at shift 1 the text starts with B, which is impossible (we already know it is A); at shift 2
+    the text starts with the already-known third character A, and AB is already aligned before it, so we can pick up comparing directly from the pattern's third character. Every skipped shift and every skipped comparison is cashed in out of this one piece of knowledge.
+
+    This leads to the central idea of this lesson: optimizing string matching is, at bottom, encoding "the information obtained for free in the course of comparing" and using it repeatedly. Analyzing the pattern itself (which prefixes coincide with which suffixes, where each character occurs) yields [[KMP]] and
+    [[Boyer-Moore]]; maintaining an incrementally updatable summary of the text window (a hash fingerprint) yields [[Rabin-Karp]]. The preprocessing is almost always added on the pattern side, because the pattern is short and chosen by us, while the text is long and often only arrives at run time.
+
+    One more boundary to draw in advance: preprocessing costs time and space proportional to the length of the pattern. If the text is only a few dozen characters and is searched just once, the naive method has the lowest total bill after all. Every "faster algorithm" is faster relative to some usage scenario; the last step of this lesson will do the full choosing account.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 32 String Matching (the split between preprocessing and scanning in each algorithm)
+    claim: The common point of efficient matching algorithms is computing information from the pattern in advance, to avoid the naive method's redundant comparisons
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "The knowledge in hand at the moment of mismatch: this stretch of text has been verified to be ABAB"
+    rows:
+    - label: Known text stretch
+      cells:
+      - v: A
+        sub: verified
+        mark: visited
+      - v: B
+        sub: verified
+        mark: visited
+      - v: A
+        sub: verified
+        mark: visited
+      - v: B
+        sub: verified
+        mark: visited
+      - v: D
+        sub: mismatch point
+        mark: active
+    - label: Pattern prefix ABAB
+      cells:
+      - v: A
+      - v: B
+      - v: A
+      - v: B
+      - v: C
+        sub: not reached
+    aux:
+    - label: Jumps that can be cashed in
+      items:
+      - AB is both a prefix and a suffix
+      - After a mismatch, resume at the 3rd character
+  log:
+  - mode: Pathology
+    event: "The pathology is located: the waste is not in the comparing itself, but in forgetting the information obtained immediately after comparing."
+  points:
+  - "The central idea: encode the information obtained for free while comparing"
+  - "Preprocessing goes on the pattern side: the pattern is short, and under our control"
+- id: kmp-idea
+  title: "[[KMP]]'s idea: how far the pattern slides right depends only on the pattern itself"
+  tldr: "For knowledge to be kept and used, you first have to know the pattern's own structure. This step sets up KMP's core idea: how far the pattern should slide right at a mismatch depends only on the already-matched prefix's own overlap structure and has nothing to do with the text, so it can be computed in advance into a table. First the reasoning behind the slide amount; the next step computes the table by hand."
+  body: >-
+    KMP was given by Knuth, Morris, and Pratt in 1977, and its idea compresses into one sentence: when a mismatch occurs, how far the pattern should slide right depends only on the pattern's own overlap structure and has nothing to do with the text, so it can all be computed once, in advance.
+
+    Suppose that when the mismatch occurs, the first k characters of the pattern have already matched (these k characters are, at the same time, the content of the corresponding stretch of text). For the next attempt to line up, some prefix of the pattern must coincide with some suffix of these k characters — because that stretch of text is already fixed as exactly these k characters. If the longest "proper prefix that is also a proper suffix" of the pattern's first k
+    characters has length L, then sliding the pattern right by k minus L aligns the first L characters naturally, and comparing can resume directly from the L plus 1-th
+    character. The slide amount is thereby completely determined, and it is guaranteed not to skip any possible hit: any smaller slide would mean requiring a longer overlap to exist, contradicting the maximality of L.
+
+    Computing each k's corresponding L in advance into a table is the [[prefix function|π 函数]] π: π[q] gives the length of the longest proper prefix–suffix match of the pattern's first q characters (q counted from 1). The scan maintains two pointers: the text pointer i only walks forward, and the pattern pointer j
+    gives the length currently aligned; when characters are equal, both advance together; on a mismatch, i does not retreat — instead j jumps to [[π|π 函数]][j] and comparing continues, until j falls to zero or a character matches.
+
+    So KMP's skeleton is: first "match" the pattern against itself to compute π, then match the pattern against the text for real. The next step walks the computation of π through in full on the running example.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 32.4 The Knuth-Morris-Pratt Algorithm (definition of the prefix function)
+    claim: The prefix function π characterizes the maximum overlap between the proper prefixes and proper suffixes of each prefix of the pattern; jumping by π on a mismatch guarantees no hit is missed and the text pointer never retreats
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: On a mismatch the pattern slides by the self-overlap length of the matched stretch; the first L characters need no checking
+    rows:
+    - label: Matched stretch
+      cells:
+      - v: A
+        mark: visited
+      - v: B
+        mark: visited
+      - v: A
+        mark: visited
+      - v: B
+        mark: visited
+      - v: mismatch
+        mark: active
+    - label: After sliding right
+      cells:
+      - v: A
+        sub: prefix
+        mark: found
+      - v: B
+        sub: coincides with the suffix
+        mark: found
+      - v: resume comparing here
+        mark: active
+    aux:
+    - label: The key quantity
+      items:
+      - L is the longest proper prefix–suffix overlap
+      - Slide is k minus L
+  log:
+  - mode: KMP idea
+    event: "KMP's idea is set up: the slide amount is decided by the pattern's self-overlap alone and has nothing to do with the text, so it can be computed in advance."
+  points:
+  - π is the complete encoding of the knowledge "how much the pattern overlaps itself"
+  - The text pointer never retreats — the source of all of KMP's efficiency
+- id: lps-table
+  title: "Computing π by hand: the [[prefix function|π 函数]] of the pattern ABABCABAB"
+  tldr: "The last step said the slide amounts can be computed in advance into a table; this step computes that prefix-function table character by character for the running example's pattern: extend by one when it connects, and when it does not, fall back along the values already computed and try again. When you are done, note the character that zeroes out the overlap — it is the key to understanding the scan's jumps later."
+  body: >-
+    The subscripts of the prefix function [[π|π 函数]] start at 1: π[q] is the length of the longest "proper prefix equal to a proper suffix" among the pattern's first q characters. A single character has no proper prefix at all, so π[1] is always 0. Compute it below, one by one, for the pattern ABABCABAB (indices 0 to 8).
+
+    The first four characters, ABAB: A is 0; AB has no overlap, 0; ABA has A at both head and tail, giving 1; ABAB has AB at both head and tail, giving 2. The fifth character, C, arrives and the prefix becomes ABABC: try attaching C after the overlap of 2 in ABAB — the pattern's third character is A
+    rather than C, so it does not connect; fall back along π, trying overlap lengths of 0 in turn — attaching C after the empty overlap still does not give the prefix's first character A, and in the end π returns to 0. This 0 matters a great deal: it declares that C zeroes out all the overlap accumulated so far — in the pattern, C is a "break point".
+
+    In the second half, ABAB takes shape again: ABABCA has A at both head and tail, giving 1; ABABCAB has AB at both, giving 2; at eight characters the head and tail are ABA, giving 3; at nine characters the head and tail are ABAB, giving 4. In the end, π runs 0, 0, 1, 2, 0, 1, 2, 3, 4.
+
+    The key points of the computation: when computing π[q], always try first to extend π[q−1]; when extending fails, fall back along the π chain and try shorter overlaps, until one connects or it reaches zero — this is the very same set of moves as the mismatch jump during scanning, which is why computing π is said to be running [[KMP]] with the pattern against itself. Also, no value of π
+    exceeds the previous value plus one — that cap on growth will appear in the next step's complexity proof.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 32.4 (the prefix-function computation algorithm, Compute-Prefix-Function)
+    claim: π can be computed recursively from left to right in Θ(m) time; when an extension fails, it falls back along the π chain to try shorter overlaps
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "The π of ABABCABAB: it zeroes out at C, and in the second half the ABAB overlap grows back to 4"
+    rows:
+    - label: Pattern P
+      cells:
+      - v: A
+        sub: index 0
+      - v: B
+        sub: index 1
+      - v: A
+        sub: index 2
+      - v: B
+        sub: index 3
+      - v: C
+        sub: index 4
+        mark: active
+      - v: A
+        sub: index 5
+      - v: B
+        sub: index 6
+      - v: A
+        sub: index 7
+      - v: B
+        sub: index 8
+    - label: π values
+      cells:
+      - v: 0
+      - v: 0
+      - v: 1
+      - v: 2
+      - v: 0
+      - v: 1
+      - v: 2
+      - v: 3
+      - v: 4
+    aux:
+    - label: How to read it
+      items:
+      - π breaks at index 4
+      - The pattern's second half carries its own ABAB overlap
+  log:
+  - mode: Computing π
+    event: "The prefix function is computed: extension first, fallback on failure — computing the table and scanning share the same set of jump moves."
+  points:
+  - π[q] is decided by the pattern alone — compute it once, use it for the whole scan
+  - When an extension fails, fall back along the π chain instead of trying hard from scratch
+  mistake: "Understanding π as a table to memorize by rote: it is the result of the pattern matching itself — when computing it by hand, keep your eyes on just one thing, 'can the current longest overlap be extended?'"
+- id: kmp-scan
+  title: "A worked scan: the text pointer walks straight ahead, and hits at index 10"
+  tldr: "The table is computed; now use it to scan the running example's text for real. This step watches the two pointers: the text pointer walks only forward, and the pattern pointer jumps by the table on a mismatch. Follow the whole trip through, and see how the hit is reported — and what to do after a hit if you want to keep looking for the next one."
+  body: >-
+    Now take the computed [[π|π 函数]] and scan the text ABABDABACDABABCABAB. Maintain i pointing at the text and j giving the aligned length of the pattern. Starting at text index 0, A, B, A, B match four times in a row and j rises to 4; text index 4 is D, and the pattern's fifth character is
+    C — a mismatch. By the rules, do not retreat i; let j jump to π[4], which is 2 — meaning that in the verified ABAB, the suffix AB coincides with the prefix AB, so compare the pattern's third character A directly against the D at text index 4: still a mismatch. Jump again to π[2], which is 0, and compare the pattern's first character A
+    against D: still a mismatch, j returns to zero, and only then does i advance by one. This whole chain of jumps completes at one and the same text position, and every shift skipped was proved impossible by π.
+
+    From there the scan advances along the text: starting afresh from the A at index 5, A, B, A match three in a row; the C at index 8 mismatches the pattern's fourth character B, and j falls back by π from 3 to 1, then to 0; only when this position is exhausted does i advance. The D at index 9 again does not match the pattern's first character, and only at index 10 does it line up again. From there, A, B, A, B, C, A, B, A, B — nine characters match in a row to the end, j fills up to
+    9, and the reported shift is i minus 9 plus 1 — that is, index 10, agreeing with the answer found by eye. After a hit, if you want to keep looking for the next one, just let j jump to π[9], which is 4, and scan onward — even overlapping hits will not be missed.
+
+    Count the comparisons on this trip: i walked from 0 to 18 without a single step back, and every fallback of j was accompanied by real alignment growth before it, so the whole trip's comparisons are a constant multiple of the text length rather than a product. The entire difference lies in those shifts skipped by π. The next step makes this account rigorous: why the total number of j's fallbacks cannot exceed the total number of its rises.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 32.4 (the scanning process of KMP-Matcher)
+    claim: In a KMP scan the text index never retreats, the pattern index jumps by π on a mismatch, and the number of comparisons in a single scan is of the same order as the text length
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "The moment of the hit: the nine characters from text index 10 align with the whole pattern"
+    rows:
+    - label: Text T
+      cells:
+      - v: A
+      - v: B
+      - v: A
+      - v: B
+      - v: D
+      - v: A
+      - v: B
+      - v: A
+      - v: C
+      - v: D
+      - v: A
+      - v: B
+      - v: A
+      - v: B
+      - v: C
+      - v: A
+      - v: B
+      - v: A
+      - v: B
+      range:
+        from: 10
+        to: 18
+        label: Hit stretch
+    - label: Pattern P
+      cells:
+      - v: A
+        mark: found
+      - v: B
+        mark: found
+      - v: A
+        mark: found
+      - v: B
+        mark: found
+      - v: C
+        mark: found
+      - v: A
+        mark: found
+      - v: B
+        mark: found
+      - v: A
+        mark: found
+      - v: B
+        mark: found
+    aux:
+    - label: The whole trip
+      items:
+      - i never retreated
+      - Mismatch jumps all use the π table
+  log:
+  - mode: Scanning
+    event: "The scan is done: the text pointer never took a step back, every mismatch jump looked up the [[prefix function|π 函数]] table, and after a hit, jumping the pattern pointer back by the table lets you keep looking for the next one."
+  points:
+  - All mismatch handling happens on the pattern pointer; the text pointer stays monotone
+  - After a hit, continue scanning by π, and overlapping occurrences are not missed either
+- id: kmp-complexity
+  title: "Where the complexity comes from: the amortized account — total fallbacks are capped by total advances"
+  tldr: "The scan is walked through; this step makes the total account rigorous: every rise of the pattern pointer corresponds to the text pointer advancing one step, so the total of its fallbacks over its whole life is capped by the total of its rises. First settle this amortized account, then look back at why the naive method cannot amortize its way to this bound."
+  body: >-
+    [[KMP]]'s Θ(n+m) is not an intuition you count your way to — it is an amortized account that can be settled precisely. Look first at the pattern pointer j. It moves in two ways: it adds one on a successful comparison, and on a mismatch it jumps back by [[π|π 函数]] to a smaller value. The key property: every time j rises by one, it corresponds to the text pointer i having walked at least one step forward; i walks at most n
+    steps on the whole trip, so the total rise of j does not exceed n.
+
+    The fallback side's account is capped by the rise side. Over the whole trip, j's value starts at 0 and is always non-negative, so the total of all its decreases cannot exceed the total of all its increases (otherwise it would fall below 0). The total number of mismatch jumps is therefore also bounded by n. The character comparisons that actually happen in the scan split into two parts — one part corresponding to j rising, the other to j falling back — and each part is capped by n, for a total of Θ(n). By the same reasoning, computing π totals Θ(m). Adding the two accounts gives KMP's Θ(n+m), and the extra space is only the π table itself, Θ(m).
+
+    This bookkeeping method — "using the rise and fall of a [[potential|势能]] to cap operations" — is called [[amortized analysis|摊还分析]], and it will keep appearing across this site: the accounts of dynamic-array resizing, hash tables, and union-find are all settled the same way. When you see a structure that is "expensive once, cheap overall", ask first what its potential is and how its rises and falls offset each other, and you will usually have found the entrance to the proof.
+
+    Why can the naive method not amortize its way to this bound? Because it has no "saved-up progress" like j — at every mismatch it zeroes the progress out and starts over, the text pointer even retreats to compare again, and the decreases are simply not constrained by the increases, so the account naturally blows up to product scale. All of KMP's work goes into finding progress a way of being stored that does not evaporate into thin air.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 32.4 (the amortized analysis of KMP)
+    claim: The total running time of a KMP scan is Θ(n), on the amortized argument that the total decrease of the pattern index is capped by its total increase
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "The life of j: its total rise does not exceed n, and its total fall does not exceed its total rise"
+    rows:
+    - label: The motion of j
+      cells:
+      - v: Add one on alignment
+        sub: total ≤ n
+        mark: found
+      - v: Fall back by π
+        sub: total ≤ total rise
+        mark: active
+      - v: Never negative
+        sub: the ledger's floor is 0
+    aux:
+    - label: Conclusion
+      items:
+      - Scan Θ(n)
+      - Preprocessing Θ(m)
+      - Space Θ(m)
+  log:
+  - mode: Amortization
+    event: "The amortized account is settled: the expensive single steps are spread over the many cheap ones, and the scan is linear overall."
+  points:
+  - The key to amortization is finding the potential — j is KMP's potential
+  - The naive method cannot be leveled out, because its progress is zeroed at every mismatch
+- id: bm-idea
+  title: "[[Boyer-Moore]]: compare from right to left, and let one mismatch buy a big step"
+  tldr: "[[KMP]] makes each character be compared at most a constant number of times; this step takes a completely opposite route: after aligning, compare from the end of the pattern forward, and let the text character revealed at a mismatch decide how far to jump. First, how the [[bad-character rule|坏字符规则]] lets one mismatch buy a big step; then, where the worst case degenerates to if you rely on it alone."
+  body: >-
+    In 1977, Boyer and Moore
+    gave an algorithm whose thinking is completely different. After pasting the pattern onto the text in alignment, it compares not from the left end but from the end of the pattern, working forward. The reason is very practical: if the very first character at the end already mismatches, we learn in one go what the text's character at that position is, and that character can tell us how far the pattern should jump.
+
+    The jump is given by the bad-character rule: suppose the text character revealed at the mismatch is c. If c does not occur in the pattern at all, then no alignment that shifts the pattern by only a cell or two while still letting c fall inside the pattern's span can possibly hit, so the pattern can jump its whole length past the position of c — one mismatch buys at most m steps forward. If c
+    does occur in the pattern, slide the pattern right so that c aligns with its last occurrence in the pattern, and compare on from there. There is also a [[good-suffix rule|好后缀规则]], which handles the case of "a suffix matched for a stretch before mismatching" and takes the largest shift compatible with the suffix already matched; real implementations mostly take the larger of the jumps the two rules give.
+
+    The effect is extreme on large-alphabet material like English text: the longer the pattern and the larger the alphabet, the higher the probability that the mismatching character is not in the pattern, and the closer the jump gets to the pattern's whole length — in the best case, the number of character comparisons is only of the order of n divided by m, and the great majority of text characters are never looked at at all. This is in sharp contrast with KMP: KMP compares each character at most a constant number of times, while [[BM|Boyer-Moore]] gives a great many characters zero comparisons in the best case.
+
+    The price must be stated clearly too. With only the bad-character rule, suitably constructed repetitive text can make BM degenerate to Θ(nm); adding the good-suffix rule and the [[Galil rule|Galil 规则]] brings the worst case back to linear, but the implementation complexity rises markedly. The [[Horspool]]
+    simplification more commonly used in engineering keeps only the bad-character idea, trading the worst-case guarantee for implementation simplicity and measured speed; the classic implementations of tools like [[grep]] mostly come from this family.
+  derivation: original
+  sources:
+  - ref: boyer-moore-1977
+    locator: A Fast String Searching Algorithm (bad-character shifting and the jump idea)
+    claim: Comparing from the right end of the pattern and deciding the shift by the last occurrence, in the pattern, of the text character at the mismatch can achieve large jumps and a sublinear best case
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: The source of this paper was verified on 2026-11-07 (CACM 20(10):762-772, DOI 10.1145/359842.359859); see docs/curriculum-audit.md
+  - ref: clrs
+    locator: Chapter 32 String Matching (comparison of worst cases with the other algorithms)
+    claim: A BM variant with only the bad-character rule can degenerate to Θ(nm) in the worst case and needs rules such as the good-suffix rule to shore it up
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "The bad character is not in the pattern: the pattern jumps its whole length past it — one mismatch buys m steps"
+    rows:
+    - label: Text window
+      cells:
+      - v: t
+      - v: e
+      - v: x
+      - v: t
+      - v: X
+      - v: b
+      - v: a
+      - v: d
+    - label: Pattern (compared right to left)
+      cells:
+      - v: b
+      - v: a
+      - v: d
+      - v: X
+        sub: last position compared first — mismatch
+        mark: active
+    aux:
+    - label: The jump rule
+      items:
+      - The mismatching character is not in the pattern
+      - Jump the whole length past that position
+  log:
+  - mode: BM
+    event: "BM's route is set up: both the comparison direction and the basis for jumping are the opposite of KMP's — compare from right to left, and jump by the text character the mismatch reveals."
+  points:
+  - BM's speed comes from skipping characters never looked at, not from making full use of the ones looked at
+  - The smaller the alphabet (such as the four characters of [[DNA]]), the thinner BM's jump gains
+  keyFields:
+  - key: Best case
+    value: About n/m comparisons; a great many characters get zero contact
+  - key: Worst case
+    value: Θ(nm) with only the bad-character rule; needs shoring-up rules
+- id: rk-automaton
+  title: "Two other routes: [[rolling hash|滚动哈希]] and [[finite automata|有限自动机]]"
+  tldr: "Besides comparing character by character, there are two routes that change the granularity. This step looks first at the rolling hash: compress the window into a fingerprint that updates as it slides — compare fingerprints first, then verify against the original text. Then the finite automaton: precompute the next step for every situation, dead and fixed — and note that the [[prefix function|π 函数]] is, in fact, a compressed version of that transition table."
+  body: >-
+    The third way of encoding information is to change the granularity of comparison. [[Rabin-Karp]] no longer compares character by character; instead it first computes the pattern into a number (a fingerprint), then maintains the fingerprint of every length-m
+    window of the text. If two fingerprints differ, the window cannot possibly hit; only when the fingerprints are equal does it verify character by character, as a fallback. The key is that the fingerprint must update in a rolling fashion: when the window slides one cell right, drop the old character in the highest place, shift the remaining places left, and add the new character — with a polynomial hash this completes in O(1), so the expected cost of the whole scan is
+    Θ(n+m).
+
+    Its account carries probability: fingerprint collisions bring pointless character-by-character verifications; with a well-chosen hash the expectation is extremely low, but an opponent can construct data that makes it degenerate to
+    Θ(nm) — the same origin as a hash table's degeneration under a hash flooding attack. What it buys in return is structural: several patterns can have their fingerprints computed at once and be matched in parallel, and fingerprints can be taken directly to duplicate checking and fingerprint deduplication. This line of thinking is everywhere — in plagiarism detection, file deduplication, and git's object identification.
+
+    The fourth is the theoretically tidiest method, the finite automaton: build a state machine for the pattern in advance, where state q means "the first q characters of the pattern are already aligned", and precompute the transition for every state and every possible input character. The scan then passes the text once, looking up the table once per character, for a steady Θ(n); the price is a transition table of size m
+    times the alphabet size, and preprocessing that is both expensive and space-hungry.
+
+    Put it side by side with [[KMP]]: KMP's [[π|π 函数]] function is, at bottom, exactly a compressed encoding of this automaton's transition table — π stores only the one key column of information, "which state to return to on a mismatch", compressing the whole table's space from m times the alphabet size to
+    m. The two algorithms are two storage formats for one and the same idea: one spreads the knowledge out and stores it all; the other stores only the part that gets used.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 32.2 Rabin-Karp and 32.3 Finite-Automaton Matching
+    claim: Rabin-Karp obtains an expected Θ(n+m) with a fingerprint that updates in a rolling fashion, and the finite-automaton method trades Θ(m·|Σ|) of preprocessing for a Θ(n) scan
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "Rolling hash: the window slides one cell right, and the fingerprint updates in O(1) by dropping the head, shifting left, and adding at the tail"
+    rows:
+    - label: Current window
+      cells:
+      - v: 3
+        sub: about to be dropped
+        mark: muted
+      - v: 1
+      - v: 4
+      - v: 1
+    - label: After sliding one cell right
+      cells:
+      - v: 1
+      - v: 4
+      - v: 1
+      - v: 5
+        sub: newly added
+        mark: found
+    aux:
+    - label: Fingerprints differ
+      items:
+      - The window definitely does not hit
+      - Skip it directly
+  log:
+  - mode: Hash route
+    event: "The hash route is done: compare fingerprints first, then characters — the granularity of comparison changed from characters to numbers, and the fingerprint updates incrementally as the window slides."
+  points:
+  - Rabin-Karp is fast in expectation with a poor tail; KMP's guarantee is hard and its constants are real
+  - π is a compressed storage of the automaton's transition table, not a different kind of magic
+- id: choose
+  title: "Choosing: the territory of each of the four algorithms"
+  tldr: "All four algorithms have been seen; this step does the choosing account by scenario: do you fear the worst case, how big is the alphabet, is there one pattern or ten thousand, and does the text arrive in one whole piece or as a stream? Go through the four dimensions one by one, and each algorithm's territory is drawn clearly."
+  body: >-
+    Do the choosing account by scenario. The first dimension is the hardness of the guarantee: when the data is constructed by an opponent, or the system has a hard requirement on tail latency (intrusion detection, streaming filtering), a worst case of Θ(nm) is unacceptable, and [[KMP]]'s Θ(n+m) guarantee is exactly what you are buying it for. The second dimension is the alphabet and the pattern length: on English text with a long pattern, [[BM|Boyer-Moore]]'s
+    jump gains are the largest, and the measured champions among editor and [[grep]]-like tools have long been BM variants; conversely, in a four-character alphabet like [[DNA]]'s, the bad character almost always occurs in the pattern, BM cannot jump, and KMP or [[bit-parallel|位并行]] algorithms are steadier.
+
+    The third dimension is the number of patterns. To find ten thousand keywords at once (sensitive-word filtering, virus signature databases), running KMP pattern by pattern means ten thousand scans; the [[Aho–Corasick automaton|AC 自动机]] compiles all the patterns into one [[trie|字典树]] with mismatch jumps, and the text passes once to report every hit — it is exactly the generalization of KMP's [[π|π 函数]]
+    idea to many patterns. The fourth dimension is how the text arrives: when the text arrives block by block as a stream and cannot be read back, only the KMP family and the automaton family — whose pointers move monotonically forward — can process it online; BM's right-to-left comparison needs random access to the window and does not suit a pure stream.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 32 String Matching (the summary table of the algorithms' complexities)
+    claim: The string-matching algorithms differ in their trade-offs between preprocessing and scanning time, and the choice depends on the alphabet, the pattern length, and the worst-case guarantee required
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "A quick reference for choosing: look at the hardness of the guarantee first, then at the alphabet and the number of patterns"
+    rows:
+    - label: Worst-case guarantee first
+      cells:
+      - v: KMP
+        mark: found
+      - v: Θ(n+m), written in stone
+    - label: Average speed first
+      cells:
+      - v: BM variant
+        mark: found
+      - v: Sweetest with a large alphabet and a long pattern
+    - label: Many patterns at once
+      cells:
+      - v: Aho–Corasick automaton
+        mark: found
+      - v: The text passes only once
+    - label: Fingerprints and parallelism
+      cells:
+      - v: "[[Rabin-Karp]]"
+        mark: found
+      - v: Fast in expectation; accepts collisions
+    - label: Short text, searched once
+      cells:
+      - v: Naive method
+        mark: found
+      - v: The preprocessing cost is never recovered
+  log:
+  - mode: Choosing
+    event: "The choosing account is done: there is no best algorithm, only the one whose total bill is lowest when paired with the scenario."
+  points:
+  - "The first principle of choosing: the total bill equals preprocessing plus scanning, times the number of runs"
+  - The Aho–Corasick automaton is the multi-pattern generalization of the π idea
+- id: practice
+  title: "Engineering reality: what is actually running inside the standard libraries"
+  tldr: "Finally, open a standard library and look at reality: none of the textbook's four algorithms holds the main seat. This step looks at the combined strategies two standard libraries actually use, then does the account of how, for short patterns, a vectorized naive method wins on constants — complexity screens out errors of order of magnitude, and among the same order of magnitude, constants decide the ranking."
+  body: >-
+    Open a standard library and look, and you will find that none of the textbook's big four holds the main seat. [[glibc]]'s [[strstr]] and [[memmem]] use the [[Two-Way|Two-Way 算法]] algorithm: it cuts the pattern into a left and a right segment, compares the right segment first and then the left, and uses the properties of the [[critical factorization|临界分解]] to guarantee Θ(n+m) time with only O(1)
+    extra space — the product of a three-way compromise among "hardness of guarantee, space, and implementation complexity". The standard libraries of languages like Rust and Go combine several strategies in their implementations, switching among the naive method, the [[BM|Boyer-Moore]] family, and the hash family according to the scale of the pattern and the text.
+
+    Another counterintuitive fact is the naive method's strength on short patterns. A modern CPU can compare 16 to 32 bytes in parallel with a single vector instruction; the naive method only has to find "the positions where the first character occurs" with a vector instruction first (such as [[memchr]]), then verify the few candidates character by character, and its actual speed often beats a [[KMP]] with many branches and large constants.
+    Asymptotic complexity counts only the order of magnitude of the number of operations, not the real cost of each step or the cache behavior; when n is not large and the pattern is short, constants and vectorization call the shots. This does not overturn this lesson's analysis — it is a reminder: complexity is for screening out errors of order of magnitude, not for ranking implementations of the same order of magnitude.
+
+    Wrap this lesson up. All progress in string matching comes from one thing: not wasting what you already know. Hash tables trade precomputation for queries, binary search trades sortedness for comparison counts, DP trades a stored table for repeated computation — and they, like KMP storing the pattern's self-overlap as
+    [[π|π 函数]], are one and the same trade. What you should really take away is not any one algorithm but a question: in this piece of work, what information have I already paid to obtain — and am throwing away as I go?
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 32 String Matching (discussion of algorithm comparison and real implementations)
+    claim: Real systems compromise among worst-case guarantees, space, and constants when choosing a matching algorithm, rather than always adopting the asymptotically optimal one
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "The standard library's trade-off: beyond the linear guarantee, space and constants also count"
+    rows:
+    - label: glibc memmem
+      cells:
+      - v: Two-Way
+        mark: found
+      - v: Θ(n+m) with O(1) space
+    - label: Short patterns, measured
+      cells:
+      - v: Vectorized naive method
+        mark: found
+      - v: memchr screens the candidates first
+    - label: Asymptotically optimal KMP
+      cells:
+      - v: Champion on paper
+      - v: Constants and branches not in its favor
+        mark: muted
+  log:
+  - mode: Engineering
+    event: "Engineering reality boils down to one line: complexity is responsible for screening out errors of order of magnitude, and the ranking of implementations of the same order of magnitude is decided by constants and cache behavior."
+  points:
+  - Two-Way is the product of a three-way compromise among guarantee, space, and implementation
+  - "The question to take away: what information, already paid for, am I throwing away?"
+design:
+- mechanism: KMP precompiles the pattern's self-overlap into the prefix function π — during the scan the text pointer only moves forward, never back, and every mismatch jump is decided by this table, which has nothing to do with the text
+  problem: "The naive method's waste is informational: at every mismatch, we have in fact verified a stretch of the text's content with our own hands, yet there is no mechanism to keep that verification result, so the next attempt can only start from zero. As long as the text pointer still retreats to compare again, the worst-case complexity is locked at product scale."
+  choice: "The object of preprocessing is the pattern, not the text: the pattern is short, under our control, and reusable again and again; π encodes the degree of self-overlap of every prefix of the pattern in full, and the new alignment that a mismatch jumps to by π is mathematically guaranteed to miss no hit. An alternative such as preprocessing the text into a suffix structure suits scenarios where the text is fixed and many different patterns are searched against it, but it is out of the question for one-off streaming text."
+  tradeoff: π is valid for a single pattern only — change the pattern and it must be recomputed, and multi-pattern scenarios must upgrade to the Aho–Corasick automaton; and π's recursion and fallback chain are notoriously easy to write wrong, with boundary cases needing dedicated tests. What it buys in return is the hard Θ(n+m) guarantee and the ability to process a stream online.
+  root: "This is an insight in the style of conservation of information: information that has been compared does not disappear — the only question is whether it has been encoded. π is the smallest complete encoding of the knowledge 'the pattern's self-overlap', and the monotonicity of the text pointer is that knowledge cashed in directly — the same trade as DP storing the answers to subproblems in a table."
+- mechanism: Boyer-Moore's bad-character jump — compare from the right end, and on a mismatch use the last occurrence, in the pattern, of the text character revealed to decide the shift amount, so that even one mismatch buys several steps forward
+  problem: KMP guarantees linearity, yet it still has to look at every character of the text one by one. But in scenarios with long patterns and a large alphabet, most characters have nothing to do with the pattern at all, and looking at every one of them is itself the waste; the text character seen at the very moment of a mismatch carries far more information than just "not equal".
+  choice: "Reverse the direction of comparison, and let the mismatching character price the jump: if the character is not in the pattern, jump the whole length past it; if it is in the pattern, align it with its last occurrence. The alternative, KMP, advances character by character — a strong guarantee but large constants; the alternative vectorized naive method eats constants with hardware width and is extremely strong on short patterns, but falls back to product-scale risk on long patterns and repetitive text."
+  tradeoff: "With only the bad-character rule, the worst case degenerates to Θ(nm); shoring it up with the good-suffix and Galil rules buys linearity back, at a marked rise in implementation complexity; and the smaller the alphabet, the shorter the jumps — in four-character scenarios like DNA, the advantage shrinks drastically. What it buys in return is a sublinear performance of about n divided by m
+    comparisons in the best case, and the measured speed of editor-grade tools."
+  root: It rewrites how we think about the size of the input — the running time need not be proportional to the length of the input, and an algorithm can skip input it has never looked at and still reach a correct conclusion, provided its structural knowledge of the pattern is enough to guarantee that the skipped parts cannot possibly hit. KMP makes full use of the information already seen; BM replaces even the unseen information with knowledge of the pattern.
+- mechanism: Rabin-Karp's rolling fingerprint — compress every text window into a numerical value that can be updated incrementally, compare fingerprints before characters, and allow fingerprint matching against several patterns at the same time
+  problem: The cost of character-by-character comparison comes from the granularity of the character itself; when there is more than one pattern, or the text must be split up and processed in parallel, comparing character by character can be neither reused nor parallelized, and the total amount of comparison inflates linearly with the number of patterns.
+  choice: Map the window to a fingerprint with a polynomial rolling hash — as the window slides, the fingerprint drops its head and adds its tail in O(1); differing fingerprints prune the whole window at once, and only equal fingerprints are verified character by character. The alternative is running KMP or BM once per pattern — hard guarantees, but a total cost that multiplies with the number of patterns, and no reusable intermediate representation.
+  tradeoff: Correctness is downgraded from certain to highly probable — collisions bring extra verifications, and opponent-constructed data can make it degenerate to Θ(nm), of the same origin as a hash table's degeneration under a flooding attack; the benefits for many patterns and parallelism only truly show themselves once the patterns reach scale.
+  root: "This is the randomized trade appearing once more: replace the expensive comparison of originals with a computable summary, and trade a small probability of error for structural simplicity and parallelism. Hash tables, Bloom filters, and Rabin-Karp
+    line up in a row, all asking the same question — when the cost of verification must be spread thin, how much of a premium are we willing to pay for 'possibly seeing it wrong'?"
+level: 进阶
+minutes: 32
+prereq:
+- dsa/greedy
+objectives:
+- Compute the prefix function π of the pattern ABABCABAB by hand, and use it to complete one KMP scan
+- Construct the naive method's worst-case input, and explain with the amortized account why KMP is Θ(n+m)
+- Explain the jump principle of BM's bad-character rule and its worst-case degeneration
+- Choose an algorithm for a concrete scenario by hardness of guarantee, alphabet, and number of patterns
+aiLink: String matching is the foundation of text-oriented AI pipelines — vocabulary matching before tokenization, the Aho–Corasick automaton used in sensitive-word filtering, and locating quoted original text in a corpus for retrieval augmentation are all still served by this lesson's family of algorithms; even the dictionary longest-match inside a tokenizer can be seen as a variant of multi-pattern matching.

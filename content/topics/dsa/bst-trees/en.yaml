@@ -1,0 +1,431 @@
+id: dsa/bst-trees
+subject: dsa
+slug: bst-trees
+order: 7
+status: published
+license: CC-BY-4.0
+title: "Binary Search Trees and Balance: an intuition for [[AVL]] and red-black trees"
+summary: Hash tables are fast but unordered; to store things in order and fetch them by range, use a search tree — then solve its degeneration into a linked list.
+premise: A hash table looks up a single value fast, but it cannot answer questions tied to order — what is the smallest value greater than a given number, or which numbers fall inside an interval. This lesson looks at how a binary search tree stores data in order, why the same set of integers inserted in a different order produces a completely different tree shape and height, and finally how balancing mechanisms stop it from degenerating into a chain.
+position: This lesson returns to the "Tree Structures" section. It follows Dijkstra repeatedly taking the smallest-dist element out of a priority queue, and asks what other storage a dynamic ordered set has besides a heap. After this lesson you will be able to walk through the deletion flow for a node with two children — copy the [[in-order successor|中序后继]]'s value, then delete the successor — and explain where the trade-off differs between AVL,
+  which uses rotations to press height differences within 1, and the [[red-black tree|红黑树]], which tolerates a longest path twice the shortest.
+bridge:
+  prev: The previous lesson borrowed a binary heap so Dijkstra could quickly lock onto the smallest-dist point after each round of relaxation; this lesson's search tree belongs to the same tree-structure family, but widens the goal from taking only the extreme value to preserving the total order and ranges.
+  next: A search tree saves lookup cost by ruling out a whole subtree with each comparison as it descends; the next lesson, dynamic programming, tackles a different waste — how to store the result when the same subproblem is solved exponentially many times in a recursion tree, so it is computed only once.
+overview:
+- key: In one sentence
+  value: A BST (binary search tree) stipulates left smaller than the root, root smaller than the right, and an in-order traversal yields the sorted sequence; balancing mechanisms keep the height at O(log n). A lookup starts at the root — smaller goes left, larger goes right — and each step rules out a whole subtree.
+- key: Three operations
+  value: Search, insert, and delete all walk one path down from the root, so their cost is proportional to the tree height. The shorter the tree, the faster the operations; once the tree grows crooked into a chain, all three degrade into searching from head to tail.
+- key: Degeneration
+  value: Inserting into a plain BST in sorted order degenerates it into a linked list, and the complexity becomes O(n). Insert 1, 2, 3, 4, 5 in order, for example — each new number is larger than everything already there, so it can only keep hanging to the right, and in the end the tree is a chain leaning right.
+- key: AVL
+  value: "[[AVL]] requires every node's left and right heights to differ by at most 1 and repairs with rotations — the strictest balancing. After an insertion, if some place's left-right difference exceeds 1, that small stretch of structure is turned once to restore balance; the price is more frequent adjustments during insertions and deletions."
+- key: Red-black tree
+  value: "A [[red-black tree|红黑树]] relaxes balancing with color rules, requiring the longest path to be at most 2 times the shortest, with fewer rotations — the most common choice in engineering. It does not chase absolute balance, only guarantees the height stays logarithmic, in exchange for fewer changes during insertions and deletions."
+- key: In practice
+  value: Java's [[TreeMap]] and C++'s [[std::map]] are red-black trees; database indexes use its multiway relative, the [[B+ tree|B+ 树]]. What they need is not just single-point lookup but also in-order traversal and fetching by range — exactly the extra talent a search tree has over a hash table.
+visual: datastate
+logColumns:
+- key: mode
+  label: Current state
+- key: event
+  label: What happened
+steps:
+- id: why
+  title: Why trees, beyond hash tables?
+  tldr: "Put the problem plainly first — a hash table fetches by name in one step, but it cannot answer order-tied questions such as who is the smallest value greater than a given number, or which numbers fall inside an interval. This step lays the three ledgers — hash table, sorted array, search tree — side by side and sees which gap the search tree fills."
+  body: >-
+    Many requirements are ordered by nature — take a slice of a leaderboard, cut a timeline by range, find neighbors in lexicographic order. A hash table scatters its keys and loses all ordering information; a sorted array searches fast but inserting means shifting half the elements. A binary search tree (BST) is the compromise — it keeps the global order while supporting dynamic insertions and deletions, and an in-order traversal outputs the sorted result. It is also the direct ancestor of the B+
+    tree indexes and ordered containers that come later.
+
+
+    Lay the ledgers side by side — a hash table's point lookup averages O(1) but it has no order — give it ten thousand keys and it still cannot say who the smallest one greater than 42 is. A sorted array binary-searches in O(log
+    n), but inserting a new key means moving the whole back half of the elements — a loss when writes outnumber reads. What all three lack is the same thing — preserving order and logarithmic operations under dynamic insertions and deletions at once — and the BST fills exactly that gap.
+
+
+    A BST's order is a structural property, not the result of one sort — every key inserted lands in its unique legal position, and the global order is never disturbed. That is also why it can prune as it searches during a range query.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 12 Binary Search Trees
+    claim: Binary search trees support search, insertion, deletion, and range traversal on a dynamic ordered set, and an in-order traversal yields the sorted sequence
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: tree
+    caption: "Left smaller, right larger: the in-order traversal 1, 3, 5, 8, 10, 12, 14 is naturally sorted"
+    tree:
+      nodes:
+      - v: 8
+        mark: found
+      - v: 3
+      - v: 12
+      - v: 1
+      - v: 5
+      - v: 10
+      - v: 14
+  log:
+  - mode: Ordered
+    event: "The conclusion stands: a hash table cannot do range queries or neighbor queries; a search tree keeps order inside the structure itself through the left-smaller, right-larger stipulation."
+- id: search-insert
+  title: "Search and insertion: one path down"
+  tldr: "The stipulation is set — keys on the left are smaller than the root, keys on the right are larger. This step walks a search and an insertion along it — start at the root, compare sizes, move to one side, until you hit or reach an empty slot. Once it is clear that an insertion is just a search that failed, it books both operations' costs to the tree height."
+  body: >-
+    To search for target, stand at the root and compare — smaller goes to the left subtree, larger to the right, equal is a hit. Each step rules out half the candidates (if the tree is balanced); reaching a null pointer means it does not exist. An insertion is a failed search — the new node necessarily lands at the empty position where the search stopped, becoming a leaf. So both costs are proportional to the tree height
+    h: O(log n) when balanced, O(n) when degenerated — the height is everything to a BST.
+
+
+    Walk an insertion of 7 through the canvas's tree, whose root is 8 — smaller than 8, go to the left subtree; larger than 3, go right; larger than 5, it should continue right — that spot is empty, so 7 hangs as 5's right child, touching only 3 nodes in all. Now search for a 6 that does not exist — the route is 8 to 3 to 5 to 7; smaller than 7, it falls empty to the left and returns "does not exist". That same empty-falling route also tells you where 6 would land if inserted.
+
+
+    Duplicate keys are a common stipulation question — most implementations do not store a second copy; a hit simply updates the attached value. Which choice you make must be written into the interface, because handling it vaguely makes deletion remove the wrong copy. Inserting into an empty tree makes the new node the root directly, and deleting the root when it is the only node leaves the tree empty — these trivial cases are the easiest to miss a null check on.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 12.2/12.3, query and insertion
+    claim: BST search and insertion both proceed along a single root-to-leaf path, in O(h) time
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: tree
+    caption: "Finding 10: 8 → 12 → 10, a hit in three steps"
+    tree:
+      nodes:
+      - v: 8
+      - v: 3
+      - v: 12
+        mark: active
+      - v: 1
+      - v: 5
+      - v: 10
+        mark: found
+      - v: 14
+  log:
+  - mode: Search
+    event: "The search is walked through: each comparison rules out a whole subtree, and the cost depends only on how long the path walked is — the tree height."
+  code:
+    lang: typescript
+    code: |-
+      type Node = { key: number; left?: Node; right?: Node };
+      function search(root: Node | undefined, x: number): Node | undefined {
+        let cur = root;
+        while (cur) {
+          if (x === cur.key) return cur;        // Hit
+          cur = x < cur.key ? cur.left : cur.right;  // Rule out half
+        }
+        return undefined;                        // Reaching empty = does not exist
+      }
+    note: Insertion = walk a search to an empty slot, then hang the new node on
+    highlight: 5
+- id: delete
+  title: "Deletion: three cases, and the hard one has two children"
+  tldr: "Search and insertion both walk a single path down; deletion is far more troublesome. This step handles the cases one by one by number of children, focusing on why a node with two children cannot simply be plucked off — you first find its [[in-order successor|中序后继]], copy its value, and then delete the successor."
+  body: |-
+    Deletion is the most troublesome BST operation, split into three cases by number of children: no children — pluck it off directly; exactly one child — swing the parent's pointer past it, straight to its child; both children — it cannot be plucked directly (that would snap the tree into two pieces). The standard approach is to find its in-order successor (the leftmost node of the right subtree, which has at most one right child), copy the successor's value over, and then delete the successor node (which falls back into the first two cases). The node actually plucked off always has at most one child.
+
+    Walk the other two cases on the same tree: delete the leaf 1 — simply set 3's left pointer to null, and everything else stays untouched. Delete a node with exactly one child — swing the parent pointer past it straight to that child; the child's whole subtree is preserved as-is, and the height drops by at most one. Back to the two-children case, deleting the root 8: the successor is 10, the end of walking left through the right subtree. Copy 10 into the root's position; the original 10 is a leaf and is plucked off directly.
+
+    After deleting, check the in-order sequence: 1, 3, 5, 10, 12, 14 — against before the deletion it differs only by the removed 8, and the order is intact. A common mistake: what gets copied is the successor's value, not the successor node moved up wholesale with its subtree — balanced trees uniformly use copy-the-value plus delete-the-successor, converging the structural adjustment to the simplest case. After deletion, a balanced tree still has to check upward from the deletion point, level by level, and repair.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 12.3, deletion
+    claim: When deleting a BST node with two children, the in-order successor replaces it, and the problem reduces to deleting a node with at most one child
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: tree
+    caption: "Deleting 8 (two children): the successor is 10 — copy its value, then delete the leaf position where 10 sat"
+    tree:
+      nodes:
+      - v: 8→10
+        mark: active
+      - v: 3
+      - v: 12
+      - v: 1
+      - v: 5
+      - v: 10
+        mark: found
+      - v: 14
+  log:
+  - mode: Deletion
+    event: "Deletion is walked through: the two-children case is converted into copying the in-order successor's value and deleting the successor — the node actually plucked off has at most one child."
+- id: degeneration
+  title: "Degeneration: insertion order can ruin a tree"
+  tldr: "Every operation in the first three steps stood on the premise that the tree is still fairly short. This step watches that premise get destroyed by insertion order — insert sorted numbers one by one and the tree grows into a chain — then does the math with a million nodes to see how many orders of magnitude degeneration actually costs."
+  body: >-
+    Insert already-sorted data into a BST one by one and every new element is larger than all existing nodes, turning right all the way to the bottom — in the end the tree is a linked list and search degenerates into a linear scan. With a random insertion order the expected height is O(log n), but data that is already nearly sorted is all too common in engineering (auto-increment
+    ids, timestamps), so you cannot gamble on luck. A mechanism is needed that automatically presses the height back to O(log n) after insertions and deletions — that is the reason self-balancing search trees exist.
+
+
+    Put the bill into numbers — at n = a million, a balanced tree's height is about 20, and one search takes about 20 comparisons; a degenerated chain's height is a million, and one search averages 500,000 comparisons — a gap of four to five orders of magnitude. And the longer the chain, the deeper every insertion still has to walk, so the total cost of building the tree becomes quadratic — this degeneration is not "a bit slower"; the complexity class itself changes. Records written by timestamp or auto-increment primary key arrive in an insertion order that is naturally nearly sorted, so a bare BST
+    is a chain from its first day in production. Random shuffling can only mitigate; balance must be a property the structure carries itself.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 12.4, randomly built trees and expected height
+    claim: A randomly inserted BST has expected height O(log n), but the worst case (sorted insertion) degenerates to O(n)
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "Sorted insertion: every new maximum can only hang at the far right end"
+    rows:
+    - label: Degenerated chain
+      cells:
+      - v: "1"
+      - v: → 2
+      - v: → 3
+      - v: → 4
+      - v: → 5
+        mark: active
+    - label: Searching for 5
+      cells:
+      - v: 5 comparisons = a linked list
+        mark: muted
+  log:
+  - mode: Degeneration
+    event: "Degeneration is clear: the height is decided by the insertion order — you cannot gamble on the input order; the structure must carry its own balancing mechanism."
+- id: treap-random
+  title: "Randomized balancing: [[Treap]] and what randomness teaches"
+  tldr: "Degeneration forced the need for balance, but balance does not have to come from strict rules. This step takes a randomized road — hand each key a random priority as well, order the keys by the search-tree rule and the priorities by the heap rule, and watch randomness press the expected height back to logarithmic."
+  body: >-
+    There is another balancing road that does not rely on rotation rules — hand each key a random priority as well, requiring keys to be ordered as in a BST and priorities as in a heap. That tree is called a Treap — a blend of tree and heap. On insertion it first lands by the BST
+    rule, then rotates up by priority; deletion rotates it back down in reverse. Because the priorities are dealt randomly, the tree's expected height is pressed to O(log n) by randomness itself, independent of the keys' input order.
+
+
+    Its principle is the same fact as the expected O(log n) height under random insertion order — except the randomness is moved from the uncontrollable input order into the structure itself: roll your own dice and you no longer need the input to do you a favor. When 1 to 5 are inserted in sorted order, if the priorities happen to make 3 the largest, 3
+    becomes the root, and the left and right sides form recursively by their own largest priorities — the original chain is cut in the middle by the random root. That is how it dodges degeneration.
+
+
+    The price is one extra random number stored per node, and a height guaranteed only in expectation, with no worst-case guarantee. Standard libraries want deterministic guarantees, so Treaps appear mostly in algorithm contests and teaching — but the principle it reveals matters — balance does not have to come from strict rules; it can come from randomness. It is the same key that unlocks the [[skip list|跳表]]'s random levels.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 12.4 Randomly Built Binary Search Trees (randomly built trees and expected height)
+    claim: A Treap with random priorities has expected height O(log n); randomization avoids the degeneration caused by worst-case insertion orders
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: tree
+    caption: "The value in parentheses is the random priority; the root is the largest priority, and the key order still satisfies the BST"
+    tree:
+      nodes:
+      - v: 3 (p9)
+        mark: found
+      - v: 1 (p4)
+      - v: 5 (p6)
+      - v: —
+      - v: 2 (p2)
+      - v: 4 (p3)
+      - v: —
+  log:
+  - mode: Random balancing
+    event: "Randomized balancing holds: the priorities are dealt randomly by the structure itself, so the expected height is no longer affected by the input order."
+- id: avl
+  title: "[[AVL]]: pressing height differences within 1 with rotations"
+  tldr: "With the randomized road seen, now the strictest of the rule-based roads. This step first explains the notation for the four imbalance shapes, then walks a rotation through the smallest example — inserting 10, 20, 30 in order — watching how the structure is turned back when some node's left-right height difference exceeds 1."
+  body: |-
+    First, the four shape notations: each notation has two letters — the first says which side of the unbalanced node's subtree is taller, the second says which side of that side's child is taller again. LL means the left child's left subtree is taller; RR is its mirror; LR means the left child's right subtree is taller; RL is its mirror.
+    The shape decides the rotation: LL and RR need one rotation; LR and RL need two.
+
+    The AVL tree is the earliest self-balancing BST, with the strictest rule: every node's balance factor (left height minus right height) may only be −1, 0, or 1. After inserting a new node, trace back from it toward the root; at the first unbalanced ancestor, perform one or two rotations according to the four shapes (LL, RR, LR, RL) — a rotation is a local pointer adjustment that keeps the in-order sequence unchanged and presses the taller side down. The price of strict balance is more frequent rotations during insertions and deletions; the reward is the shortest search paths, suiting read-heavy, write-light workloads.
+
+    The smallest rotation, walked through: insert 10, 20, 30 in order. 30 lands as 20's right child, and 10's left-right height difference becomes −2 — the shape is RR. One left rotation at 10 raises 20 to the root, drops 10 to the left child, and 30 stays the right child; the in-order sequence is still 10, 20, 30, and the height falls from 3 back to 2. Now the LR shape: insert 30, 10, 20 — 20 lands at 10's right child and unbalances 30; you must first rotate left at 10, then rotate right at 30 — neither of the two rotations can be skipped.
+
+    AVL's strictness is bought with write-side maintenance cost: after an insertion, every ancestor on the chain must be checked one by one, and during deletion rotations can cascade all the way to the root. The reward is a height shorter than a [[red-black tree|红黑树]]'s, which pure query workloads amplify into a comparison-count advantage.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Balanced search tree chapters (AVL — see the exercises and further reading)
+    claim: An AVL tree keeps the height difference between left and right subtrees at most 1, and restores balance with rotations in O(log n)
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: tree
+    caption: "A rotation changes only pointers, never the in-order sequence (3, 5, 8 unchanged)"
+    tree:
+      nodes:
+      - v: 5
+        mark: found
+      - v: 3
+      - v: 8
+  log:
+  - mode: Balancing
+    event: "The rotation rules are pinned down: the imbalance shape decides the rotation — shapes tall on the same side rotate once; crossed shapes rotate twice."
+- id: redblack
+  title: "[[red-black tree|红黑树]]: relax the balance a notch, trade for fewer rotations"
+  tldr: "[[AVL]] presses height differences within 1, at the price of frequent rotations during insertions and deletions. This step looks at how a red-black tree relaxes the balance by one notch — using only color rules to guarantee the longest path is at most twice the shortest — in exchange for far fewer rotations, and why standard libraries favor it."
+  body: >-
+    A red-black tree paints each node red or black, with these rules — the root is black; a red node's children must be black; and on the paths from any node down to all its descendant leaves, the number of black nodes is the same. From this it follows that the longest possible path is at most twice the shortest possible path, and the height is pressed to the O(log n) order ([[CLRS]] gives the upper bound
+    2·lg(n+1)). Its balance is looser than AVL's and its searches a touch slower, but its insertion and deletion adjustments are cheaper on average — which is why it became the default choice for ordered containers in language standard libraries: Java's [[TreeMap]] and C++'s [[std::map]] are both red-black trees.
+
+
+    Feel the black height with numbers — in the canvas's tree, the path from the root 8 to 1 passes black nodes 8 and 1 — 2 of them; the path to 5 passes 8 and 5 — also 2; the path to 14 passes 8 and 14 — still 2. Every root-to-leaf path has the same black count. The red nodes 3 and 12
+    make some paths longer in edge count, but red nodes cannot be parent and child in a row, so in the worst case red and black alternate and the edge count is at most twice the all-black shortest path — that is where the height bound comes from.
+
+
+    Most insertion repairs are only recolorings — a new node is painted red first; if its parent is black, it ends right there; only a red parent triggers recoloring upward or a rotation. An insertion needs at most a constant number of rotations, and deletion likewise — a contrast with AVL deletions, where rotations can run all the way up.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 13 Red-Black Trees
+    claim: The color properties of a red-black tree guarantee a height of at most 2lg(n+1), so search / insertion / deletion are all O(log n)
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: tree
+    caption: "The rules govern 'equal black height'; path length differences are limited to within a factor of two"
+    tree:
+      nodes:
+      - v: 8 (black)
+        mark: found
+      - v: 3 (red)
+      - v: 12 (red)
+      - v: 1 (black)
+      - v: 5 (black)
+      - v: 10 (black)
+      - v: 14 (black)
+  log:
+  - mode: Balancing
+    event: "The red-black tree's trade-off is settled: balance relaxed by one notch, far fewer rotations — exactly why it became the standard library's default choice."
+- id: order-statistics
+  title: "Order statistics: the k-th smallest and rank queries"
+  tldr: "A search tree can answer one more class of question — who is the k-th smallest, and what rank does a given key hold? This step stores one extra subtree size at each node, watches a query for the 4th smallest locate its answer along a single path, and settles how much maintenance that ability costs."
+  body: >-
+    A BST with a small upgrade answers order-statistics questions — store one extra field, size, at each node, the total number of nodes in the subtree rooted there, and maintain it by adding or subtracting one along the path during insertions and deletions. To find the k-th smallest, start at the root and let the left subtree's size be L — if k equals L + 1, the root is the answer; if k is at most L, keep searching in the left subtree; if k is larger, go to the right subtree for the (k − L − 1)-th smallest. The whole walk follows a single path.
+
+
+    Walk the canvas's tree — the root 8's left subtree has 3 nodes. For the 4th smallest, k is exactly 3 + 1 — a hit on the root 8, matching the 4th entry of the in-order sequence 1, 3, 5, 8, 10, 12, 14. Now the 6th smallest — k is larger than 4, so go to the right subtree for the (6 − 4) = 2nd smallest; the right subtree's root 12 has only the single node 10 in its left subtree, so it hits 12. Asking which rank a key holds is the inverse operation on the same size fields.
+
+
+    The price is one extra integer field per node, and rotations must also fix the sizes of the nodes they turn — miss one place and every rank is wrong. The maintenance fee is worth paying only when rank semantics are needed — taking the k-th place on a leaderboard, or fetching a page-sized slice, is essentially this ([[CLRS]] calls it an order-statistic tree).
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 14 Augmenting Data Structures (order-statistic trees)
+    claim: With a subtree-size field added to red-black tree nodes, the k-th smallest element and an element's rank can both be found in O(log n)
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: tree
+    caption: "The value in parentheses is the subtree size; the 4th smallest hits the root in one go"
+    tree:
+      nodes:
+      - v: 8 (s7)
+        mark: found
+      - v: 3 (s3)
+      - v: 12 (s3)
+      - v: 1 (s1)
+      - v: 5 (s1)
+      - v: 10 (s1)
+      - v: 14 (s1)
+  log:
+  - mode: Order statistics
+    event: "Order statistics are walked through: navigation by the subtree size stored at each node finds the k-th smallest without traversing the whole tree."
+- id: engineering
+  title: "Engineering choices, and the road to the [[B+ tree|B+ 树]]"
+  tldr: "Finally, the wrap-up on selection, and a shift of view from memory to disk — moved onto disk, a binary tree reads the disk far too often because it has too many levels. This step looks at how a B+ tree, with one node holding hundreds of keys, presses the height down to 3 to 4 levels, and how a range query on a search tree prunes whole subtrees that never need looking at."
+  body: >-
+    Selection — when you need order plus insertions and deletions, use a [[red-black tree|红黑树]]-family container; when you need only point lookups, use a hash table. In concurrent scenarios, Redis's sorted sets use a [[skip list|跳表]] (a simpler structure, friendly to range operations) — they all solve the same dynamic ordered set problem. But move this machinery onto disk and it falls over — a binary tree holds one key per node, so one lookup crossing many levels means many rounds of random [[IO]]. Disk is read and written by the page (on the order of 16KB
+    ), so let one node hold a whole page's hundreds of keys — the height drops from dozens of levels to 3 to 4. That is the B+ tree of the data storage subject, and it is worth learning next.
+
+
+    How a range query walks — to find all keys between 5 and 12 in a BST, start at the root 8 — it is inside the range, so take it; then recurse into the left subtree for the part ≥ 5 and into the right subtree for the part ≤ 12. Any branch whose whole subtree falls outside the range is pruned directly. The total cost is proportional to the tree height plus the number of results. This is a traversal a hash table can never do, and the irreplaceable core reason ordered structures exist.
+
+
+    A skip list reaches expected O(log n) with multiple linked-list levels and random level heights — no rotations, no colors — and a range scan simply walks along the bottom-level list. Redis chose it partly because implementing and debugging it is far simpler than a red-black tree.
+  derivation: original
+  sources:
+  - ref: cmu-15445
+    locator: Lecture 08 Indexes & Filters (B+ tree and index selection)
+    claim: Disk indexes need high-fan-out B+ trees to lower the height and the number of IO operations; hash indexes do not support range queries
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "The same data volume, completely different tree shapes: a binary tree has dozens of levels, a B+ tree only 3 to 4 — the number of disk pages one lookup must read differs by an order of magnitude"
+    rows:
+    - label: Binary tree
+      cells:
+      - v: 1 key per node
+      - v: height ~log2 n
+    - label: B+ tree
+      cells:
+      - v: hundreds of keys per node
+        mark: found
+      - v: height 3–4
+        mark: found
+  log:
+  - mode: Selection
+    event: "The selection conclusion boils down to one line: change the storage medium and the optimal tree shape changes with it — on disk, use a B+ tree whose nodes hold hundreds of keys."
+level: 进阶
+minutes: 34
+prereq:
+- dsa/binary-search
+- dsa/binary-heap
+objectives:
+- Describe the full BST search / insertion / deletion process (including deletion of a node with two children)
+- Explain why degeneration happens and the trade-offs between the AVL and red-black balancing strategies
+- Explain the division of labor between in-memory search trees and on-disk B+ trees
+aiLink: Ordered structures are everywhere in AI systems — beyond the graph indexes of vector retrieval, KV cache block management, ordered scans over feature stores, and scheduler structures that stand in for priority queues all build on search-tree thinking. Understanding it is what lets you understand the next lesson's division of labor between B+ trees and LSM trees.
+design:
+- mechanism: Why does a red-black tree trade relaxed balance for fewer rotations? It only requires the longest path to be at most twice the shortest; it does not chase near-equal heights in every subtree, yet it can still lock the total height within twice the logarithmic order — good enough is enough.
+  problem: If, like AVL, you press height differences within 1, every insertion and deletion needs frequent rotation repairs; under write-heavy, read-light workloads the maintenance cost can outweigh the query gains. A container needs a structure whose balance is good enough but whose adjustments are lazier, to carry real workloads.
+  choice: Replace the height-difference rule with red-black color rules — the number of black nodes on root-to-leaf paths stays equal and red nodes are never adjacent — which indirectly limits the path-length ratio. Insertions and deletions recolor first and rotate only when there is no alternative, and the number of rotations has a constant upper bound.
+  tradeoff: Relaxed balance makes search paths slightly longer on average than AVL's, so pure-query scenarios pay a few extra comparisons; in exchange, insertion and deletion rotation counts drop sharply, and the overall throughput is actually higher under real standard-library workloads — an exchange that pays off especially when writes are dense.
+  root: The root cause is that the engineering goal is not minimum height but minimum total cost — as long as the height is logarithmic, constant-factor differences give way to adjustment frequency. How strict the balance is, is essentially a budget that can be allocated by workload, not a moral standard.
+- mechanism: Every BST operation's cost is proportional to the tree height, because search, insertion, and deletion all advance along a single root-to-leaf path — at each comparison, every subtree off that path is ruled out wholesale and never touched again. The height is the bill.
+  problem: The same set built by different insertion orders can range in shape from a near-complete binary tree all the way down to a linked list. If the structure places no constraint on shape, the worst case does not happen occasionally — it happens necessarily, on sorted input, the most common kind of engineering data.
+  choice: First guarantee in-order sortedness with the left-smaller, right-larger invariant, then stack a self-balancing mechanism on top — AVL's height-difference rule, red-black's color rules, or Treap's random priorities — each actively pressing the height back to logarithmic after insertions and deletions.
+  tradeoff: Maintaining balance makes every write pay a constant extra of checks and rotations, plus extra height, color, or priority fields per node; in exchange, the worst case is guaranteed too, and the system's performance no longer rides on the luck of the input order.
+  root: The fundamental constraint is the information lower bound of comparison decisions — distinguishing n keys needs at least logarithmic comparison depth. Balance is not an aesthetic pursuit — it is the only way to make the data structure hug that lower bound. Degeneration means wasting the comparison information already paid for.
+- mechanism: On disk, the optimal tree shape is decided by fan-out — a node holding hundreds of keys brings the height down to three or four levels, because disk is read by the page — reading a full node costs almost the same as reading one key, so a sparsely filled node wastes the whole page.
+  problem: A binary search tree reads one node per step in memory, which is natural; but one random disk page read pays a latency far above a memory access, and dozens of levels of height mean dozens of random IO operations — the optimal in-memory structure, moved onto disk as-is, becomes unusably slow.
+  choice: Enlarge the node to the size of a disk page, sort the keys inside the node and locate them by binary search, and chain the leaves into a linked list to support range scans — that is the B+ tree, and most database indexes are built on it rather than on an enlarged binary tree.
+  tradeoff: Large fan-out makes a single node's updates move more keys, and the split and merge logic grows more complex; in exchange, the height and the IO count drop by orders of magnitude. How to trade read amplification against write amplification still needs finer decisions per workload.
+  root: The root cause is that the storage medium's cost model changed — memory's random access is near-uniform by the byte, while disk accesses by the block and seeking is expensive. A structure's design must obey the medium's cost function — change the medium and the optimum changes with it; there is no tree shape that wins everywhere.
+quiz:
+- q: In a BST, what is the standard approach to deleting a node with two children?
+  options:
+  - Pluck it off directly and let the two subtrees disconnect
+  - Fill it with the in-order successor's value, then delete the successor node
+  - Rebuild the whole tree
+  - Pick a child at random to take over as root
+  answer: 1
+  explain: The successor is the smallest value in the right subtree and has at most one child, so deleting it falls back to the simple case; once the value is copied over, the order is preserved.
+- q: Why can a red-black tree guarantee O(log n) height?
+  options:
+  - Because all nodes are red
+  - The color rules guarantee the longest path is at most twice the shortest
+  - Because it rebuilds itself automatically every year
+  - Because insertions are always perfect
+  answer: 1
+  explain: Equal black height plus no adjacent red nodes implies path lengths are limited to within a factor of two, so the height is at most 2lg(n+1).
+- q: What happens when sorted data is inserted into a plain BST in order?
+  options:
+  - It balances itself automatically
+  - It degenerates into a chain and operations become O(n)
+  - It throws an error
+  - It becomes a heap
+  answer: 1
+  explain: Every new element is larger and turns right all the way, so the height equals n — exactly why self-balancing mechanisms are needed.

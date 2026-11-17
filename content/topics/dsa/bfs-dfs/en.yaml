@@ -1,0 +1,1038 @@
+id: dsa/bfs-dfs
+subject: dsa
+slug: bfs-dfs
+order: 5
+status: published
+license: CC-BY-4.0
+title: "BFS (Breadth-First Search) and DFS (Depth-First Search): Two Ways to Walk an Entire Graph"
+summary: Breadth-first expands outward layer by layer; depth-first follows one path to the end, then comes back.
+premise: A graph has many forks and may contain cycles — how do you walk the whole graph without missing any node and without going in circles around a cycle? Using a small graph of 6 nodes, this lesson answers that question — starting from node A, it walks the graph once with a queue and once with a stack, and compares the visit orders the two walks produce and the problems each walk is suited to.
+position: This lesson opens the "Walking on Graphs" section. It follows the binary heap, which used index arithmetic to float up and sink down along parent–child chains, and generalizes the thing being walked from a complete binary tree without cycles to an arbitrary connected graph. After this lesson you will be able to explain why the visited mark must be set the moment a node is enqueued, and to use what a gray node means in the three-color marking to judge whether a DFS has run into a cycle.
+bridge:
+  prev: The previous lesson relied on the shape of a complete binary tree to let index arithmetic replace pointers. The graphs in this lesson have no such regular shape, so edges have to be stored in an [[adjacency list|邻接表]] instead, and a queue or a stack decides which way to go next.
+  next: "The shortest path BFS computes by counting edges only holds in unweighted graphs. The next lesson, [[Dijkstra]], tackles what happens once edges carry weights of different lengths: why does the fewest steps no longer mean the shortest route?"
+overview:
+- key: In one sentence
+  value: "[[BFS]] uses a queue and visits by distance, layer by layer; [[DFS]] uses a stack (or recursion), dives deep along one path, then backtracks. As an analogy: BFS is like ripples spreading outward in circles — whatever it reaches first is necessarily close to the start; DFS is like walking a maze by following one path to the end, and only retreating to try another path when you hit a wall."
+- key: Complexity
+  value: Both are [[O(V + E)|大 O 记号]] — that is, each node and each edge is looked at roughly once. For example, in a graph with 6 nodes and 5 edges, the workload is roughly the sum of the two, and it does not blow up just because some path winds around.
+- key: What BFS is good at
+  value: Shortest paths in unweighted graphs — the fewest steps needed to get there. Because BFS expands outward by distance, layer by layer, the first time it reaches a node, the number of steps taken is necessarily the smallest; any route that arrives later by detouring can only be longer or equal.
+- key: What DFS is good at
+  value: Enumerating all possibilities, detecting cycles, and [[topological sorting|拓扑排序]]. These problems require following a path all the way to the end before concluding anything — when ordering dependencies, for instance, you must first confirm that everything a module depends on has been processed before its own turn comes.
+- key: In practice
+  value: "React walks the component tree depth-first; the 'degrees of connection' people talk about in social networks are BFS; dependency analysis is DFS. For example, rendering a component means rendering it first and then its children — deep before shallow by nature — while finding friends of friends is, at bottom, expanding two layers outward from you."
+- key: Storage
+  value: "An [[adjacency list|邻接表]] takes O(V + E); an [[adjacency matrix|邻接矩阵]] takes O(V²). The list stores only edges that actually exist, so it is very economical when the graph is sparse; the matrix reserves a cell for every pair of nodes, so it balloons quadratically as nodes multiply — but checking whether an edge exists between two nodes takes a single glance at one cell."
+- key: DFS's three colors
+  value: White means unvisited, gray means on the current path, black means finished; in a directed graph, meeting a gray node means there is a cycle. Think of it this way — gray is the path you are currently walking and have not finished; if following an edge leads you back onto a node on this very path, you have looped around into a circle.
+- key: Connected components
+  value: Start a traversal from each unvisited node, and you can count how many pieces there are. One traversal can only walk the one piece whose nodes are mutually connected; if unvisited nodes remain after it finishes, they have no path connecting them to the piece before, so they form another piece.
+- key: Watch out
+  value: A recursive DFS can overflow the stack on a very deep graph; switch to an explicit stack. Each level of recursion pushes one more call frame, and an especially long chain will burst the stack; keeping your own stack in heap memory removes that ceiling.
+visual: datastate
+logColumns:
+- key: mode
+  label: Current state
+- key: event
+  label: What happened
+steps:
+- id: why
+  title: Why traverse systematically at all?
+  tldr: "Set the scene first: a graph with forks and possibly cycles, starting from A, and every node is to be visited exactly once. This step does not cover any specific walk yet — it only explains why wandering at random fails: you miss whole regions of nodes, and you circle around cycles — and which two things you must have at hand before a full walk can work."
+  body: >-
+    Web links, social relationships, and module dependencies are all graphs — nodes connected by edges, with the same node reachable by many different paths. To visit every node exactly once, you need two things: a to-visit list recording who should be processed next, and a visited mark that keeps you from circling a cycle forever.
+
+
+    First, fix this lesson's small graph in mind: starting from A, A has two neighbors B and C, B leads to D, and C leads to E and F — 6 nodes and 5 edges in total. With no marks, you would bounce from A to C, back to A, and to C again, over and over; with no to-visit list, reaching a fork means choosing a path from memory, and missing a whole region is only a matter of time.
+
+
+    Whether the to-visit list is a queue or a stack decides the visit order, the properties you can guarantee, and even the memory usage — that is this lesson's main thread. The shortest-path property of [[BFS]] and the backtracking nature of [[DFS]] both grow naturally out of these two containers' entry and exit rules.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Graph search lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: Graph traversal must record visited nodes to avoid repetition
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: graph
+    caption: "Traversing the whole graph from A: have a to-visit list and a visited mark ready at hand, and mark every node you reach — that is how you neither miss any nor circle around"
+    graph:
+      nodes:
+      - id: A
+        x: 50
+        y: 5
+        mark: active
+      - id: B
+        x: 25
+        y: 45
+      - id: C
+        x: 75
+        y: 45
+      - id: D
+        x: 10
+        y: 90
+      - id: E
+        x: 60
+        y: 90
+      - id: F
+        x: 90
+        y: 90
+      edges:
+      - from: A
+        to: B
+      - from: A
+        to: C
+      - from: B
+        to: D
+      - from: C
+        to: E
+      - from: C
+        to: F
+    aux:
+    - label: To visit
+      items:
+      - A
+    - label: Visited
+      items: []
+  log:
+  - mode: Starting from A
+    event: "Traversing the whole graph from A: the to-visit list starts with A in it, the visited marks are still empty, and every node reached will be marked."
+  points:
+  - A graph has forks and cycles; wandering at random misses nodes, or circles around and never gets out.
+- id: bfs
+  title: "[[BFS]]: expanding outward, layer by layer"
+  tldr: "With the to-visit list and the visited marks ready, the next question is: should this list be first-in, first-out, or first-in, last-out? This step looks at the first-in, first-out walk first, following the queue through a complete walk of the small graph to see why nodes are visited strictly layer by layer by distance from the start — and exactly when the mark has to be set."
+  body: >-
+    Walk it once from A: the initial queue holds only A. Take out A and enqueue its neighbors B and C; the queue becomes B, C. Take out B and enqueue the new neighbor D; the queue is C, D. Take out C and enqueue E and F; the queue is D, E, F. Then take out
+    D, E, and F in turn; they have no new neighbors, the queue empties, and the visit order is A, B, C, D, E, F.
+
+
+    A queue is first-in, first-out — the earlier a node is enqueued, the earlier it is processed — so nodes are layered strictly by their distance from A: layer 1 is A, layer 2 is B and C, layer 3 is
+    D, E, and F. A detail that is easy to get wrong: the visited mark must be set when a node is enqueued, not when it is dequeued. Otherwise the same node can be enqueued repeatedly by several neighbors, the queue fills with copies, and the order list gets written with duplicates too.
+
+
+    The key property: in an unweighted graph, the number of edges traversed when BFS first reaches a node is the minimum number of edges — if a shorter route existed, the second-to-last node on it would be closer to the start, would be dequeued earlier, and would have delivered this node sooner. The moment edges carry different weights, this argument collapses at once — that is the problem the [[Dijkstra]] lesson has to solve.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: BFS lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: BFS visits layer by layer and finds shortest paths in unweighted graphs
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: graph
+    caption: "BFS uses a queue: it visits in circles by distance from A (the numbers are the visit order)"
+    graph:
+      nodes:
+      - id: A
+        x: 50
+        y: 5
+        mark: done
+        note: "1"
+      - id: B
+        x: 25
+        y: 45
+        mark: done
+        note: "2"
+      - id: C
+        x: 75
+        y: 45
+        mark: done
+        note: "3"
+      - id: D
+        x: 10
+        y: 90
+        mark: visited
+        note: "4"
+      - id: E
+        x: 60
+        y: 90
+        mark: visited
+        note: "5"
+      - id: F
+        x: 90
+        y: 90
+        mark: visited
+        note: "6"
+      edges:
+      - from: A
+        to: B
+        mark: active
+      - from: A
+        to: C
+        mark: active
+      - from: B
+        to: D
+        mark: active
+      - from: C
+        to: E
+        mark: active
+      - from: C
+        to: F
+        mark: active
+    aux:
+    - label: By layer
+      items:
+      - A
+      - B, C
+      - D, E, F
+  log:
+  - mode: BFS done
+    event: "Breadth-first is done: nodes were visited layer by layer by distance from A, and the number of edges traversed when each node was first reached is the minimum number of edges."
+  code:
+    lang: typescript
+    code: |-
+      // BFS: a queue is first-in, first-out → expand layer by layer; mark visited on enqueue to avoid duplicate enqueues
+      function bfs(graph: Map<string, string[]>, start: string): string[] {
+        const seen = new Set([start]); const q = [start]; const order: string[] = [];
+        while (q.length) { const u = q.shift()!; order.push(u);
+          for (const v of graph.get(u) ?? []) if (!seen.has(v)) { seen.add(v); q.push(v); } }
+        return order;
+      }
+      // [[DFS]] turns the queue into a stack (or recursion): follow one path to the end, then come back
+    note: TypeScript implementation
+- id: dfs
+  title: "[[DFS]]: follow one path to the end, then come back"
+  tldr: "The queue walk is covered, and one container remains untried: the stack. This step switches to first-in, last-out and walks the same graph again, comparing the visit order against the previous step item by item, then explains why the recursive form is so convenient — and on what kind of graph it bursts."
+  body: >-
+    Walk it from A with DFS: arrive at A first, then choose neighbor B, dive from B down to D; D has no unvisited neighbors, so the path is at its end — retreat to B; B has no other neighbors either, so retreat to A and take C instead; dive from C to E, E reaches its end and retreats, then take F. The final order is
+    A, B, D, C, E, F. Set against the [[BFS]] order A, B, C, D, E, F, the only difference comes from the container — the graph has not changed.
+
+
+    In the recursive form, the system call stack saves the retreat path for you: entering a neighbor pushes one frame, and returning pops it automatically — which is also why DFS code is short. The price: if the graph is one very long chain, the recursion depth equals the number of nodes, and in real engineering a few tens of thousands of levels of recursion will overflow the stack; that is when you switch to an explicit stack and manage pushing and popping yourself.
+
+
+    Note that the visit order of DFS is not unique: a different order of enumerating neighbors gives a different sequence — choose C before B, for example, and you dive into C's branch first. The structural property of depth-first does not change; what changes is the concrete sequence, so do not treat any one order as the only correct answer.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: DFS lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: DFS dives along a path and backtracks
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: graph
+    caption: "DFS uses a stack: go to the end first, then come back (the numbers are the visit order)"
+    graph:
+      nodes:
+      - id: A
+        x: 50
+        y: 5
+        mark: visited
+        note: "1"
+      - id: B
+        x: 25
+        y: 45
+        mark: visited
+        note: "2"
+      - id: C
+        x: 75
+        y: 45
+        note: "4"
+      - id: D
+        x: 10
+        y: 90
+        mark: active
+        note: "3"
+      - id: E
+        x: 60
+        y: 90
+        note: "5"
+      - id: F
+        x: 90
+        y: 90
+        note: "6"
+      edges:
+      - from: A
+        to: B
+        mark: active
+      - from: A
+        to: C
+      - from: B
+        to: D
+        mark: active
+      - from: C
+        to: E
+      - from: C
+        to: F
+    aux:
+    - label: Stack (at D)
+      items:
+      - A
+      - B
+      - D
+    - label: Visit order
+      items:
+      - A
+      - B
+      - D
+      - C
+      - E
+      - F
+  log:
+  - mode: DFS done
+    event: "Depth-first is done: follow one path to the end first, and when it goes no further, retreat to the previous fork and switch paths — a clearly different order from breadth-first."
+- id: timestamps
+  title: "[[DFS]] timestamps and the four kinds of edges"
+  tldr: "Both walks work now, but depth-first still holds a set of information that has not been used: the moment each node is discovered and the moment it is finished and left behind. This step records these two moments for every node, and shows how edge types, cycles, and ancestor relationships can be read off the moments — the foundation that [[topological sorting|拓扑排序]] and [[strongly connected components|强连通分量]] will build on later."
+  body: >-
+    DFS also comes with a standard piece of textbook bookkeeping: record two moments for each node — d, the moment it is first discovered, and f, the moment it leaves after all its neighbors have been processed — numbered by one global counter. Walking this graph in the order A, B, D, C, E, F, the numbering runs: A's d is 1, B's is 2, D's is
+    3; D leaves first with f equal to 4, B leaves with f equal to 5; then C's d is 6, E's are 7 and 8, F's are 9 and 10, and finally C's f is 11 and A's f is 12.
+
+
+    These intervals are either nested or disjoint; the nested ones are exactly the ancestor–descendant relationships — this is the [[parenthesis theorem|括号定理]]. In a directed graph, edges fall into four kinds by the state of the neighbor when the edge is examined: an edge to a white node is a tree edge; one pointing to a gray ancestor is a back edge, and its existence is equivalent to there being a cycle; and there are forward edges and cross edges, which point to finished nodes and can be told apart by comparing the two moments.
+
+
+    The correctness of topological sorting and strongly connected components both rest on timestamps: being able to write down a visit order is only the first level — being able to reason about structural properties with timestamps is the depth the textbooks ask for.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 22 Elementary Graph Algorithms (DFS timestamps and edge classification)
+    claim: The discovery and finish times of DFS have the parenthesis property, and the edges of a directed graph can be classified — by the state of the neighbor when the edge is examined — into tree edges, back edges, forward edges, and cross edges
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: graph
+    caption: "The parenthesis theorem: nested intervals are ancestors and descendants; disjoint ones are side branches"
+    graph:
+      nodes:
+      - id: A
+        x: 50
+        y: 5
+        mark: done
+        note: d1 f12
+      - id: B
+        x: 25
+        y: 45
+        mark: done
+        note: d2 f5
+      - id: C
+        x: 75
+        y: 45
+        mark: done
+        note: d6 f11
+      - id: D
+        x: 10
+        y: 90
+        mark: done
+        note: d3 f4
+      - id: E
+        x: 60
+        y: 90
+        mark: done
+        note: d7 f8
+      - id: F
+        x: 90
+        y: 90
+        mark: done
+        note: d9 f10
+      edges:
+      - from: A
+        to: B
+        mark: done
+      - from: A
+        to: C
+        mark: done
+      - from: B
+        to: D
+        mark: done
+      - from: C
+        to: E
+        mark: done
+      - from: C
+        to: F
+        mark: done
+    aux:
+    - label: Edge kinds
+      items:
+      - Tree edge (to a white node)
+      - Back edge (to a gray node — a cycle)
+      - Forward and cross edges (to a black node)
+  log:
+  - mode: Timestamps
+    event: "The timestamps are recorded: the interval of a gray node is the current recursive path, and an edge pointing to a gray node means the graph contains a cycle."
+- id: representation
+  title: "How to store a graph: [[adjacency list|邻接表]] and [[adjacency matrix|邻接矩阵]]"
+  tldr: "The walks are covered; now to fill in a premise that was never spelled out: how is a graph actually stored in memory? This step compares the adjacency list and the adjacency matrix, and does the space math on a social graph of a million nodes, to see how choosing the wrong storage rewrites the whole complexity account worked out earlier."
+  body: >-
+    An adjacency list stores a string of neighbors for each node, taking space [[O(V + E)|大 O 记号]]; most real graphs (social networks, the web) are very sparse, so it suits them best. An adjacency matrix is a V×V table: telling whether two nodes are connected takes a single step, but the space is O(V²).
+
+
+    A concrete number: for a social graph with a million nodes and an average of 10 edges per node, an adjacency list stores about 10 million edge records — a manageable magnitude. An adjacency matrix would need a trillion cells, the overwhelming majority of them
+    0, and memory blows up on the spot. Conversely, if you repeatedly ask whether a direct edge exists between two nodes, the adjacency list has to search linearly through the neighbor string, while the matrix answers from a single cell — so the matrix only pays off for dense graphs, or when edge queries are extremely frequent.
+
+
+    In an adjacency list, a directed graph stores only the outgoing direction; to look up who points at me you have to build a separate [[reverse adjacency list|逆邻接表]] — crawlers counting inbound links commonly keep both copies. O(V + E) is computed for the adjacency list; with a matrix, finding neighbors means scanning a whole row, so [[BFS]] and [[DFS]] become O(V²) — the storage choice rewrites the complexity ledger directly.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Graph search lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: Sparse graphs use adjacency lists to save space; dense graphs, or ones where you need to tell quickly whether an edge exists, use an adjacency matrix.
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: graph
+    caption: "Two ways to store the same graph: 6 nodes, 5 edges"
+    graph:
+      nodes:
+      - id: A
+        x: 50
+        y: 5
+      - id: B
+        x: 25
+        y: 45
+      - id: C
+        x: 75
+        y: 45
+      - id: D
+        x: 10
+        y: 90
+      - id: E
+        x: 60
+        y: 90
+      - id: F
+        x: 90
+        y: 90
+      edges:
+      - from: A
+        to: B
+      - from: A
+        to: C
+      - from: B
+        to: D
+      - from: C
+        to: E
+      - from: C
+        to: F
+    aux:
+    - label: Adjacency list O(V + E)
+      items:
+      - "A: B, C"
+      - "B: A, D"
+      - "C: A, E, F"
+      - "D: B"
+      - "E: C"
+      - "F: C"
+    - label: Adjacency matrix O(V²) (columns A–F)
+      items:
+      - "A: 0 1 1 0 0 0"
+      - "B: 1 0 0 1 0 0"
+      - "C: 1 0 0 0 1 1"
+      - "D: 0 1 0 0 0 0"
+      - "E: 0 0 1 0 0 0"
+      - "F: 0 0 1 0 0 0"
+  log:
+  - mode: Storage
+    event: "With adjacency-list storage, finding a node's neighbors means reading its list of names; switch to an adjacency matrix, and finding neighbors means scanning a whole row."
+- id: complexity
+  title: Why it is [[O(V + E)|大 O 记号]]
+  tldr: "With the storage settled, settle the total account next: why do both traversals need only O(V + E)? This step counts, item by item, how many times each node and each edge is processed, then adds a memory account that is often missed — how much the queue and the stack each occupy in the worst case."
+  body: |-
+    With a visited mark, each node is processed only once — that is the V part. Processing a node looks at all of its edges, and added together that is the E part. In an undirected graph each edge is looked at once by each of its two endpoints; a constant factor does not change the order of magnitude, so the total running time is proportional to the size of the graph, and the only difference is the visit order.
+
+    The memory account: at its widest, the [[BFS]] queue holds an entire layer of nodes; when the center of a star graph connects to a great many leaves, the queue's peak is of linear magnitude. The [[DFS]] stack is at its deepest equal to the length of the current path — also linear in the worst case, but on typical graphs usually much shallower. Comparing time but not space is the account most often left out.
+
+    An engineering note: crawlers and [[RAG]] graph expansion commonly use BFS and expand only 2 hops of neighbors, because the node count grows exponentially with the number of hops; DFS, in turn, suits scenarios like dependency resolution that must go all the way to the end.
+
+    Put into a real system, this account decides whether a traversal can be run in full: when a social graph has a billion users with an average of 100 friends each, the edges alone come to 100 billion, and the time and memory of one full traversal must be estimated at that magnitude. Only after doing that math do you understand why real systems must limit the number of expansion hops, or shard the graph before processing it.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Graph search lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: The time complexity of BFS and DFS is O(V + E)
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: graph
+    caption: Each node is processed once (V); each edge is looked at once (E)
+    graph:
+      nodes:
+      - id: A
+        x: 50
+        y: 5
+        mark: done
+      - id: B
+        x: 25
+        y: 45
+        mark: done
+      - id: C
+        x: 75
+        y: 45
+        mark: done
+      - id: D
+        x: 10
+        y: 90
+        mark: done
+      - id: E
+        x: 60
+        y: 90
+        mark: done
+      - id: F
+        x: 90
+        y: 90
+        mark: done
+      edges:
+      - from: A
+        to: B
+        mark: done
+      - from: A
+        to: C
+        mark: done
+      - from: B
+        to: D
+        mark: done
+      - from: C
+        to: E
+        mark: done
+      - from: C
+        to: F
+        mark: done
+    aux:
+    - label: V
+      items:
+      - 6 nodes
+    - label: E
+      items:
+      - 5 edges
+  log:
+  - mode: Analysis
+    event: "The account is settled: each node is processed only once, each edge is checked only a constant number of times, and the total running time is proportional to the size of the graph."
+- id: bidirectional
+  title: "Bidirectional [[BFS]]: searching for a route from both ends at once"
+  tldr: "The breadth-first searches so far all expanded in one direction, from the start. But if the question is only about the one shortest route from A to F, the destination is equally well known. This step expands from the start and the destination toward the middle at the same time, and shows why — when the two sides meet — it can save an order of magnitude of work, and in what situations this walk cannot be used."
+  body: >-
+    When the question is only about one shortest route from A to F, ordinary BFS has to finish expanding the whole circle centered on A whose radius equals the answer's distance. Bidirectional BFS
+    changes the play: expand one layer forward from the start, then expand one layer backward from the destination along reverse edges, alternating between the two sides — whichever side's set of nodes waiting to expand is smaller expands first. The moment the two sides' visited sets intersect, splicing the two segments together along the predecessors gives the shortest route.
+
+
+    The math: with a [[branching factor|分支因子]] of 10 and an answer distance of 6, a one-directional search touches on the order of 10 to the 6th power nodes; the bidirectional search expands only 3 layers on each side, for a combined total of about 2 times 10 to the 3rd power — a difference of about 500 times. What is saved is not a constant factor but half of the exponent.
+
+
+    The limits: it applies only to unweighted graphs, or scenarios where every step costs the same; expanding backward needs a reverse [[adjacency list|邻接表]], and a directed graph with no ready-made reverse edges makes it degenerate; and the intersection test must be done layer by whole layer — checking node by node can splice together a suboptimal route that takes one layer too many. Meeting in the middle on a weighted graph requires bidirectional [[Dijkstra]], which is outside this lesson's scope.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Graph search lectures (bidirectional search)
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: Bidirectional BFS expands in alternating layers from the start and the destination, and obtains the shortest path in an unweighted graph when the two sides' visited sets intersect
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: graph
+    caption: Each end expands half the depth; where they meet is the shortest route
+    graph:
+      nodes:
+      - id: A
+        x: 5
+        y: 50
+        mark: found
+        note: start
+      - id: B
+        x: 30
+        y: 20
+        mark: visited
+        note: forward 1 layer
+      - id: C
+        x: 30
+        y: 80
+        mark: visited
+        note: forward 1 layer
+      - id: D
+        x: 60
+        y: 20
+        mark: active
+        note: meeting point
+      - id: E
+        x: 60
+        y: 80
+        mark: visited
+        note: backward 1 layer
+      - id: F
+        x: 95
+        y: 50
+        mark: found
+        note: destination
+      edges:
+      - from: A
+        to: B
+        mark: found
+      - from: A
+        to: C
+      - from: B
+        to: D
+        mark: found
+      - from: D
+        to: F
+        mark: found
+      - from: C
+        to: E
+      - from: E
+        to: F
+    aux:
+    - label: One-directional BFS
+      items:
+      - Expands the full circle of radius 6
+    - label: Bidirectional BFS
+      items:
+      - Each side expands radius 3
+      - About 500 times less work
+  log:
+  - mode: Bidirectional
+    event: "In a bidirectional expansion the two sides advance in alternating layers; the moment the two visited sets intersect, you stop, and splicing the two route segments together gives the shortest route."
+- id: iterative-deepening
+  title: "Iterative deepening: putting a depth limit on [[DFS]]"
+  tldr: "Breadth-first guarantees finding the shallowest answer first, but has to hold an entire layer of nodes; depth-first holds only one path, but does not know how deep the answer is buried. This step looks at a compromise: run depth-first again and again with a depth limit loosened round by round — first what it buys you, then exactly how much the re-running wastes."
+  body: >-
+    DFS saves memory but does not know how far away the answer is; [[BFS]] guarantees finding a shallow answer first but eats memory. Iterative deepening is the compromise between the two: put a depth limit on DFS — first a limit of 0, looking only at the start, then a limit of 1 and a re-run, then a limit of
+    2, loosening round by round until the target is found. Inside each round it is still ordinary depth-first — reach the limit and come back.
+
+
+    The re-running looks wasteful, but the total work is in fact dominated by the last round: the number of nodes in a tree grows exponentially with depth, so all the earlier rounds added together do not amount to even a fraction of the last round, and the asymptotic cost is of the same order as running BFS directly. The return is memory proportional only to depth — the stack holds at most one path — which is the standard play in searches like game trees and theorem proving, where the depth is controllable and the branching is enormous.
+
+
+    The variant [[IDA star|IDA*]] replaces the depth limit with a cost limit and prunes with a heuristic estimate; it is A-star's memory-saving relative. It suits only finding the shallowest or cheapest target: when the answer is buried very deep and each layer branches very little, the proportion wasted on re-running rises, and plain DFS or BFS is the more straightforward choice.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Search lectures (iterative deepening and depth-limited search)
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: Iterative deepening combines the low memory of DFS with the shallowest-first property of BFS by loosening the depth limit round by round, and its total overhead is dominated by the deepest round
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: The limit grows by 1 each round; the repetition of the early rounds is covered by the last round's order of magnitude
+    rows:
+    - label: Limit 0
+      cells:
+      - v: Look at the start only
+    - label: Limit 1
+      cells:
+      - v: Re-run to layer 1
+      - v: Not found
+    - label: Limit 2
+      cells:
+      - v: Re-run to layer 2
+      - v: Target found
+        mark: found
+    - label: Memory
+      cells:
+      - v: Stores one path only
+        mark: found
+      - v: Proportional to depth
+  log:
+  - mode: Iterative deepening
+    event: "Once the depth limit is loosened round by round, all the re-run work of the early rounds adds up to less than a fraction of the last round — the total is dominated by the last round."
+- id: walk-lab
+  title: "Hands-on: the same graph, two walks"
+  tldr: "The rules are all covered, and this step hands it over to you: switch between the two walks on the same graph, then change the start and walk each way once more, confirming with your own eyes that the visit order is decided by the container, not by the graph. Finally, deliberately move the visited mark to dequeue time, and check what goes wrong."
+  body: >-
+    The graph in the lab adds one node, G, and a few edges (C to D, D to F, E to F, E to G) to the graph from the main text, bringing it closer to the connectivity of a real graph. First walk it from A with [[BFS]] and note the order, then switch to [[DFS]] from A and compare: DFS dives into one branch first, then comes back to fill in the other side. Change the start (to G, say) and walk each way once more, verifying that the order is decided by the data structure, not by the graph.
+
+
+    The observation sequence: fix BFS from A and copy down the queue's contents at each step, then switch to DFS and compare how the stack changes; then re-walk from a new start, G, and you will find that BFS still layers by distance, while DFS dives first into the branch nearest to G. Finally, think of a counterexample: if the visited mark were moved to dequeue time, would BFS
+    enqueue nodes repeatedly? The change in the queue's length verifies it directly.
+
+
+    The criterion for judging: the order in which nodes leave the queue or the stack is the visit order. Being able to say in advance who leaves the container next, and who will newly enter it, is what it means to really understand these two traversals.
+  derivation: original
+  sources: []
+  log: []
+  canvas:
+    kind: lab
+    lab: graph-walk
+    caption: "Switch between BFS/DFS + any start; the queue/stack contents are visible in real time"
+    cases:
+    - input:
+        mode: bfs
+        start: A
+      expect:
+        order:
+        - A
+        - B
+        - C
+        - D
+        - E
+        - F
+        - G
+        visited: 7
+    - input:
+        mode: dfs
+        start: A
+      expect:
+        order:
+        - A
+        - C
+        - E
+        - G
+        - F
+        - D
+        - B
+        visited: 7
+- id: topo
+  title: "[[DFS]]'s specialty: cycle detection and [[topological sorting|拓扑排序]]"
+  tldr: "The timestamps and three states of depth-first were laid down earlier; this step looks at their most practical payoff: ordering dependencies. The scene is module building — when the dependency relationships are plain to see, how do you work the build order back out of the nodes' finish order, and why must you raise an error when you run into a cycle?"
+  body: >-
+    During DFS, give each node one of three states: not visited, currently being visited (on the current recursive path), or finished. Walking into a node that is currently being visited means there is a cycle — circular module dependencies, for example. In a directed graph with no cycles, arrange the nodes in reverse finish order, and every edge points from earlier to later — that is a topological sort, and [[npm]]
+    installs and build tasks both decide their order by it.
+
+
+    Walk the dependency graph on the canvas: starting from utils, go first to api; api's neighbor app has nothing after it, so finish app first, then come back and finish api; the other branch, ui, works the same way, and utils finishes last. The finish order is app, api, ui, utils; reversed, that is
+    utils, ui, api, app — a build system executing in this order will never be missing a dependency.
+
+
+    If app in turn depended on utils, nobody could finish first, and no topological order would exist — which is exactly the root reason circular dependencies must raise an error. There is also [[Kahn's algorithm|Kahn 算法]] to choose from: repeatedly remove nodes whose [[in-degree|入度]] is zero; if you cannot remove them all, there is a cycle. It naturally yields layers that can execute in parallel, and it is the more common choice in engineering.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Graph search lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: "If DFS walks into a node that is 'still on the current path', there is a cycle; reversing the finish order gives the dependency order."
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: graph
+    caption: "An arrow X → Y means X must come before Y. Run DFS from utils, and the finish order reversed is the topological order"
+    graph:
+      directed: true
+      nodes:
+      - id: utils
+        x: 10
+        y: 50
+        mark: done
+        note: finishes 4th
+      - id: api
+        x: 50
+        y: 15
+        mark: done
+        note: finishes 2nd
+      - id: ui
+        x: 50
+        y: 85
+        mark: done
+        note: finishes 3rd
+      - id: app
+        x: 90
+        y: 50
+        mark: done
+        note: finishes 1st
+      edges:
+      - from: utils
+        to: api
+      - from: utils
+        to: ui
+      - from: api
+        to: app
+      - from: ui
+        to: app
+    aux:
+    - label: Finish order
+      items:
+      - app
+      - api
+      - ui
+      - utils
+    - label: Topological order (reversed)
+      items:
+      - utils
+      - ui
+      - api
+      - app
+    - label: Cycle detection
+      items:
+      - Walk into a node being visited → a cycle
+  log:
+  - mode: Topological sort
+    event: "The topological sort is done: reversing the finish order of depth-first gives a build order that is never missing a dependency."
+- id: scc-intro
+  title: "A peek at [[strongly connected components|强连通分量]]: two [[DFS]] passes split the graph into clusters"
+  tldr: "[[Topological sorting|拓扑排序]] only works on graphs without cycles, but real directed graphs have cycles everywhere. This step first circles mutually reachable nodes into a cluster, and shows how two depth-first traversals split the graph cluster by cluster, then compress the clusters into a cycle-free skeleton graph."
+  body: >-
+    In a directed graph, if u can reach v and v can also reach u, they are said to be mutually reachable and to belong to the same strongly connected component. Web crawling and dependency analysis often start by compressing the graph by component into a cycle-free skeleton graph before processing it: inside a component, treat it as one whole for now; between components, the dependencies run one way.
+
+
+    [[Kosaraju|Kosaraju 算法]]'s algorithm needs just two DFS passes: the first pass, on the original graph, computes each node's finish time; the second pass reverses every edge and starts
+    DFS on the reversed graph in decreasing order of finish time — each cluster one pass walks through is one component. The key is in the timestamps: the node with the largest finish time necessarily sits in some source component, and starting from it on the reversed graph happens to walk no further than that component, so the components are picked off cluster by cluster.
+
+
+    A small example: a cycle A to B to C and back to A, plus C pointing to D, and D with no outgoing edges — then A, B, and C are one component, and D is a component of its own. This lesson asks only for an understanding of how the two passes divide the work and what the reversed graph is for; the full proof is developed in the advanced graph-algorithms material.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 22.5 Strongly Connected Components
+    claim: Kosaraju's algorithm finds all strongly connected components through the finish-time order of a DFS on the original graph and a second DFS on the reversed graph
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: graph
+    caption: The three nodes in the cycle are mutually reachable — one component; D is a component of its own
+    graph:
+      directed: true
+      nodes:
+      - id: A
+        x: 15
+        y: 20
+        mark: found
+      - id: B
+        x: 55
+        y: 20
+        mark: found
+      - id: C
+        x: 35
+        y: 70
+        mark: found
+      - id: D
+        x: 90
+        y: 70
+        mark: visited
+      edges:
+      - from: A
+        to: B
+        mark: found
+      - from: B
+        to: C
+        mark: found
+      - from: C
+        to: A
+        mark: found
+      - from: C
+        to: D
+    aux:
+    - label: Component one
+      items:
+      - A, B, C (mutually reachable)
+    - label: Component two
+      items:
+      - D
+    - label: After contraction
+      items:
+      - Component one → component two (no cycles)
+  log:
+  - mode: Strong connectivity
+    event: "Strongly connected components are picked off by the second pass: on the reversed graph, start depth-first in decreasing order of finish time, and each start walks through one whole cluster."
+- id: union-find
+  title: "Meet [[union-find|并查集]] along the way: only asking 'are they in the same group?'"
+  tldr: "Every problem so far required actually walking the graph. But some problems never ask about paths at all — only whether two nodes are already connected. This step introduces a lightweight structure that manages connectivity alone, and shows how it answers such questions at nearly a single step's cost — and what it cannot answer, and which problems should be left to traversal."
+  body: >-
+    Friend-circle grouping, network connectivity, and Kruskal's minimum spanning tree asking whether adding an edge would form a cycle all ask the same thing: are two nodes already connected? Union-find (disjoint-set union) picks a representative (the tree root) for each set: find(x) follows parent pointers to the root of x, and union(a, b)
+    hangs one tree under another. Neither of its two optimizations can be missing: merging by rank or by size (hanging the shorter tree under the taller one) plus path compression (when find runs, re-hanging the nodes along the way directly under the root). Used together, the amortized complexity of a single operation is nearly constant — α(n) (the inverse Ackermann function, which never exceeds 5 for any practical n).
+
+
+    A worked example: initially every node is a group of its own. After union(A,B), B's root is A; after union(C,D), D's root is C; then union(B,E) hangs E onto the tree A sits in. From then on, find(E) follows E to B and then to A, obtaining the root
+    A, and path compression re-hangs the nodes along the way under A, so the next lookup is a single step. To judge whether A and E are connected, just compare whether their two roots are the same.
+
+
+    The division of labor: use traversal when you need to enumerate paths or orders; use union-find when you only ask about connectivity and edges are still being added dynamically. It remembers connectivity only — not paths — and still less can it answer shortest paths; that is [[BFS]]'s job.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: "Graph algorithm lectures: connectivity and union-find"
+    claim: Union-find with path compression and union by rank achieves nearly constant amortized operation complexity
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: graph
+    caption: After union(A,B), union(C,D), and union(B,E), only two sets remain
+    graph:
+      nodes:
+      - id: A
+        x: 5
+        y: 20
+        mark: done
+      - id: B
+        x: 35
+        y: 70
+        mark: done
+      - id: E
+        x: 60
+        y: 15
+        mark: done
+      - id: C
+        x: 70
+        y: 75
+        mark: done
+      - id: D
+        x: 95
+        y: 35
+        mark: done
+      edges:
+      - from: A
+        to: B
+        mark: found
+      - from: B
+        to: E
+        mark: found
+      - from: C
+        to: D
+        mark: found
+  log:
+  - mode: Connectivity
+    event: "To judge whether two nodes are connected, just compare their roots: the same root means already connected; different roots mean not yet connected."
+- id: engineering
+  title: How to choose in engineering
+  tldr: "Finally, back to engineering choices: on the same graph, a different question calls for a completely different walk. This step matches each question to its walk — fewest steps, dependency order, counting connected pieces, dynamically adding edges — and uses the hop-count blow-up numbers to explain why graph search must limit its expansion depth."
+  body: >-
+    For how many degrees separate you from someone in a social network, use [[BFS]]; for a bundler analyzing module dependencies, detecting circular references, and deciding the build order, use [[DFS]] and [[topological sorting|拓扑排序]]; when React renders, it walks the component tree depth-first, processing the child nodes before the siblings.
+
+
+    Concrete numbers: on a graph with an average degree of 10, BFS at 3 hops touches about 1,000 nodes, and at 4 hops about 10,000 — each additional hop multiplies the candidate set by an order of magnitude, which is why graph search APIs all limit the number of hops. Mazes and connected-component counting use DFS plus backtracking; printing a binary tree level by level and finding a graph's
+    k-th-hop neighbors are, at bottom, the layering property of BFS at work.
+
+
+    When counting connected components in an undirected graph, start one traversal from each unvisited node; the number of starts is the number of components. For dynamically added edges, use [[union-find|并查集]].
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Graph search lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: DFS can be used for topological sorting and cycle detection
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: graph
+    caption: "The same graph — swap the 'to-visit' structure, and you get a different traversal"
+    graph:
+      nodes:
+      - id: A
+        x: 50
+        y: 5
+        mark: found
+      - id: B
+        x: 25
+        y: 45
+      - id: C
+        x: 75
+        y: 45
+      - id: D
+        x: 10
+        y: 90
+      - id: E
+        x: 60
+        y: 90
+      - id: F
+        x: 90
+        y: 90
+      edges:
+      - from: A
+        to: B
+      - from: A
+        to: C
+      - from: B
+        to: D
+      - from: C
+        to: E
+      - from: C
+        to: F
+    aux:
+    - label: BFS
+      items:
+      - Degrees of connection
+      - Unweighted shortest paths
+    - label: DFS
+      items:
+      - Dependency analysis
+      - Topological sorting
+      - Component trees
+  log:
+  - mode: Summary
+    event: "The selection principle boils down to one line: look first at whether the question asks about fewest steps, dependency order, or connectivity, then decide which walk to use."
+level: 基础
+minutes: 28
+prereq: []
+objectives:
+- Compare the visit orders of BFS, which uses a queue, and DFS, which uses a stack
+- Find shortest paths in unweighted graphs with BFS, and explain why it works
+- Recognize the scenarios that need DFS (topological sorting, connectivity, backtracking)
+aiLink: "Graph traversal is the foundation of RAG and agent systems: expanding retrieval over a knowledge graph, the build order of a dependency graph, and crawling web pages and documents are all BFS/DFS at bottom. Understand the order difference between a queue and a stack, and you can choose the right expansion strategy for retrieval."
+design:
+- mechanism: The to-visit container decides the expansion order — a queue's first-in, first-out makes nodes be processed layered by distance, while a stack's last-in, first-out makes the search dive to the end of one path. The algorithm's properties come directly from the container's entry-and-exit contract
+  problem: A graph has both forks and cycles; walking without discipline revisits the same node, goes around in circles on a cycle, and even misses whole regions. So a traversal must first answer who should be processed next, and guarantee that each node is processed only once
+  choice: Carry the to-visit set in a queue to get breadth-first, or in a stack or recursion to get depth-first. The two share the same visited marks and adjacency scanning; the only difference is the rule for taking out the next node — swap the container and you swap the traversal
+  tradeoff: The queue buys the guarantee of shortest paths in unweighted graphs, at the price of keeping a whole layer of nodes in memory; the stack buys memory savings — storing only one path — at the price that the first route found is not guaranteed to be shortest, and that deep graphs require handling backtracking and stack overflow
+  root: The root cause lies in the container's own ordering contract — first-in, first-out naturally preserves the monotone correspondence between discovery order and distance, and last-in, first-out naturally corresponds to the nested structure of a path. So an algorithm's properties are really a data structure's properties, projected onto a graph
+- mechanism: The visited mark must be set when a node is enqueued or pushed, not when it is taken out and processed. This small piece of discipline decides that each node enters the container at most once, and only then does the traversal's complexity account hold
+  problem: If a node has several neighbors, it may be discovered repeatedly by different neighbors. If it is not marked the moment it is discovered, the same node piles up in the queue or stack in multiple copies — wasting memory and rescanning at best, and quietly inflating what should be linear complexity at worst
+  choice: Set a node to visited and record its predecessor at the very moment it is first discovered, and skip it outright on any later encounter. That way every node enters the container once, each edge is scanned only a constant number of times — when its endpoint is processed — and the total returns to V plus E
+  tradeoff: Marking early saves the repeated processing; the price is having to maintain predecessor information in addition, in order to reconstruct paths — and in a weighted graph, being discovered is not the same as being finalized, because a distance can still be reduced by a later relaxation, so the traversal's marks must not be confused with the shortest path's finalization
+  root: The complexity of a traversal rests on processing each node once and scanning each edge once; any writing style that lets a node re-enter the container breaks that account. So the timing of the mark is not an implementation habit but the shared foundation of correctness and complexity
+- mechanism: DFS uses three-color marks and discovery/finish timestamps to turn one traversal into a structure you can reason about — gray means the node is still on the current recursive path, and that intermediate state is exactly the pivot shared by cycle detection, edge classification, and topological sorting
+  problem: Knowing only visited-or-not cannot distinguish two kinds of encounter — running into a side-branch node that was finished long ago is harmless, while running into an ancestor that is still on the current path means the graph contains a cycle. The two cases must be told apart on the spot, at the moment of the encounter
+  choice: Color a node gray on entry and black on exit, and record the discovery and finish moments; meeting a gray neighbor at once judges a back edge and a cycle, and outputting in reverse finish-time order yields a topological order — while the nesting of the timestamp intervals characterizes ancestors and descendants at the same time
+  tradeoff: The three colors and the timestamps let one DFS produce cycle information and dependency order along the way; the price is maintaining a global clock and a state array, switching to an iterative implementation when the recursion runs too deep — and the full conclusions of the four-way edge classification hold only for directed graphs
+  root: The root cause is that the recursive path is itself a tree in the process of growing, and the gray set is exactly that tree's current root path. Record the path's state explicitly, and seemingly global problems like cycles and order can be judged at the very moment of a local encounter
+quiz:
+- q: Why can BFS guarantee shortest paths in unweighted graphs?
+  options:
+  - It uses a heap
+  - It expands layer by layer, from near to far by distance from the start, so the first arrival is the shortest
+  - It is fast
+  - It does not visit nodes repeatedly
+  answer: 1
+  explain: Layer-order expansion keeps distances monotonically non-decreasing, so whoever arrives first has the shortest distance.
+- q: What does the typical recursive implementation of DFS rely on to save the path?
+  options:
+  - A queue
+  - The call stack (or an explicit stack)
+  - A hash table
+  - A heap
+  answer: 1
+  explain: Recursion is an implicit stack; on a large graph, switch to an explicit stack to keep it from bursting.
+- q: What does topological sorting handle?
+  options:
+  - Cycles in undirected graphs
+  - The dependency order of a directed acyclic graph (do what is depended on first)
+  - Shortest paths
+  - Minimum spanning trees
+  answer: 1
+  explain: Build systems, course prerequisites, and task orchestration are all places where topological sorting is used.
+legend:
+- key: active
+  label: Element currently being compared / processed
+- key: found
+  label: Found / final position
+- key: done
+  label: Processing complete
+- key: pivot
+  label: Pivot element
+- key: muted
+  label: Ruled out / no longer considered
+- key: visited
+  label: Visited

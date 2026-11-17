@@ -1,0 +1,833 @@
+id: dsa/merge-quick-sort
+subject: dsa
+slug: merge-quick-sort
+order: 3
+status: published
+license: CC-BY-4.0
+title: "Merge Sort and Quicksort: Divide and Conquer"
+summary: The two most widely used O(n log n) sorts — both break a big problem into small ones, but they split differently, and that gives them different characters.
+premise: To sort a sequence of numbers from smallest to largest, the naive pairwise compare-and-swap becomes unusably slow once the data grows. This lesson looks at how two sorting methods that break a big problem into small ones bring the speed up, using the same sequence [5, 2, 8, 1, 9, 3] as the running example — walking through merge sort's split-then-merge and quicksort's partition-around-a-pivot once each.
+position: This lesson opens the "Divide and Conquer" section. It follows binary search's halving intuition — rule out half the candidates in each round — and upgrades halving from a lookup action into a recursive structure that takes the whole sorting problem apart. After this lesson you will be able to explain why quicksort degenerates to O(n²) when the [[pivot]] is chosen badly, and how merge sort buys
+  [[stability|稳定性]] with the single rule of taking the left run's element first when elements are equal.
+bridge:
+  prev: The previous lesson used a sortedness precondition to cut half the candidates in a single round; this lesson moves the same halving onto sorting — merge sort splits in half, quicksort partitions around a pivot and then recurses on both sides.
+  next: "Sorting pays n log n to produce a complete total order. The next lesson, the binary heap, asks: if you only care about the single most urgent item, can a structure that maintains only a parent–child partial order push the cost lower?"
+overview:
+- key: In one sentence
+  value: "Merge sort splits first and merges after — stable, and always O(n log n). Quicksort partitions first and recurses after — fastest on average, but O(n²) in the worst case. The whole difference lies in how they split: merge sort splits by position, in half; quicksort splits by value — so one performs steadily, and the other's performance depends on how well the pivot is chosen."
+- key: Stability
+  value: "[[Stability|稳定性]] means equal elements keep their original relative order after sorting; merge sort is stable, quicksort usually is not. For example, sort by grade first and then by name, and with an unstable sort the grade order established in the first pass gets scrambled in the second."
+- key: Extra space
+  value: Merge sort needs O(n) auxiliary space; quicksort needs only the recursion stack. When merge sort merges two runs it needs a temporary array of the same size to receive the result; quicksort partitions by swapping elements inside the original array and pays only the stack space of the recursive calls themselves.
+- key: In practice
+  value: "Since version 7.0 (2018), [[V8]]'s Array.prototype.sort has used [[TimSort]], a stable merge-sort variant. In other words, the sort you call casually in JS runs on the merge-sort route underneath, with extra optimizations for the locally sorted stretches that are common in real data."
+- key: Why not bubble sort
+  value: Bubble sort and insertion sort are O(n²), and far slower once the data grows. Ten times the elements means roughly a hundred times the running time for them, while an O(n log n) sort grows only by a factor of a dozen or so — once the scale is large, the gap is dramatic.
+- key: Complexity
+  value: Merge sort is O(n log n) in the best, average, and worst cases; quicksort is O(n log n) on average and O(n²) in the worst case. Quicksort's worst case appears when the pivot is the maximum or minimum every time — one side of the partition is empty, and the recursion degenerates into peeling off one element per level.
+- key: In-place
+  value: Quicksort is [[in-place|原地]], using only the recursion stack; merge sort on arrays needs O(n) extra space. Whether a sort is in-place is a real difference when the data is huge and memory is tight — one reason many standard libraries lean toward the quicksort route by default.
+- key: The lower bound
+  value: Comparison sorts need at least about n log n comparisons in the worst case; [[counting sort|计数排序]] and [[radix sort|基数排序]] do not rely on comparisons, and their complexity carries a value-range or digit-count term instead. In other words, no method that sorts by comparing pairs can be arbitrarily fast — breaking this line requires exploiting properties of the values themselves, such as a bounded range.
+- key: Small arrays
+  value: Standard libraries often switch to insertion sort on small intervals. With only a dozen or so elements, divide and conquer's splitting and recursion overhead dominates instead; insertion sort has worse asymptotic complexity, but a small constant, and actually runs faster.
+visual: datastate
+logColumns:
+- key: mode
+  label: Current state
+- key: event
+  label: What happened
+steps:
+- id: why
+  title: Why do we need faster sorting?
+  tldr: "Do the math on the opponent first: simple compare-and-swap sorts need about 50 million comparisons for 10,000 elements. This step runs the quadratic bill up to a million elements, then looks at what road divide and conquer takes instead — split into small pieces, sort each one, and combine them."
+  body: |-
+    Bubble sort needs about 50 million comparisons for 10,000 elements (n times n minus 1, divided by 2), and about 500 billion for a million elements; double the data and the time quadruples — that is the quadratic temperament: once the scale grows, no constant factor, however fast, can save it.
+
+    Divide and conquer takes another road: split the big array into small arrays, sort each, and combine. There are only log n levels of splitting, and each level processes every element, for a total of n log n. Ten thousand elements need only on the order of a hundred-odd thousand comparisons — roughly 300 times fewer than bubble sort; at a million elements, the gap widens to over ten thousand times.
+
+    This lesson's two splitting directions are mirror images: merge sort splits down to the smallest pieces first and does its work while merging; quicksort does its work first (partitioning), putting the pivot in its right place, and splits afterward. This pair of mirrors is the key to all the differences that follow — [[stability|稳定性]], space, and worst cases.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Sorting lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: Merge sort is O(n log n), better than O(n²) simple sorts
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "The divide-and-conquer route: split the big array into small pieces, sort each, and combine them back — total comparisons drop from quadratic to n log n"
+    rows:
+    - display: bars
+      label: To sort
+      cells:
+      - v: 5
+      - v: 2
+      - v: 8
+      - v: 1
+      - v: 9
+      - v: 3
+    aux:
+    - display: bars
+      label: Comparisons
+      items:
+      - Bubble sort ≈ n²/2
+      - Divide and conquer ≈ n log n
+  log:
+  - mode: Unsorted
+    event: "The 6 elements are not sorted yet, and the simple-sort bill is already settled: the more elements there are, the more violently the quadratic comparison count grows."
+  points:
+  - Simple compare-and-swap sorts are O(n²) — unusably slow once the data grows.
+- id: merge-split
+  title: "Merge sort: keep splitting in half"
+  tldr: "Divide and conquer, the merge-sort branch first: its first step compares nothing at all — it just splits by position, in half. This step follows the example array down until each piece holds a single element, and shows why the number of splitting levels is exactly logarithmic."
+  body: |-
+    5, 2, 8, 1, 9, 3 first splits into a left half 5, 2, 8 and a right half 1, 9, 3, then into smaller runs, and finally into six single-element runs. Splitting cuts purely by position and compares no elements, so splitting produces no order — all order is delivered by the merging stage.
+
+    A single-element array is trivially sorted; that is the recursion's exit. The number of splitting levels is log n: 6 elements take 3 levels, 1024 take 10 levels, a million take about 20 levels. That is where the log n in n log n comes from — the height of the recursion tree.
+
+    Splitting in half guarantees the two sides stay balanced, pinning the worst-case number of levels at log n. If a quicksort partition tips all the way to one side, the level count runs away to n levels — and the quadratic degeneration comes precisely from the level count escaping. The two algorithms' fates diverge right here, at whether the split is balanced.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Merge sort lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: Merge sort recursively splits the array in two
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: Split log n levels, until each piece holds a single element
+    rows:
+    - display: bars
+      label: Level 0
+      cells:
+      - v: 5
+      - v: 2
+      - v: 8
+      - v: 1
+      - v: 9
+      - v: 3
+    - display: bars
+      label: Level 1
+      cells:
+      - v: 5
+      - v: 2
+      - v: 8
+      - v: 1
+      - v: 9
+      - v: 3
+      breaks:
+      - 3
+    - display: bars
+      label: Level 2
+      cells:
+      - v: 5
+      - v: 2
+      - v: 8
+      - v: 1
+      - v: 9
+      - v: 3
+      breaks:
+      - 1
+      - 3
+      - 4
+    - display: bars
+      label: Level 3
+      cells:
+      - v: 5
+        mark: active
+      - v: 2
+        mark: active
+      - v: 8
+        mark: active
+      - v: 1
+        mark: active
+      - v: 9
+        mark: active
+      - v: 3
+        mark: active
+      breaks:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+  log:
+  - mode: Splitting
+    event: "Splitting is done: the array has been halved down until each piece holds a single element — each trivially sorted — waiting to be merged back level by level."
+- id: merge-join
+  title: "Merge sort: merging pairs back together"
+  tldr: "Once everything is split down to single elements, the order has to be delivered by merging. This step shows how two sorted runs combine into one with two pointers — take whichever is smaller, and on a tie take the left one first. Walk the final big merge in full, then do the per-level work accounting."
+  body: >-
+    Merging two sorted runs: put a pointer at the head of each run; take whichever is smaller and advance that pointer by one cell. Walk the final big merge: left run 2, 5, 8 and right run 1, 3, 9. First compare 2 and 1 and take 1; then compare 2 and 3 and take 2; then compare 5 and 3 and take 3; then take 5 and 8; finally the right run's remaining 9 attaches at the end — giving 1, 2, 3, 5, 8, 9, with 5 comparisons in total.
+
+
+    Each level of merging moves every element exactly once, so each level is linear; with log n levels the total is n log n, and it has nothing to do with the input. That is why merge sort's worst case is guaranteed: neither the number of levels nor the work per level depends on the input distribution.
+
+
+    When elements are equal, take the left run's first, and their relative order never changes — that is stability: when the left run's 5 and the right run's 5 are equal, take the left run's first; the left run represents data that arrived earlier, so the order is preserved. The price is that merging needs an auxiliary space as large as the original array.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Merge sort lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: Merging two sorted arrays takes linear time, and merge sort is a stable sort
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: Each side takes from its front — take the smaller; on a tie take the left first (stable)
+    rows:
+    - display: bars
+      label: Single elements
+      cells:
+      - v: 5
+      - v: 2
+      - v: 8
+      - v: 1
+      - v: 9
+      - v: 3
+      breaks:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+    - display: bars
+      label: One merge level
+      cells:
+      - v: 2
+        mark: active
+      - v: 5
+        mark: active
+      - v: 8
+        mark: active
+      - v: 1
+        mark: active
+      - v: 3
+        mark: active
+      - v: 9
+        mark: active
+      breaks:
+      - 3
+    - display: bars
+      label: Merge complete
+      cells:
+      - v: 1
+        mark: done
+      - v: 2
+        mark: done
+      - v: 3
+        mark: done
+      - v: 5
+        mark: done
+      - v: 8
+        mark: done
+      - v: 9
+        mark: done
+  log:
+  - mode: Sorted
+    event: "Merging is done: two sorted runs have been combined into one, and the whole array is a complete sorted sequence again."
+- id: inversions
+  title: "A free extra: merge sort counts [[inversions|逆序对]]"
+  tldr: "The merge action can do one more job on the side: count how many inversions the array contains. This step first pins down the example's 7 pairs one by one, then shows why the moment a right-run element is taken during a merge lets you count the new inversions exactly, all at once."
+  body: >-
+    While merging, merge sort can count inversions on the side. An inversion is a pair where the earlier index holds the larger value — a measure of how far the array is from being sorted. The inversions of 5, 2, 8, 1, 9, 3: 5 is greater than the later 2, 1, and 3; 2 is greater than 1; 8 is greater than 1 and 3; 9 is greater than 3 — 7
+    pairs in total. Enumerating pair by pair is quadratic; once the data is large, you cannot finish counting.
+
+
+    The merge method counts during the merge: when an element from the right run is taken, however many elements remain untaken in the left run, that is how many new inversions it forms with left-run elements. The final big merge: left run 2, 5, 8 and right run 1, 3, 9. When the right run's 1 is taken, 3 elements remain in the left run — record 3 pairs; when 3 is taken, 2 remain in the left run (5 and 8) — record
+    2 pairs; when 9 is taken, the left run is already empty — record 0 pairs. Add the 2 pairs counted earlier inside the small runs, and the total is 7 pairs, matching the enumeration.
+
+
+    The complexity is still n log n; counting only adds a number. Inversions can be used to compare how two rankings differ, or to compute the minimum number of adjacent swaps needed to turn one list into another. Count with a 64-bit integer: the number of inversions is at most about half of n squared, which does not fit in 32 bits.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: "Chapter 2, problem: counting inversions"
+    claim: With a modification, merge sort can count the number of inversions in an array in n log n time
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "In the big merge, taking the right run's 1 leaves 3 in the left run (record 3 pairs); taking 3 leaves 2 (record 2 pairs); plus 2 internal pairs — 7 in total"
+    rows:
+    - display: bars
+      label: Original array
+      cells:
+      - v: 5
+      - v: 2
+      - v: 8
+      - v: 1
+      - v: 9
+      - v: 3
+    - display: bars
+      label: After merging
+      cells:
+      - v: 1
+        mark: done
+      - v: 2
+        mark: done
+      - v: 3
+        mark: done
+      - v: 5
+        mark: done
+      - v: 8
+        mark: done
+      - v: 9
+        mark: done
+    aux:
+    - label: Count
+      items:
+      - 2 pairs inside the small runs
+      - 5 new pairs from the big merge
+      - 7 pairs in total
+  log:
+  - mode: Counting
+    event: "The inversions are counted: 2 pairs inside the small runs, 5 new pairs from the big merge, 7 in total — matching the pair-by-pair enumeration."
+- id: quick
+  title: "Quicksort: pick a pivot, split in two"
+  tldr: "Merge sort splits first and works later; quicksort is exactly the reverse — work first, split later. This step runs one partition with 5 as the pivot and watches the pivot land in its final position in a single pass, with the left and right runs never interfering again; finally it names this splitting method's soft spot — what happens when the pivot is chosen badly."
+  body: |-
+    Pick 5 as the pivot and run one partition: 2 is less than 5 and stays left, 8 is greater than 5 and goes right, 1 stays left, 9 goes right, 3 stays left — the result is a left run 2, 1, 3, the pivot 5, and a right run 8, 9. After one pass the pivot 5 already stands in its final position, everything on the left is smaller than it and everything on the right is larger, and the two sides recurse independently, never interfering with each other.
+
+    It swaps [[in-place|原地]], needs no large auxiliary space, and its sequential access is cache-friendly; the constant in its average n log n is smaller than merge sort's. But the guarantee is probabilistic: if the smallest or largest element is picked as the pivot every time (for instance, always picking the first element of an already-sorted array), each pass rules out only one element, the number of levels becomes n, and it degenerates to quadratic.
+
+    So the pivot cannot run naked: picking it at random means the input cannot target you, and median-of-three pulls the pivot toward the median. The same quicksort flies on shuffled input and crawls like a snail on sorted input — this input sensitivity is the first thing to ask about when choosing it.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Quicksort lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: Quicksort is O(n log n) on average and O(n²) in the worst case; a randomized pivot avoids the worst case
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "With 5 as the pivot: smaller than it goes left, larger goes right; 5 is already in its final position"
+    rows:
+    - display: bars
+      label: Original array
+      cells:
+      - v: 5
+        mark: pivot
+      - v: 2
+      - v: 8
+      - v: 1
+      - v: 9
+      - v: 3
+      pointers:
+      - at: 0
+        label: Pivot
+    - display: bars
+      label: After partitioning
+      cells:
+      - v: 2
+      - v: 1
+      - v: 3
+      - v: 5
+        mark: pivot
+      - v: 8
+      - v: 9
+      breaks:
+      - 3
+      - 4
+  log:
+  - mode: Partitioning
+    event: "Partitioning is done: the pivot 5 already stands in its final position, everything on the left is smaller than it and everything on the right is larger, and the two sides can recurse independently."
+  code:
+    lang: typescript
+    code: |-
+      // Quicksort core: partitioning puts the pivot in its final position; then recurse left and right
+      function quickSort(a: number[], lo = 0, hi = a.length - 1): void {
+        if (lo >= hi) return;
+        const pv = a[hi]!; let i = lo;
+        for (let j = lo; j < hi; j++) if (a[j]! < pv) { [a[i], a[j]] = [a[j]!, a[i]!]; i++; }
+        [a[i], a[hi]] = [a[hi]!, a[i]!];
+        quickSort(a, lo, i - 1); quickSort(a, i + 1, hi);
+      }
+      // Merge sort essentials: split down to single elements, then merge two sorted runs level by level; needs an O(n) temporary array
+    note: TypeScript implementation
+- id: quick-detail
+  title: "Quicksort details: partitioning, pivots, and recursion depth"
+  tldr: "The last step's partition was only a sketch; in a real implementation, partitioning is a single [[in-place|原地]] scan. This step walks that scan cell by cell on an array with pivot 3, then handles two follow-up problems: why two-way partitioning wastes work when there are too many duplicates, and how to press the recursion depth back down to logarithmic."
+  body: >-
+    Partitioning is a single scan: take the last element as the pivot, maintain the boundary of the small-elements region, and whenever an element smaller than the pivot shows up, swap it into that region and grow the region by one cell; at the end, swap the pivot onto the boundary. Take 5, 2, 8, 1, 9, 3 with pivot 3: 5 is not less than 3, skip; 2 is less than 3, swap it to the very front; 8, skip; 1 is less than 3, swap it in right behind the
+    2; 9, skip; finally swap 3 to index 2 — giving 2, 1, 3, 5, 9, 8, with the pivot in place.
+
+
+    With a randomly chosen pivot the worst case can still occur, but with extremely low probability, and the expectation is n log n; with many duplicate elements, two-way partitioning keeps dragging elements equal to the pivot back into the recursion, while three-way partitioning puts the equals in the middle as their own segment, so after one pass the whole run of equal elements is in place — the more duplicates there are, the more it saves (the next section walks through three-way).
+
+
+    Recursion depth needs managing too: recurse into the shorter side first and continue on the longer side with a loop, and the stack depth can be kept on the order of log n; recursing into both sides without care lets the worst-case depth reach n and can blow the call stack. The canvas shows three-way partitioning handling three 3s.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Sorting lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: How good quicksort is depends on how well the pivot is chosen; the recursion depth also has to be kept under control.
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "Three-way partitioning: with 3 as the pivot, one scan splits into < 3, = 3, > 3"
+    rows:
+    - label: Before partitioning
+      cells:
+      - v: 3
+        mark: pivot
+      - v: 5
+      - v: 1
+      - v: 3
+      - v: 8
+      - v: 3
+      - v: 2
+      pointers:
+      - at: 0
+        label: Pivot 3
+    - label: After partitioning
+      cells:
+      - v: 2
+      - v: 1
+      - v: 3
+        mark: pivot
+      - v: 3
+        mark: pivot
+      - v: 3
+        mark: pivot
+      - v: 8
+      - v: 5
+      breaks:
+      - 2
+      - 5
+    aux:
+    - label: Next
+      items:
+      - The three 3s in the middle are in place — done with them
+      - Recurse only on [2, 1] and [8, 5]
+      - Recurse into the shorter side first; stack depth O(log n)
+  log:
+  - mode: Partitioning
+    event: "The partitioning details are walked through: the in-place scan split the array into segments and landed the pivot; next, recurse into the shorter side first, to press the stack depth back to logarithmic."
+- id: three-way
+  title: "Three-way quicksort: settle the equals first"
+  tldr: "The last step called duplicates two-way partitioning's waste; this step treats exactly that: one scan cuts the array into less-than, equal-to, and greater-than segments, and the equal segment lands in place all at once. Walk an array with four 4s through it, then pin down what kind of data makes it worth using."
+  body: >-
+    Two-way partitioning has a waste with duplicate elements: elements equal to the pivot get split to both sides and compared again in the next round. In the extreme case — every element the same number — two-way lands only one pivot per round and degenerates back to quadratic, on input that is visibly sorted at a glance.
+
+
+    Three-way partitioning cuts into three segments in one pass: less than, equal to, and greater than the pivot. Worked example, 4, 9, 4, 4, 1, 9, 4 with 4 as the pivot: maintain a less-than region, an undecided region, and a greater-than region through one scan — the 9s go to the greater region, the 1 goes to the less-than region, and the other four 4s stay in the middle segment — giving 1, 4, 4, 4, 4, 9, 9, with the four 4s in the middle
+    all in place at once; only the two sides still need recursion.
+
+
+    The price is a slightly larger constant of comparisons and swaps per pass; with no duplicates it is no faster than two-way. So it is a specialization for duplicate-heavy data: status-code logs, grades drawn from a small range of values — high-duplication keys like these benefit the most. [[CLRS]] lists it as a standard quicksort improvement, and the criterion is a single one: how large a share of the elements equals the pivot.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: "Chapter 7, variants of quicksort"
+    claim: Three-way partitioning gathers the elements equal to the pivot into one segment, which can markedly improve quicksort's performance when there are many duplicate keys
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "Three-way partitioning around 4: a less-than segment, an equal segment (all four 4s in place), a greater-than segment"
+    rows:
+    - display: bars
+      label: Before partitioning
+      cells:
+      - v: 4
+        mark: pivot
+      - v: 9
+      - v: 4
+      - v: 4
+      - v: 1
+      - v: 9
+      - v: 4
+      pointers:
+      - at: 0
+        label: Pivot 4
+    - display: bars
+      label: After partitioning
+      cells:
+      - v: 1
+      - v: 4
+        mark: pivot
+      - v: 4
+        mark: pivot
+      - v: 4
+        mark: pivot
+      - v: 4
+        mark: pivot
+      - v: 9
+      - v: 9
+      breaks:
+      - 1
+      - 5
+    aux:
+    - label: Next
+      items:
+      - The four 4s in the middle are done — no more processing
+      - Recurse only on the less-than and greater-than segments
+  log:
+  - mode: Partitioning
+    event: "Three-way partitioning is done: the four 4s equal to the pivot all landed in place at once; only the less-than and greater-than segments still need recursion."
+- id: lower-bound
+  title: "Sorting's lower bound: comparison sorts can be at best O(n log n)"
+  tldr: "Both sorts have reached n log n; this step asks: can we go any faster? First compute the comparison-sort lower bound from the number of permutations, then see how [[counting sort|计数排序]] and [[radix sort|基数排序]] get around this line — they do not rely on comparisons, but on the values' own range and digit count."
+  body: |-
+    n elements have n! permutations. Each comparison can at best split the possibilities in half, so distinguishing all the permutations takes at least about log₂(n!) ≈ n log n comparisons. Merge sort, quicksort, and heapsort are therefore already at the optimal order among "comparison sorts."
+
+    Not relying on comparisons — exploiting the range of the values instead — can break the lower bound: counting sort is O(n+k) (k is the size of the value range) and radix sort is O(d·(n+b)) (d is the number of digits). They are near-linear only when the value range or digit count is bounded, and they apply only to keys from a finite range, such as integers.
+
+    A numeric example: at n = a million, n log n ≈ 20 million comparisons while n² = a trillion — a factor of 50,000 apart. A crafted already-sorted input can drop a naive quicksort from milliseconds to minutes; production code backs it up with a random or median [[pivot]], or with [[introsort|内省排序]].
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Sorting lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: Sorting by pairwise comparisons alone needs at least on the order of n log n comparisons in the worst case.
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "3 elements have 3! = 6 permutations; each comparison rules out at most half, so at least ⌈log₂6⌉ = 3 comparisons are needed"
+    rows:
+    - label: All possibilities
+      cells:
+      - v: abc
+        mark: active
+      - v: acb
+        mark: active
+      - v: bac
+        mark: active
+      - v: bca
+        mark: active
+      - v: cab
+        mark: active
+      - v: cba
+        mark: active
+    - label: After comparing a<b
+      cells:
+      - v: abc
+        mark: active
+      - v: acb
+        mark: active
+      - v: bac
+        mark: muted
+      - v: bca
+        mark: muted
+      - v: cab
+        mark: active
+      - v: cba
+        mark: muted
+    aux:
+    - label: In general
+      items:
+      - log₂(n!) ≈ n log n
+    - label: Not by comparing
+      items:
+      - "Counting sort: count how many times each value occurs"
+      - "[3,1,2,1,0] → [0,1,1,2,3]"
+  log:
+  - mode: Theory
+    event: "The lower bound is settled: sorting by pairwise comparisons alone needs at least on the order of n log n comparisons in the worst case — nobody gets around it."
+- id: external-sort
+  title: "A peek ahead: when memory cannot hold it, [[external sort|外部排序]] takes over"
+  tldr: "However well you sort in memory, data too large to fit in memory is a different story. This step shows how merge sort carries on onto disk: first sort block by block into sorted [[runs|顺串]], then merge many ways into longer and longer ones. Run the read/write accounting on 100 GB of logs with 10 GB of memory."
+  body: |-
+    First, a term: a run is a block of data that has already been sorted and written to disk — the product of block-wise sorting. The multiway merge below merges exactly these runs.
+
+    When data outgrows memory, merge sort can still carry on — that is external sorting: cut the large file into blocks that fit in memory, sort each block and write it back to disk, producing a batch of sorted runs; then merge many ways, the way sorted runs are merged, pass after pass growing longer, until a single complete sorted file remains.
+
+    A small accounting: 100 GB of logs, 10 GB of usable memory. First cut into 10 blocks, sort each, and get 10 runs; then do one round of 10-way merging — overall, read twice and write twice. During the merge stage each run needs only a small buffer, read sequentially, keeping random access to a minimum.
+
+    Databases and big-data systems still use it today: bulk sorting, index building, distributed shuffling — the skeleton is always block sorting plus multiway merging. Two-way merging is just the special case where the number of ways is 2; generalize the two pointers to many pointers (with a heap picking the minimum) and you have the full multiway merge.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Merge sort lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: Merge sort's merging step generalizes to multiway merging, the basic skeleton of external sorting
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "After the 10 blocks are each sorted into runs, a 10-way merge: each way keeps only a small buffer and reads sequentially; overall just two reads and two writes"
+    rows:
+    - display: bars
+      label: Run 1 (sorted)
+      cells:
+      - v: 1
+      - v: 4
+      - v: 9
+    - display: bars
+      label: Run 2 (sorted)
+      cells:
+      - v: 2
+      - v: 3
+      - v: 8
+    - display: bars
+      label: Merge output
+      cells:
+      - v: 1
+        mark: done
+      - v: 2
+        mark: done
+      - v: 3
+        mark: done
+      - v: 4
+        mark: done
+      - v: 8
+        mark: done
+      - v: 9
+        mark: done
+    aux:
+    - label: The bill
+      items:
+      - 100 GB of data, 10 GB of memory
+      - Two reads, two writes
+      - Sequential disk access throughout
+  log:
+  - mode: Scaling out
+    event: "The external-sort bill is settled: merging traveled from memory to disk, with sequential reads and writes throughout — two reads and two writes in total."
+- id: engineering
+  title: How to choose in practice
+  tldr: "Finally, the selection wrap-up: need stability, choose the merge family; want [[in-place|原地]] and speed, choose the quicksort family. This step looks at what two standard libraries actually use — neither is a pure textbook algorithm; both are hybrids assembled around the characteristics of the data."
+  body: >-
+    Need stability, choose the merge family; want in-place and speed, choose the quicksort family — the standard libraries have already chosen for you: since version 7.0 (2018), [[V8]]'s Array.prototype.sort uses
+    [[TimSort]] (a stable merge-sort variant that first recognizes existing sorted runs and then merges them — especially fast on the partially sorted real data that is common in practice); Python's sorted comes from the same school.
+
+
+    A [[stability|稳定性]] worked example: a roster is first sorted by name, then by score. If the sort is stable, people with the same score still keep their name order — one sort does the work of two; if it is unstable, you have to combine the two keys into a composite key and sort again. Multi-key sorting is stability's most common payoff scene.
+
+
+    C++'s [[std::sort]] uses [[introsort|内省排序]]: quicksort as the main engine, with the recursion depth monitored; go too deep and it switches to heapsort to backstop the worst case at n log n, and small intervals switch to insertion sort. None of the three implementations is a pure textbook algorithm — all are hybrids assembled around the characteristics of the data, which is exactly the engineering norm that the hybrid strategy below takes apart.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Sorting lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: Sorting algorithms make different trade-offs in stability, space, and worst cases
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "The two standard libraries chose differently: since 7.0, V8 uses the stable TimSort; C++'s std::sort uses introsort to backstop the worst case"
+    rows:
+    - display: bars
+      label: Sorted
+      cells:
+      - v: 1
+        mark: done
+      - v: 2
+        mark: done
+      - v: 3
+        mark: done
+      - v: 5
+        mark: done
+      - v: 8
+        mark: done
+      - v: 9
+        mark: done
+    aux:
+    - display: bars
+      label: V8 ≥ 7.0
+      items:
+      - TimSort (stable)
+    - display: bars
+      label: C++ std::sort
+      items:
+      - Introsort
+  log:
+  - mode: Wrap-up
+    event: "The selection conclusion boils down to one line: first ask whether you need stability and whether you can afford auxiliary space, then decide between the merge family and the quicksort family."
+- id: hybrid-insertion
+  title: "Hybrid strategy: why small runs switch to insertion sort"
+  tldr: "The last step said standard libraries are all hybrids; this step takes apart the most common hybrid joint: when recursion reaches a small run of a dozen or so elements, why does switching to quadratic insertion sort end up faster? This bill has to be settled on constants, not on orders of growth."
+  body: >-
+    Asymptotic complexity ignores constants — the shared blind spot of textbook algorithms. Insertion sort is quadratic, but its code is short, it has no recursion, and it accesses memory sequentially; on small runs of a few to a few dozen elements, its actual running time is often lower than continuing to divide — every cut of divide and conquer pays the fixed cost of a function call and boundary checks, and in a small run that cost is the bulk of the bill.
+
+
+    So production implementations are all hybrids: quicksort recurses down to a small interval (a common threshold is on the order of a dozen elements) and switches to insertion sort to finish; [[TimSort]] uses insertion sort to pad a [[run|顺串]] that is too short up to a minimum length. A feel for the magnitudes: on a run of 8 elements, insertion sort compares at most 28
+    times, all sequential access; quicksort continuing to partition takes several more levels of recursion — in practice, the former is often faster.
+
+
+    There is no theoretical optimum for the threshold, only a measured one; it varies with language, hardware, and element type. Big O draws the circle; who wins inside the circle is decided by measurement, not by memorization.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: "Chapter 7, improvements to quicksort"
+    claim: Switching to insertion sort for small subarrays in quicksort is a standard optimization given by CLRS
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "Once recursion reaches a small run (8 elements), stop: insertion sort finishes sequentially, saving several levels of recursive calls"
+    rows:
+    - display: bars
+      label: Small run
+      cells:
+      - v: 5
+      - v: 2
+      - v: 8
+      - v: 1
+      - v: 9
+      - v: 3
+      - v: 7
+      - v: 4
+    - display: bars
+      label: Insertion finish
+      cells:
+      - v: 1
+        mark: done
+      - v: 2
+        mark: done
+      - v: 3
+        mark: done
+      - v: 4
+        mark: done
+      - v: 5
+        mark: done
+      - v: 7
+        mark: done
+      - v: 8
+        mark: done
+      - v: 9
+        mark: done
+    aux:
+    - label: The switch point
+      items:
+      - "Threshold: on the order of a dozen elements"
+      - Decided by benchmark measurement
+  log:
+  - mode: Engineering
+    event: "The hybrid strategy is settled: small runs switch to insertion sort, and the switch point has no theoretical optimum — it can only be decided by benchmarking."
+- id: lab-compare
+  title: "Hands-on: merge sort vs. quicksort"
+  tldr: "The rules are covered — now run the controlled experiment yourself: run merge sort and quicksort on the same input at the same time. First use sorted input to watch quicksort degenerate while merge sort holds steady, then switch to reverse-sorted input and verify that the degeneration depends only on the pivot hitting an extreme value, not on ascending versus descending order."
+  body: >-
+    Switch to the 'sorted' preset and single-step to the end: quicksort (with the last element as [[pivot]]) makes 28 comparisons — each pass puts only one element in place; that is the O(n²) degeneration. Merge sort still makes 12. On shuffled input the two are close — which is exactly the value of a random pivot: the input distribution cannot target you.
+
+
+    An engineering note: in [[V8]], JavaScript's Array.prototype.sort is [[TimSort]] (a merge-sort variant, stable); Python's sorted used TimSort for a long time and switched in 3.11 to an improved
+    [[Powersort]] (also a stable, adaptive merge sort). For multi-key sorting, think about [[stability|稳定性]] first, then decide how many sort calls to write.
+
+
+    Two observation points: switch to the reverse-sorted preset and quicksort with the last element as pivot degenerates the same way, because what it picks is still an extreme value — unrelated to ascending versus descending. Compare the level counts: merge sort always has log n
+    levels; a degenerate quicksort has as many levels as there are elements. The comparison gap is, at root, a level-count gap. When production sorting runs slow, suspect the input distribution and the pivot strategy first — not the language or the machine.
+  derivation: original
+  sources: []
+  canvas:
+    kind: lab
+    lab: sort-compare
+    caption: Same input, stepped in sync — compare the two sorts' comparison counts
+    params:
+      preset: mixed
+    cases:
+    - input:
+        preset: sorted
+      expect:
+        mergeComparisons: 12
+        quickComparisons: 28
+    - input:
+        preset: mixed
+      expect:
+        mergeComparisons: 17
+        quickComparisons: 14
+  log:
+  - mode: Experiment
+    event: "The controlled experiment is done: on the same input, the gap between the two sorts' comparison counts is, at root, a gap in recursion levels."
+level: 基础
+minutes: 30
+prereq: []
+objectives:
+- Explain merge sort's merging step and quicksort's partitioning step
+- Explain why quicksort's worst case is O(n²) and what a random pivot does
+- Compare stability and extra space
+aiLink: Sorting is everywhere — top-k in vector retrieval, merging logs by time, preprocessing before shuffling training data. Understand divide and conquer and worst cases, and you can pick the right sorting strategy in system design and avoid a quicksort that a crafted input blows up.
+design:
+- mechanism: Quicksort's average-case constant is small, it accesses memory in place and sequentially, and it is cache-friendly; insertion sort on small runs has no recursion and simple branches, with an even lower constant; median-of-three pulls the pivot toward the median, lowering the chance of a lopsided cut. The three mechanisms each cover one range of sizes and one kind of risk; only assembled do they cover the whole course.
+  problem: Pure quicksort has two soft spots — in small intervals, divide and conquer's fixed overhead takes too large a share and loses to direct insertion; and when the pivot is chosen badly it degenerates to quadratic, which sorted input plus a fixed pivot is enough to trigger. Production environments cannot stake performance on the input distribution happening to be friendly.
+  choice: Production implementations hybridize — partition recursion switches to insertion sort at a threshold (on the order of a dozen elements), the pivot uses median-of-three or randomization, and the recursion depth is monitored, switching to heapsort past a depth limit as a backstop (as in introsort); when stability is required, the whole thing is replaced by the merge family, TimSort.
+  tradeoff: The price of hybridizing is implementation complexity and tuning cost — the threshold must be measured against the hardware and the element type, the code paths multiply, and the test surface grows. In exchange, average performance, worst-case guarantees, and small-scale constants are all online at once — a bill that pays off handsomely at the standard-library level.
+  root: The root is that Big O describes only the shape of growth, not constants or input distributions — asymptotically optimal does not mean optimal at every size, nor does it guarantee no degeneration on every input. Engineering sorting is, at heart, matching mechanisms to segments by size and distribution, then pinning the parameters down segment by segment with measurements.
+- mechanism: Merging needs its result written into another, equally large space so the merge can complete in one pass of sequential reads and writes; and the small rule of taking the left run's element first when elements are equal turns stability directly into a corollary of the merge rule, with no extra structure needed to maintain the order.
+  problem: Merging two sorted runs in place means shuffling elements back and forth repeatedly, and both the time constant and the implementation complexity get out of control; meanwhile, business multi-key sorting genuinely depends on stability — sort by the secondary key first, then by the primary key, and one sort has to do the work of two. In-place and stable are hard to have at once.
+  choice: Accept linear auxiliary space — array merge sort allocates a temporary array, while merge sort on linked lists rewires pointers to achieve in-place, booking the space bill to the shape of the data structure; TimSort also recognizes existing runs first, and keeps its temporary space to at most half the input.
+  tradeoff: When memory is tight or the data lives on disk, this space bill has to be recomputed — external sorting trades the temporary space for runs on disk, while heapsort gives up stability and extra space for in-place. There is no free worst-case guarantee, only a choice of which ledger the cost is booked in.
+  root: The root is the direction of information flow in a merge — two input streams must interleave into one output stream, and if the output would overwrite input that has not been read yet, a third space must receive it. Stability and linear merging jointly require this buffer; it is not implementer laziness, but decided by the flow.
+- mechanism: After the pivot is chosen at random, whether a partition is balanced depends only on the random numbers, not on what the input looks like — the expected complexity is an expectation over the algorithm's own random choices, not an average over input distributions, so an opponent can no longer designate the worst case by crafting the input.
+  problem: Deterministic-pivot quicksort has craftable worst-case inputs — work out the pivot rule and you can mass-produce arrays that degenerate it to quadratic; a server's sorting endpoint can even be slowed down this way. This is the same attack-and-defense structure as hash flooding.
+  choice: Use a random pivot or median-of-three — the former presses the degeneration probability down to an extremely low level that has nothing to do with the input, the latter targets the near-sorted real data that is common in practice; then add a recursion-depth backstop, capping even the residual low-probability events at n log n.
+  tradeoff: Randomization makes performance not fully reproducible — the same input can take different times on two runs, and benchmarks must run repeatedly and take statistics; median-of-three still carries residual risk against deliberately crafted trap inputs, and on its own cannot replace the depth backstop.
+  root: The root lies in the adversarial relationship — when the algorithm and the input are opponents, any deterministic strategy necessarily has a dead angle that can be targeted; introducing private randomness is equivalent to making the opponent play first without knowing your strategy, demoting the worst case from a certainty to a low-probability event.
+quiz:
+- q: What is quicksort's complexity on a sorted array with a fixed last-element pivot?
+  options:
+  - O(n log n)
+  - O(n²)
+  - O(n)
+  - O(log n)
+  answer: 1
+  explain: Each partition removes only one element; the recursion depth is n and the comparisons are about n²/2 — in the sort-compare lab, that is the 28 comparisons.
+- q: What is merge sort's extra space?
+  options:
+  - O(1)
+  - O(n)
+  - O(log n)
+  - O(n²)
+  answer: 1
+  explain: Merging needs a temporary array as long as the input (that is the price it pays for stability and its worst-case guarantee).
+- q: What does stability mean?
+  options:
+  - Stable speed
+  - Equal elements keep their relative order after sorting
+  - Stable memory
+  - It does not crash
+  answer: 1
+  explain: Multi-key sorting stacks on stability — sort by the secondary key first, then stably sort by the primary key.
+legend:
+- key: active
+  label: Element currently being compared / processed
+- key: found
+  label: Found / final position
+- key: done
+  label: Processing complete
+- key: pivot
+  label: Pivot element
+- key: muted
+  label: Ruled out / no longer considered
+- key: visited
+  label: Visited

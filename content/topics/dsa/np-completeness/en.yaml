@@ -1,0 +1,591 @@
+id: dsa/np-completeness
+subject: dsa
+slug: np-completeness
+order: 11
+status: published
+license: CC-BY-4.0
+title: "NP-Completeness: Some Problems Are Not Slow — Nobody Can Compute Them Fast"
+summary: The first ten lessons kept computing problems faster and faster; this closing lesson asks the reverse — there is a class of problems whose answers verify in a flash yet seem to admit no shortcut at all in finding them, and they are all tied together in one bundle, so solving one would solve them all.
+premise: The earlier lessons kept finding ways to compute problems faster, but there is a class of problems for which, over decades, nobody in the world has found a genuinely fast solution — grow the scale even slightly and brute-force trying explodes on the spot. This lesson explains where exactly these problems are hard, how they relate to each other, and what playbook an engineer should switch to after recognizing one, using three examples — course scheduling hitting the wall, the route explosion of the [[traveling salesman|旅行商问题]], and the verification of [[subset sum|子集和]] — in plain language and hand-computed numbers throughout, assuming no background in the theory of computation.
+position: >-
+  This lesson opens a new section, "Problems That Cannot Be Computed: The Ceiling of Complexity," and is also the closing lesson of the data structures and algorithms subject. It follows string matching's optimization of passing over the text only once, and asks in reverse where the end of optimization lies. After this lesson you will be able to judge, with the growth accounts of polynomial versus exponential, whether an algorithm is feasible; to rewrite an optimization problem as a [[decision problem|判定问题]]; to explain what verification, guessing, and [[reduction|归约]] each mean; and, on recognizing that a problem is NP (nondeterministic [[polynomial time|多项式时间]]) complete, to switch playbooks at once instead of grinding on for an efficient exact solution that very likely does not exist.
+bridge:
+  prev: The first ten lessons all kept computing problems faster and faster; this closing lesson asks the reverse — there is a class of problems that nobody can make fast. First, see clearly what this wall looks like — it is not that some machine is not fast enough, nor that some programmer is not clever enough, but a class of problems for which all of humanity has found no shortcut in decades.
+overview:
+- key: In one sentence
+  value: "[[NP]]-complete problems verify an answer in a flash, seem to admit no shortcut at all in finding one, and [[reduce|归约]] to each other — solving one amounts to solving them all. Take the [[traveling salesman|旅行商问题]] problem: hand you a route, and one pass adding up its total length tells you whether it is short enough; but to find the shortest route among all routes, there is currently no method much faster than trying a great many of them."
+- key: An operational definition of feasible
+  value: Here, feasible is defined as [[polynomial time|多项式时间]] and hitting the wall as exponential time; at n = 100 the two differ by a factor of about 10 to the 24th power. In polynomial time, 100 elements take on the order of tens of thousands to a few million steps; in exponential time, each additional element doubles the work, and by 100 the account is already unrealistically large.
+- key: A common currency
+  value: First rewrite the problem as a [[decision problem|判定问题]] that only answers yes or no, and only then can difficulties be compared and problems reduced to each other. For example, turn finding the shortest route into asking whether there exists a route no longer than a given length — the answer is left with only yes or no, and different problems finally share a common way to be compared and translated.
+- key: The core tool
+  value: A reduction is a translation — translate a new problem into an old problem and borrow the old problem's solver to solve it — and the direction decides the difficulty conclusion. If an old problem can be translated into a new problem, the new problem is at least as hard as the old one; write the direction backwards and the difficulty conclusion comes out entirely reversed.
+- key: Engineering discipline
+  value: On recognizing NP-completeness, switch playbooks — approximation, heuristics, special-case structure, [[parameterization|参数化]], and constraint solvers are the everyday way out. Recognizing one is not surrender; it is stopping the time spent on an exact optimum and going instead for an answer that is good enough, or using the special structure of your own batch of data to press the scale down.
+visual: datastate
+logColumns:
+- key: mode
+  label: Current state
+- key: event
+  label: What happened
+steps:
+- id: why
+  title: "The wall, on site: it is not you — the problem itself cannot be computed fast"
+  tldr: "First, look at a scene that happens every day: scheduling times and classrooms for dozens of courses, with a long string of constraints — the program tries every schedule and cannot finish even a ten-thousandth of them in a day. This step first lays out the wall-hitting scene clearly, then sets up the first judgment — there is a class of problems where nobody's skill is lacking; no shortcut has been found in decades."
+  body: >-
+    First, a scene that happens every day. A registrar has to schedule times and classrooms for dozens of courses, with a long string of constraints — a teacher cannot be in two places at once, classrooms cannot overlap, and certain courses must be staggered. She has a program try every possible schedule, and quickly finds that the number of schedules explodes with the number of courses — running for a whole day, the program cannot finish even a ten-thousandth of them. She brings in a faster machine and cleverer colleagues, and all that changes is that the feasible scale moves from twenty courses to twenty-five; the wall does not budge.
+
+
+    The [[traveling salesman|旅行商问题]] is the classic portrait of the same wall. A salesman must visit a number of cities, each exactly once, and return to the start, finding the shortest route. With only 5 cities the routes can be counted on one's fingers; with 20 cities, the routes a brute-force enumeration must consider already number about 6.08 × 10 to the 16th power — this lesson will compute that account by hand later. The problem itself is not hard to understand at all — an elementary school student can follow it; what is hard is that the candidate answers are too many to ever finish counting.
+
+
+    The first ten lessons' experience will mislead you here. Sorting can be optimized from quadratic to n log n, search can be optimized to logarithmic, and DP can press the exponential down to polynomial, so it is easy to assume that any problem can be made faster with a little more thought. The first judgment this lesson sets up is exactly the opposite: there is a class of problems for which humanity has searched seriously for over half a century and never found an exact algorithm in [[polynomial time|多项式时间]]. Facing them, the first reaction should not be self-blame or head-on grinding, but to recognize the wall first, then decide how to walk around it.
+  derivation: original
+  sources:
+  - ref: garey-johnson
+    locator: "Chapter 1 introduction and the appendix catalogue of NP-complete problems (an overview of the intractability of problems such as the traveling salesman)"
+    claim: A large number of everyday combinatorial problems, such as the traveling salesman, are classified as NP-complete, and no polynomial-time exact algorithm has been found for them in the long term
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-13
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "The same class of problem: grow the scale a little and brute-force enumeration's candidate count turns upside down"
+    rows:
+    - label: Cities
+      cells:
+      - v: 5 cities
+      - v: 10 cities
+      - v: 20 cities
+        mark: active
+    - label: Brute-force routes, order of
+      cells:
+      - v: Countable on fingers
+      - v: About 180 thousand routes
+      - v: About 6.08×10¹⁶ routes
+        mark: active
+  log:
+  - mode: Hitting the wall
+    event: "The wall-hitting scene is clear: grow the scale a little and the candidate count turns upside down — suspect the problem itself first, not yourself."
+- id: poly-vs-exp
+  title: "Feasible vs. infeasible: the growth account of polynomial against exponential"
+  tldr: "To talk about what cannot be computed, you first need a ruler that does not change with the machine. This step defines feasible as [[polynomial time|多项式时间]] and hitting the wall as exponential time, then works the account at scale 100 down to concrete numbers to see how large the gap really is; finally, it names why small-scale tests always deceive."
+  body: >-
+    To talk about what cannot be computed, fast and slow first have to be defined as a standard an account can be kept in. In everyday speech, fast usually means a result in a few seconds, but that standard changes with the machine and with one's mood — it cannot serve as a ruler. The ruler the theory community uses looks only at the shape of growth: if the running time is a polynomial in the input scale n — n, n squared, n cubed, for example — it counts as the feasible tier; if the running time carries an exponential term such as 2 to the power of n, it counts as the wall tier. A faster machine changes only the constants, not the shape, so this ruler has not gone out of date in decades.
+
+
+    Work the account into numbers. Take n = 100. On the polynomial side take n cubed, which equals a million, that is, 10 to the 6th power. On the exponential side take 2 to the 100th power, which is about 1.27 × 10 to the 30th power; the two differ by a factor of about 10 to the 24th power. Convert further into time: suppose a machine can do 10 to the 9th power basic operations per second. The polynomial side then needs only about a thousandth of a second, while the exponential side needs about 1.27 × 10 to the 21st power seconds, which is about 4 × 10 to the 13th power years — about 2900 times the age of the universe, 13.8 billion years.
+
+
+    This account explains why small-scale tests always deceive. At n = 20, 2 to the power of n is only about a million, and it runs with no pressure at all, so a brute-force method passes every sample and only shows its true form in production, on real scale. To judge whether an algorithm is usable, do not look at how fast it runs on small data; look first at which side its growth shape stands on, polynomial or exponential.
+  derivation: original
+  sources:
+  - ref: sipser
+    locator: Chapter 7.1 Measuring Complexity and 7.2 The Class P
+    claim: Polynomial time serves as the operational boundary of feasible computation, and exponential time quickly becomes infeasible as the scale grows
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-13
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "The growth account at n = 100: even 10 to the 9th power operations per second cannot save the exponential side"
+    rows:
+    - label: The n³ side
+      cells:
+      - v: 10⁶ operations
+      - v: About 0.001 seconds
+        mark: found
+    - label: The 2¹⁰⁰ side
+      cells:
+      - v: About 1.27×10³⁰ operations
+        mark: active
+      - v: About 4×10¹³ years
+        mark: active
+  log:
+  - mode: Ruler
+    event: "The ruler is set: feasibility is judged by which side the growth shape stands on, not by the seconds some machine happens to run in."
+- id: decision
+  title: "[[Decision problems|判定问题]]: first turn the problem into a yes-or-no question"
+  tldr: "The ruler is in place; what is still missing is a common unit of measurement — problems whose answers come in every shape cannot have their difficulties compared directly. This step rewrites optimization problems uniformly as decision problems that answer only yes or no, adding a threshold to the shortest route, [[subset sum|子集和]], and the knapsack each, and shows why the rewrite does not make the problem any simpler."
+  body: >-
+    When the theory community talks about difficulty, it talks almost exclusively about one form of problem — the decision problem, whose answer is only yes or no. Why go to this trouble? Because a question like what the optimum is has answers in every shape, and there is no way to compare directly which of two problems is harder; a yes-or-no question's answer is a single bit, so all decision problems stand under the same ruler, their difficulties become comparable at once, and the translation and solver-borrowing to come later get a common interface. It is like an exam first turning every word problem into a true-or-false question — not to make it simpler, but to make uniform grading possible.
+
+
+    The rewrite is mechanical: add a threshold to the optimization problem. The [[traveling salesman|旅行商问题]] originally asks how short the shortest route is; rewritten, it asks — does there exist a route that visits every city with total length no more than K? Subset sum could originally ask for the largest sum that can be formed; rewritten, it asks — can a group be picked from the given numbers whose sum is exactly the target T? The knapsack originally asks for the maximum value; rewritten, it asks — can a packing be made with total value at least V and total weight no more than the capacity? The thresholds K, T, and V are all given by the asker.
+
+
+    The decision version has not made the problem any simpler. Ask the decision version repeatedly and the optimum can be squeezed out by binary-searching the threshold, so the decision and optimization versions are equivalent in difficulty in the polynomial sense. The real gain is uniformity: from this step on, every problem this lesson discusses is a yes-or-no question, and the concepts of verification, [[reduction|归约]], and completeness all stand on this level ground. On seeing an optimization problem, translating it in your head into a yes-or-no question first is the entry move for understanding everything that follows.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: "Chapter 34.1 Polynomial Time (the relation between decision problems and optimization problems)"
+    claim: Complexity theory takes decision problems as its basic objects; an optimization problem can be rewritten as a decision problem via a threshold, at equivalent difficulty
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-13
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "The same problem: the optimization phrasing vs. the decision phrasing"
+    rows:
+    - label: Traveling salesman
+      cells:
+      - v: How short is the shortest route?
+      - v: Is there a route ≤ K?
+        mark: found
+    - label: Subset sum
+      cells:
+      - v: How large a sum can be formed?
+      - v: Can T be formed exactly?
+        mark: found
+    - label: Knapsack
+      cells:
+      - v: What is the maximum value?
+      - v: Can a packing reach ≥ V?
+        mark: found
+  log:
+  - mode: Rewrite
+    event: "The rewrite is done: add a threshold to an optimization problem and you get a yes-or-no question that can be uniformly compared — and reduced to other problems."
+- id: verify
+  title: "The intuition of [[NP]]: hard to solve, fast to verify"
+  tldr: "The [[decision problem|判定问题]] is set up; this step looks at the lesson's most important contrast — finding an answer and verifying an answer are two tasks of entirely different difficulty. First set the scene with Sudoku, then compute it once with [[subset sum|子集和]] — finding means turning over every subset, verifying takes a single addition. Collect this class of problems together and you get NP."
+  body: >-
+    Next, the lesson's most important contrast: finding an answer and verifying an answer are two tasks of entirely different difficulty. Sudoku is a ready-made example. Fill a Sudoku board in from the empty cells and you may be trial-and-erroring for a long while; but if someone hands you a completed board directly, verifying whether it is right takes only scanning it row by row, column by column, and box by box, confirming at each place that 1 through 9 do not repeat — done in a few minutes. Filling is search; verifying is checking. The former gropes through an enormous candidate space; the latter simply checks off a ready-made answer item by item.
+
+
+    Subset sum turns this into pure arithmetic. Given the set 3, 7, 1, 8 and the target 11, finding a group of numbers summing to 11 means picking among 16 subsets; but once someone tells you the answer is 3 + 8, you need only one addition — 3 + 8 = 11 — and it is verified on the spot. Another group, 3 + 7 + 1, also equals 11, and is verified by one addition just the same. The verifier does not need to know how the answer was found; the addition itself is all the work, and however many subsets there are in total has no effect at all on the time to verify one group.
+
+
+    Collect this class of problems together and you get NP: a problem belongs to NP if and only if, in its yes-or-no version, every yes answer comes with a piece of evidence that is not long, and given the evidence it can be verified within [[polynomial time|多项式时间]]. Now look at P — it is the problems whose answers can both be found in polynomial time and verified. What can be found can of course be verified — just rerun the finding process — so P is contained in NP. Every suspense in the rest of this lesson comes down, in the end, to one sentence: is every problem that verifies fast also findable fast? Nobody knows yet.
+  derivation: original
+  sources:
+  - ref: sipser
+    locator: "Chapter 7.3 The Class NP (the definitions of verifier and certificate, with subset sum as the example)"
+    claim: NP is the class of problems that have a polynomial-time verifier; a candidate subset for subset sum can be verified by a single summation, and P is contained in NP
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-13
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "Subset sum, target 11: finding turns over 16 subsets, verifying takes one addition"
+    rows:
+    - label: Finding
+      cells:
+      - v: Enumerate 2⁴ subsets
+        mark: active
+      - v: Pick 3 and 8
+    - label: Verifying
+      cells:
+      - v: 3 + 8 = 11
+        mark: found
+      - v: Done in one addition
+        mark: found
+  log:
+  - mode: Verification
+    event: "NP's ticket is pinned down: belonging to NP rests on an answer being easy to verify, not on it being easy to find."
+- id: guess
+  title: "Another way to say it: a guessing machine with outrageous luck"
+  tldr: "The last step defined [[NP]] through verification; this step gives it an equivalent face — a machine that, at every fork, can pick the direction leading to the answer directly. First see which step it saves when solving [[subset sum|子集和]], then make clear why it is only a thought experiment, not a real machine."
+  body: >-
+    The verification account has a completely equivalent twin account, which sounds like cheating the first time you hear it, but it helps you picture NP more intuitively. Imagine a special machine that, facing every fork in the road, can pick directly the road that leads to the answer — its luck is forever outrageous and it never backtracks. Solving subset sum with it, it does not enumerate the 16 subsets; instead, for each number it directly guesses take or don't take, and guesses right every time, so the only work left is adding up the guessed group and checking the sum. The steps it walks after guessing right are exactly the steps of verification.
+
+
+    This machine's name is a nondeterministic machine. The word nondeterministic sounds intimidating; its meaning is actually very plain — at a fork, instead of trying each road one by one, it is allowed to walk the right one directly. Unpacking the letters, NP is nondeterministic [[polynomial time|多项式时间]] — in human terms, this luck machine can solve the problem by guessing plus verifying within a polynomial number of steps. Note that it is not a real machine, still less a quantum computer; it is only a thought experiment, giving the property of being easy to verify a different face.
+
+
+    Why are the two accounts equivalent? The guessing part is, in essence, producing out of thin air the evidence the previous section described; the verifying part is identical, word for word, in both accounts. Conversely, any problem that can be verified quickly can be handed to this machine to guess the evidence first and then verify it. So from now on, whenever you see NP, you can switch freely between the two pictures — an exam question that grades in a flash once handed in, or a hard problem a luck machine guesses in one shot — and use whichever is handier. This lesson takes the intuition only; there is no need to memorize any formal definition of an automaton.
+  derivation: original
+  sources:
+  - ref: sipser
+    locator: "Chapter 7.3 The Class NP (the equivalence theorem between the verifier definition and the nondeterministic Turing machine definition)"
+    claim: NP equals both the class of problems with a polynomial-time verifier and the class of problems solvable in nondeterministic polynomial time
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-13
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "The same NP, two equivalent pictures: after the guess, only verification remains"
+    rows:
+    - label: Verification picture
+      cells:
+      - v: Someone hands over evidence
+      - v: Check in polynomial time
+        mark: found
+    - label: Guessing picture
+      cells:
+      - v: Guess right at every step
+        mark: found
+      - v: Only verification remains
+  log:
+  - mode: Guessing
+    event: "The equivalent account is set: nondeterminism means guessing right once, for free — all the remaining difficulty lands on verification."
+- id: reduction
+  title: "[[Reduction|归约]]: translate a new problem into an old problem"
+  tldr: "With the definition of [[NP]] in place, a ruler for comparing difficulty is still needed. This step introduces the reduction: translate a new problem into an old problem and borrow the old problem's solver to solve it. The point is to nail the direction down — the direction of the translation and the direction of the difficulty conclusion are exactly opposite, and writing it backwards here reverses every conclusion that follows."
+  body: >-
+    Now for the lesson's core tool, the reduction. First in everyday words: you meet a problem in Chinese that you cannot solve, but you have a machine that solves only problems in English. As long as you can translate the Chinese problem into an English problem sentence by sentence, and translate the English answer back, you can in effect solve the Chinese problem. The translation here is called a reduction; the English problem is the old problem, the Chinese problem is the new problem, and the machine is the old problem's solver. The translation itself must be fast enough — the requirement is [[polynomial time|多项式时间]] — or the translation costs more than solving the problem and the deal does not stand.
+
+
+    Nail the notation down. Reducing problem A to problem B means giving a polynomial-time translation that turns every instance of A into an instance of B, with the answer before and after translation both yes or both no. Then, as long as there is a solver for B, wrapping it with the translation solves A — the flow is translate first, then call, then take the answer as delivered. In one sentence, A's difficulty does not exceed B plus the cost of the translation. Read backwards, that is the key conclusion: B is at least as hard as A, because even A can be solved by parasitizing B.
+
+
+    Direction is the only easy place to go wrong here, and the favorite trap of interviews and exams. A reduces to B — the hard one is B, not A. The translation's direction turns A into B; the difficulty conclusion's direction is that B is no lower than A. Keep one memory aid only: to prove a new problem hard, reduce a known hard problem to it and let the hard problem parasitize it; reducing the new problem to the hard problem instead only shows the new problem is no harder than the hard one, and proves no hardness at all. Everything later about judging who is NP-complete relies on this sense of direction.
+  derivation: original
+  sources:
+  - ref: sipser
+    locator: "Chapter 7.4 NP-completeness (the definition and transitivity of polynomial-time reduction)"
+    claim: When A reduces to B in polynomial time, if B is solvable then A is solvable, so B is at least as hard as A
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-13
+  canvas:
+    kind: datastate
+    structure: graph
+    caption: "The pipeline of A reducing to B: translate, borrow the solver, bring the answer straight back"
+    graph:
+      nodes:
+      - id: A
+        x: 10
+        y: 50
+      - id: T
+        x: 42
+        y: 50
+      - id: B
+        x: 74
+        y: 50
+      edges:
+      - from: A
+        to: T
+        w: Translate
+      - from: T
+        to: B
+        w: Call the solver
+    aux:
+    - label: Difficulty conclusion
+      items:
+      - B is at least as hard as A
+      - Reverse the direction, reverse every conclusion
+  log:
+  - mode: Reduction
+    event: "The reduction discipline is pinned down: the translation must be polynomial-time for the borrowed solver to count, and writing the direction backwards reverses every conclusion."
+- id: np-complete
+  title: "[[NP]]-completeness arrives: the hardest batch inside NP"
+  tldr: "The [[reduction|归约]] ruler is ready; this step layers the inside of NP once more — a small batch of problems are both easy to verify and able to receive a reduction from every NP problem; they are the NP-complete problems. First see why this definition means solving one amounts to solving them all, then see which problem first stood in this position."
+  body: >-
+    With the reduction ruler in hand, the inside of NP can be layered once more. Most problems in NP are merely easy to verify, at uneven difficulties; but a small batch are the hardest among them, meeting two conditions — first, they are themselves in NP, their answers easy to verify; second, every problem in NP can be reduced to them in [[polynomial time|多项式时间]]. A problem meeting both is called NP-complete — intuitively, the hardest batch in NP, hard enough to concentrate the difficulty of all of NP into a single problem of its own.
+
+
+    Shared glory is its most astonishing structural property. Suppose one day someone finds a polynomial-time algorithm for any one NP-complete problem. Then any NP problem can first be reduced to it and then call that algorithm, so every NP problem is solved together, and P equals NP. The reverse holds as well: these problems can all be reduced to each other, so none of them can become simple on its own. They are like a string of keys tied by the same rope — turn one open and the whole string of locks opens at once; half a century of failing to turn any one of them is also side evidence that the rope is real.
+
+
+    The first problem proved NP-complete was [[SAT]]. SAT asks: given a Boolean formula built from AND, OR, and NOT, can each variable be assigned true or false so that the whole formula comes out true? In 1971, [[Cook and Levin|Cook–Levin 定理]] each independently proved that the verification process of any NP problem can be encoded as a Boolean formula, so SAT became the first NP-complete problem. This lesson takes only the intuition: verification is nothing but a string of yes-or-no judgments, and a Boolean formula happens to be the universal language for recording yes-or-no judgments, so it can hold any verification process. There is no need to carry the proof's details; with SAT as the anchor, a later problem need only receive a reduction from SAT to prove, in relay, that it too is NP-complete.
+  derivation: original
+  sources:
+  - ref: sipser
+    locator: "Chapter 7.4 The Cook-Levin Theorem (Theorem 7.37: SAT is NP-complete)"
+    claim: Around 1971, Cook and Levin proved that SAT is the first NP-complete problem, and that any NP problem can be reduced to SAT
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-13
+  - ref: clrs
+    locator: "Chapter 34.3 NP-completeness and reducibility (Theorem 34.4)"
+    claim: If any NP-complete problem has a polynomial-time algorithm, then P equals NP
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-13
+  canvas:
+    kind: datastate
+    structure: graph
+    caption: "Every NP problem can be reduced into an NP-complete problem, and they connect to each other too"
+    graph:
+      nodes:
+      - id: NP1
+        x: 12
+        y: 22
+      - id: NP2
+        x: 12
+        y: 78
+      - id: SAT
+        x: 55
+        y: 50
+      - id: NPC
+        x: 88
+        y: 50
+      edges:
+      - from: NP1
+        to: SAT
+      - from: NP2
+        to: SAT
+      - from: SAT
+        to: NPC
+        w: Reduction relay
+    aux:
+    - label: Shared glory
+      items:
+      - Solving one amounts to solving all of NP
+  log:
+  - mode: Completeness
+    event: "Completeness is set: the first anchor is SAT, and every completeness proof after it works by reducing a known complete problem in, in relay."
+- id: examples
+  title: "A circle of familiar [[NP]]-complete problems"
+  tldr: "The definitions are done; now line this hardest batch up in a circle and check each one's fingerprint — the [[traveling salesman|旅行商问题]], [[graph coloring|图着色]], [[vertex cover|顶点覆盖]], [[subset sum|子集和]], and the decision version of the knapsack. Each verifies with nothing but a linear scan, while finding means turning over an exponential space of combinations. Finally, recover one puzzle: the knapsack plainly has a table-storing algorithm, so why does it still count as NP-complete?"
+  body: >-
+    Line this hardest batch up in a circle and you will find they are all old acquaintances. The traveling salesman decision version asks whether there is a route of at most K — verifying means adding up the handed-over route segment by segment and comparing with K; the hardness is that the number of routes explodes with the cities. Graph coloring asks whether a map can be colored with three colors so that neighbors differ — verifying means checking, edge by edge, that the two ends differ; the hardness is that the color combinations explode with the vertices. Vertex cover asks whether at most K vertices can be chosen to cover every edge — verifying means confirming, edge by edge, that at least one end is chosen; the hardness is that the vertex-choice combinations explode. Their shared fingerprint is exactly the same: verification takes only a linear scan, while finding means turning over an exponential combination space.
+
+
+    Subset sum and the knapsack decision version deserve a separate recovery. Verifying a group of numbers for subset sum is one addition; verifying a packing for the knapsack decision version is one summing of weight and value. But why doesn't the O(nW) that the previous lesson's DP gave the knapsack count as having solved it? The key is how the input scale is accounted: writing W into the input takes only about log W bits — when W equals 10 to the 9th power, it occupies only about 30 bits in the input, yet the DP table must be opened to the order of 10 to the 9th power, so the running time grows polynomially in the value's magnitude rather than in the number of bits. An algorithm that disguises itself as polynomial by riding on the numeric value like this is called [[pseudopolynomial|伪多项式]]; it does not overturn the knapsack's NP-completeness — it only reminds us that complexity must be accounted against the input's encoding length.
+
+
+    The practical value of recognizing this circle of problems is instant judgment. When a requirement involves combinatorial choices — scheduling, packing, siting, coloring, covering — and demands an exact optimum, your experience library should light up at once: this is very likely NP-complete, so do not promise a schedule yet; talk first about scale and the room for approximation. The light is triggered not by memorizing a list but by reading the fingerprint — candidate combinations exploding exponentially while a single candidate is extremely easy to verify; when both appear together, it is basically it.
+  derivation: original
+  sources:
+  - ref: garey-johnson
+    locator: "Appendix catalogue of NP-complete problems (the entries for traveling salesman, subset sum, knapsack, graph coloring, and vertex cover)"
+    claim: The traveling salesman decision version, subset sum, the knapsack decision version, graph coloring, and vertex cover are all NP-complete problems
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-13
+  - ref: sipser
+    locator: "Chapter 7.5 Additional NP-complete Problems (vertex cover and subset sum)"
+    claim: Vertex cover and subset sum are NP-complete problems, and both can be verified in polynomial time
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-13
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "Five NP-complete problems: the verifying action is a linear scan in every case; all the hardness is in the finding"
+    rows:
+    - label: Problem
+      cells:
+      - v: TSP, decision version
+      - v: Subset sum
+      - v: Knapsack, decision version
+      - v: Graph coloring
+      - v: Vertex cover
+    - label: What is verified
+      cells:
+      - v: Sum the route, compare K
+      - v: Sum a group of numbers
+      - v: Sum weight and value
+      - v: Check each edge for differing colors
+      - v: Check each edge for coverage
+    - label: Where the hardness is
+      cells:
+      - v: Routes explode exponentially
+        mark: active
+      - v: Subsets explode exponentially
+        mark: active
+      - v: The pseudopolynomial trap
+        mark: active
+      - v: Colorings explode combinatorially
+        mark: active
+      - v: Vertex choices explode combinatorially
+        mark: active
+  log:
+  - mode: Fingerprint
+    event: "The fingerprints are checked: candidate combinations exploding exponentially, and a single candidate verified by a linear scan — when both appear together, it is basically it."
+- id: np-hard
+  title: "[[NP]]-hard: hard, but not necessarily easy to verify"
+  tldr: "NP-completeness requires both hard and easy to verify. This step looks at problems that meet only the hard half and are not in NP — NP-hard: the optimization version of the [[traveling salesman|旅行商问题]] is not even a yes-or-no question, and the [[halting problem|停机问题]] has no algorithm at all. Finally, one passage draws the containment relations among P, NP, NP-complete, and NP-hard clearly."
+  body: >-
+    One puzzle piece remains. The definition of NP-complete has two conditions — hard is only one of them; the other is being in NP, that is, easy to verify. If a problem meets only the hard condition — every NP problem can be [[reduced|归约]] to it — but is not itself in NP, it is called NP-hard. Without the easy-to-verify constraint, NP-hard's territory is larger than NP-complete's; it shelters problems whose difficulty is at the ceiling yet for which even a handed-over answer cannot be checked quickly — and some problems are so hard that no algorithm exists for them at all.
+
+
+    Two ready-made examples. The optimization version of the traveling salesman requires outputting the shortest route itself; it is NP-hard rather than NP-complete, because it is not a yes-or-no question at all — it is not on [[decision problem|判定问题]] territory, so being in NP is out of the question; its decision version is the NP-complete one. More extreme is the halting problem: given a program and an input, will it halt? It has no algorithm at all, let alone being easy to verify, yet NP problems can still be reduced to it, so it also counts as NP-hard. Clearly, NP-hard measures only a lower bound on difficulty — not verifiability or solvability; it is a ruler that measures hardness alone.
+
+
+    Draw the four's relations as a containment diagram in words. From the inside out: P is innermost — it is both easy to solve and easy to verify; NP circles every problem that is easy to verify, and P is its subset; NP-complete is the small patch inside the NP circle pressed against its top edge, intersecting the NP-hard circle; the NP-hard circle is the largest, spilling outward beyond NP, and the intersection is exactly NP-complete. Memorize this diagram and every concept in this lesson falls into place; whether P equals NP is still unknown, so whether the territory between P and NP-complete in the diagram truly exists is exactly the next section's millennium problem.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: "Chapter 34.3 NP-completeness and reducibility (the distinction between the definitions of NP-hard and NP-complete)"
+    claim: NP-hard requires only that every NP problem can be reduced to it, not that it is itself in NP; NP-complete is the intersection of the two
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-13
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "The containment relations of the four, circle inside circle from the inside out — the intersection is NP-complete"
+    rows:
+    - label: P
+      cells:
+      - v: Easy to solve and to verify
+        mark: found
+      - v: Innermost in NP
+    - label: NP-complete
+      cells:
+      - v: In NP
+      - v: And NP-hard
+        mark: found
+    - label: NP-hard
+      cells:
+      - v: Only hardness guaranteed
+        mark: active
+      - v: Can spill outside NP
+        mark: active
+  log:
+  - mode: Division of labor
+    event: "The division is drawn: complete means hard plus easy to verify — drop the easy-to-verify half and it is merely hard."
+- id: p-vs-np
+  title: "P vs. [[NP]]: the wall with a million-dollar bounty"
+  tldr: "The whole lesson gathers into one question: does verifying fast necessarily mean finding fast? This step looks at this wall's official price tag and the mainstream conjecture, then lands on why an ordinary person should care — modern cryptography's sense of security is bet precisely on easy-to-verify, hard-to-find; along the way it corrects a common misreport: factoring large integers is not believed to be NP-complete."
+  body: >-
+    Gather the whole lesson into one question: does P equal NP? In human terms — can every problem whose answer can be verified quickly also have its answer found quickly? If they are equal, the entire wall this lesson describes vanishes in an instant, and every NP-complete problem gains a polynomial algorithm; if they are not equal, the wall is proved mathematically real, and that territory of easy-to-verify, hard-to-find is an inherent structure of the universe. Since the problem was formally posed in 1971, neither direction has been proved by anyone; it is the most famous open problem in computer science.
+
+
+    Its weight carries an official price tag. In 2000, the [[Clay|Clay 数学研究所]] Mathematical Institute listed P versus NP as one of the seven [[Millennium Prize Problems|千禧年大奖问题]], and the first person to give a complete, correct solution receives 1 million US dollars; of the seven problems, only one has been solved to date, and P versus NP is not among them. The mainstream of the field generally conjectures that P does not equal NP — that the wall is real. The reason is plain: so many clever people have searched for a shortcut for half a century and found nothing; but a conjecture is not a proof, and until a proof lands, engineers can only arrange their work as if the wall is real.
+
+
+    Why should an ordinary person care about this wall? Because modern cryptography's sense of security is bet on easy-to-verify, hard-to-find. Multiplying two large primes together is a moment's work, and verifying the product takes one multiplication; factoring the product back into primes, by contrast, has no known fast method — online banking and encrypted communication borrow exactly this asymmetry. One point must be stated precisely here: the problem of factoring large integers is in NP and its answers are easy to verify, but it is not believed to be NP-complete, and may not even remain uncomputable-fast forever; it merely happens to stand on an open patch of ground beside the wall. Calling factoring NP-complete is a common game of telephone; this lesson corrects it deliberately — the wall's shape is far finer than the slogan.
+  derivation: original
+  sources:
+  - ref: clay-p-vs-np
+    locator: "The Millennium Prize Problems overview and the P versus NP problem page (the official statement written by Cook)"
+    claim: P versus NP is one of the Millennium Prize Problems announced by the Clay Institute in 2000, with a prize of 1 million US dollars, and remains unsolved
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-13
+  - ref: sipser
+    locator: Chapter 7.3 The P versus NP question
+    claim: Whether P equals NP is still undecided; factoring large integers is in NP but is not believed to be an NP-complete problem
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-13
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "The wall's two faces: on one side, the asymmetry cryptography borrows; on the other, an unproved proof"
+    rows:
+    - label: If P equals NP
+      cells:
+      - v: Every NP-complete problem becomes solvable
+        mark: active
+      - v: Many cryptographic assumptions collapse
+        mark: active
+    - label: If P does not equal NP
+      cells:
+      - v: The wall is proved real
+        mark: found
+      - v: Approximation and heuristics rule long-term
+    - label: Status
+      cells:
+      - v: Unproved
+      - v: A 1-million-dollar bounty
+  log:
+  - mode: Undecided
+    event: "The attitude is set: in engineering, arrange the work as if this wall is real; in theory, admit that it has not yet been proved."
+- id: practice
+  title: "The engineer's discipline for coping, and the subject's close"
+  tldr: "The final section lands back in engineering: recognizing [[NP]]-completeness is not surrender — it is the signal to switch playbooks. This step lays the menu out — approximation, heuristics, special-case structure, [[parameterization|参数化]], mature solvers — then punctures a paradox: these problems often run very fast on real instances, because NP-completeness speaks of the worst case."
+  body: >-
+    The final section lands back in engineering. On recognizing that a problem is NP-complete, the correct move is not to keep staying up nights hunting for an exact polynomial algorithm, but to switch playbooks at once. The first tier is approximation algorithms — give up optimality and guarantee not being too far off; for example, [[vertex cover|顶点覆盖]] has a simple two-fold approximation: pick an edge and take both its ends, using at most twice the optimal number of vertices. The second tier is heuristics and metaheuristics — [[simulated annealing|模拟退火]], [[genetic algorithms|遗传算法]], and local search guarantee no optimality, yet often give good-enough solutions on real data, and the production systems for scheduling and route planning mostly run on them. The third tier is exploiting special-case structure: on a tree, on a planar graph, or when some parameter is very small, the problem often becomes solvable again — parameterized algorithms are exactly about locking the exponential explosion inside the cage of a small parameter.
+
+
+    One paradox still needs puncturing. [[SAT]] is an NP-complete problem, yet real-world SAT solvers often handle industrial instances with millions of variables quickly, because real instances carry a great deal of structure and are far from the worst case. NP-completeness speaks of no shortcut in the worst case; it does not pronounce a death sentence on every instance. So the complete version of the engineering discipline is: first recognize the fingerprint, then look at the scale and the structure — solve small scale exactly as usual, hand medium scale to a mature solver, and put approximation and heuristics on large scale, writing the worst-case expectation into the plan rather than pretending it does not exist.
+
+
+    The subject closes here. Starting from hashing and binary search, these ten lessons kept learning how to compute problems faster; the final lesson learns to recognize which problems cannot be made fast, and how to walk around them gracefully when they cannot. Knowing how to optimize is a skill; knowing when to stop optimizing and to spend the energy on approximation quality and problem modeling is the more expensive skill. The wall does not disappear because you ignore it — seeing it clearly is, precisely, the last tool this course leaves you.
+  derivation: original
+  sources:
+  - ref: garey-johnson
+    locator: "Chapter 6, Coping with NP-complete Problems (an overview of coping strategies)"
+    claim: The standard responses to NP-complete problems include approximation algorithms, exploiting subproblem structure, and heuristic methods
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-13
+  - ref: clrs
+    locator: "Chapter 35, Approximation Algorithms (35.1, the two-fold approximation for vertex cover)"
+    claim: Vertex cover has a simple polynomial-time two-fold approximation algorithm, and approximation is one of the standard routes for coping with NP-completeness
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-13
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "The switch-playbook menu after recognizing NP-completeness — choose by scale and structure"
+    rows:
+    - label: Small scale
+      cells:
+      - v: Exact solving as usual
+        mark: found
+    - label: Medium scale, with structure
+      cells:
+      - v: Constraint solvers such as SAT
+        mark: found
+    - label: Large scale
+      cells:
+      - v: Approximation algorithms
+      - v: Heuristics and metaheuristics
+    - label: Very small parameter
+      cells:
+      - v: Parameterization
+      - v: Exploit special-case structure
+  log:
+  - mode: Close
+    event: "The subject closes on one line: stop grinding on the exact solution, and turn the energy to approximation quality and problem modeling."
+level: 进阶
+minutes: 34
+prereq:
+- dsa/dynamic-programming
+- dsa/greedy
+objectives:
+- Use the growth accounts of polynomial vs. exponential to judge whether a brute-force algorithm is feasible at a given scale
+- Rewrite optimization problems such as the traveling salesman and the knapsack as decision problems, and state the verification condition for a problem to belong to NP
+- Use the direction of a reduction to judge which problem is harder, and explain NP-completeness's shared-glory structure
+- On recognizing an NP-complete problem, list the five coping routes of approximation, heuristics, special-case structure, parameterization, and solvers
+aiLink: Large models hit this same wall when solving problems — on combinatorial optimization and planning tasks, a model leans on heuristic search and on calling SAT and planning solvers as a backstop, rather than truly having a polynomial exact algorithm. Understand NP-completeness and you understand why intelligent systems outsource hard problems to solvers, and why they can promise only good enough, never optimal.
+design:
+- mechanism: Decision problems as the common currency — every problem is first rewritten as a yes-or-no question answering only yes or no, so the answer is unified into a single bit, and only then can difficulty be compared, verification be uniformly defined, and reduction have a common interface
+  problem: Optimization problems' answers come in every form — a shortest path is a number, a course schedule is a table, a coloring is an assignment — and with different forms there is no way to compare directly who is harder, still less to define uniform rules for verification and translation; the entire theory of difficulty cannot even lay its foundation flat
+  choice: Add a threshold to an optimization problem and rewrite it as a decision version — the traveling salesman asks whether there is a route of at most K, the knapsack asks whether a packing of at least V can be made — and use threshold binary search to guarantee that the decision and optimization versions are equivalent in difficulty in the polynomial sense; the alternative is building the theory directly on the optimization forms, whose interfaces are doomed to fragment
+  tradeoff: The rewrite drops the information of the optimum itself, so every search for the optimum must call the decision version repeatedly for several extra rounds; in exchange, the whole theory shares one set of definitions and every later conclusion can be stacked on the same foundation — a trade that half a century of practice has proved extremely worthwhile
+  root: The root cause is that comparison needs a common measure; a yes-or-no question presses the answer space down to the smallest single bit, so all of a problem's difficulty can only hide in the search process — with nowhere to hide, difficulty becomes, for the first time, something that can be discussed precisely and passed between problems
+- mechanism: Reduction proves relative difficulty while bypassing absolute lower bounds — translate A into B and borrow B's solver to solve A, weaving the relative conclusion that B is at least as hard as A into a network along which difficulty is transmitted
+  problem: Proving directly that some problem has no polynomial algorithm is a millennium-scale difficulty — to this day nobody has completed such an absolute lower-bound proof for any natural problem; insist on proving the lower bound first and then talking about difficulty, and the whole field cannot move an inch
+  choice: Prove relative difficulty instead — it takes only a polynomial-time translation that lets a known hard problem parasitize the new problem, and the difficulty is transmitted along the reduction chain; the alternative is hard-proving a lower bound separately for every problem, for which there is neither a tool nor a precedent
+  tradeoff: A relative conclusion is forever conditional — it says that if B is solvable then A is solvable, not that A is absolutely unsolvable; the whole network ultimately hangs on the undecided question of whether P equals NP, and however dense the network, it cannot substitute for that final proof
+  root: The root cause is that the transmission of difficulty is easier to prove than its origin — a translation is a concrete object that can be constructed by hand, while the non-existence of a fast algorithm is a negation over all possible algorithms; the asymmetry between construction and negation is the entire reason the reduction method exists
+- mechanism: NP-completeness's shared-glory structure — this hardest batch of problems can all be reduced to each other, so if any one of them is solved in polynomial time, every NP problem is solved along with it, and conversely none of them can become simple on its own
+  problem: If every hard problem were hard in its own way, researchers would forever be scattered across thousands of isolated islands, attacking them one by one, unable either to concentrate their force or, on meeting a new problem, to judge quickly whether it is worth grinding on
+  choice: Use reduction to link this hardest batch into an equivalence class — a new problem need only join the chain to inherit the whole class's conclusions; the first anchor proof that Cook and Levin gave SAT gave the chain its starting point; the alternative is studying each problem independently, with conclusions that cannot migrate
+  tradeoff: Shared glory also means a shared-fate kind of risk pooling — a great deal of practice in cryptography and optimization engineering defaults to this batch being unsolvable, so if any link in the chain is ever broken through, what is struck is not one problem but an entire landscape of technology
+  root: The root cause is that the transitivity of reduction turns difficulty into a quantity that can flow; this batch of problems shares a single difficulty waterline, and when the waterline rises or falls it necessarily moves for all of them together — which is both why they are worth attacking in concentration and why engineers should avoid them in concentration
+quiz:
+- q: At n = 100, roughly how far apart are n cubed and 2 to the 100th power?
+  options:
+  - About 100 times
+  - About 10 to the 6th power times
+  - About 10 to the 24th power times
+  - Roughly the same size
+  answer: 2
+  explain: n cubed is 10 to the 6th power, and 2 to the 100th power is about 1.27 × 10 to the 30th power — a difference of about 10 to the 24th power times; even at 10 to the 9th power operations per second it would take about 4 × 10 to the 13th power years.
+- q: What is the condition for a decision problem to belong to NP?
+  options:
+  - A polynomial-time algorithm already exists that solves it
+  - A yes answer comes with a piece of evidence that is not long, which can be verified in polynomial time once obtained
+  - Its number of candidate answers is exponential
+  - It can be reduced to SAT
+  answer: 1
+  explain: NP's intuitive definition is exactly easy to verify — both the evidence's length and the verification time are polynomial; being solvable quickly is P's condition, which is stronger than NP.
+- q: Problem A is known to reduce to problem B in polynomial time. What is the correct conclusion?
+  options:
+  - A is at least as hard as B
+  - B is at least as hard as A
+  - A is as easy as B
+  - The two's difficulties are unrelated
+  answer: 1
+  explain: A reduction translates A's instances into B's instances and borrows B's solver to solve A, which shows that A's difficulty does not exceed B's — B is at least as hard as A; reverse the direction and every conclusion reverses.
+- q: Which of the following statements about factoring large integers and the knapsack's DP is correct?
+  options:
+  - Factoring large integers is an NP-complete problem, and cryptography bets on it
+  - The knapsack's O(nW) is a polynomial algorithm, so the knapsack is not among the NP-complete problems
+  - Factoring large integers is in NP but has not been proved NP-complete, and the knapsack's O(nW) is pseudopolynomial — polynomial in the numeric value rather than in the number of bits
+  - Both have already been proved to belong to P
+  answer: 2
+  explain: Factoring is easy to verify and in NP, but has not been proved NP-complete; the knapsack DP's running time grows with the numeric value of W, while the input occupies only about log W bits, so it is pseudopolynomial and does not overturn its NP-completeness.

@@ -1,0 +1,537 @@
+id: dsa/dynamic-programming
+subject: dsa
+slug: dynamic-programming
+order: 8
+status: published
+license: CC-BY-4.0
+title: "Dynamic Programming: Store Subproblem Answers Instead of Recomputing Them"
+summary: DP (dynamic programming) is not a single algorithm but a way of looking at problems — when a problem splits into overlapping subproblems and the subproblems' optima combine into the global optimum, store the sub-answers to avoid recomputing them.
+premise: Some problems, computed by direct recursion, solve the same small problem over and over and waste enormous time doing it; dynamic programming exists to fix exactly that, by storing small problems' answers and fetching them next time. This lesson looks at it through three examples — the Fibonacci sequence, to see how severe repeated computation gets; the 0/1 knapsack, to see how a state is defined; and the longest increasing subsequence, to see what a state looks like when it hangs on a position.
+position: This lesson is the only stop in the "Remember the Subproblems' Answers" section. It follows the binary search tree's way of splitting, where each comparison rules out a whole subtree, and points out that when the split-out subproblems overlap each other, splitting without storing just recomputes them again and again. After this lesson you will be able to first check a problem with the two tests of [[optimal substructure|最优子结构]] and [[overlapping subproblems|子问题重叠]] to judge whether DP applies, and to write, for the
+  0/1 knapsack, a state defined by items and capacity together with a transition that takes the larger of taking and not taking.
+bridge:
+  prev: The previous lesson, on balanced trees, used rotations to lock the tree height at logarithmic so operations would not degrade; this lesson stares instead at a recursion tree whose size runs out of control — naive Fibonacci recursion recomputes subproblems like fib(3) many times over precisely because it keeps no table.
+  next: Storing a table rescues overlapping subproblems, but the table itself is a cost — once there are too many states it grows too large to store. So before leaving this section, one more question — is there a class of problems where each step's choice can be settled on the spot, never needs revisiting, and does not need a table at all?
+overview:
+- key: In one sentence
+  value: The four-piece set — state definition, transition equation, base cases, and computation order — is indispensable. First say clearly what a state actually means, then write how it is derived from smaller states, then fix the values of the first few states, and finally arrange the order in which to fill them in; get the order wrong and a state may not have been computed yet when you need it.
+- key: Two prerequisites
+  value: Using [[DP]] takes two prerequisites. The first is [[optimal substructure|最优子结构]] — the big problem's optimal solution contains the small problems' optimal solutions inside it. The second is [[overlapping subproblems|子问题重叠]] — the same small problem gets solved repeatedly. Without overlap, storing buys nothing; without optimal substructure, what you assemble is not the optimum.
+- key: Two implementations
+  value: The two implementations are equivalent. One is top-down [[memoization|记忆化]] — recursion plus a cache. The other is bottom-up iteration — filling a table in order. The former computes only the states that are actually used; the latter has no recursion overhead. Which one to pick depends on the shape of the problem, but the answers they produce are exactly the same.
+- key: Difference from divide and conquer
+  value: Divide and conquer's subproblems do not overlap each other — in merge sort, the left and right halves are each sorted on their own and do not affect each other. Overlapping subproblems are DP's territory. The test is direct — draw the recursion tree, and if the same small problem appears many times in the tree, its answer should be stored.
+- key: Difference from greedy
+  value: A greedy algorithm picks one optimum at each step, and the pick cannot be undone; DP computes every candidate sub-state and then takes the best. So DP is slower but steadier, while greedy is faster but first needs a proof that picking the local optimum at each step never misses the global optimum.
+- key: Complexity
+  value: The complexity equals the number of states times the transition cost per state; get the state design wrong and no amount of later optimization helps. A state defined too coarsely drops information that is needed, and one defined too finely makes the state count explode — saying the state's one sentence clearly matters far more than tuning constants afterwards.
+visual: datastate
+logColumns:
+- key: mode
+  label: Current state
+- key: event
+  label: What happened
+steps:
+- id: why
+  title: "Seeing from Fibonacci how expensive repetition is"
+  tldr: "First, see how expensive it is not to keep a table — naive Fibonacci recursion recomputes the same subproblem again and again. This step draws the recursion tree and counts the repeated positions one by one, then shows why adding just one table — check before computing, store after computing — pulls the total cost back from exponential to linear."
+  body: >-
+    fib(5) calls fib(4) and fib(3), and fib(4) calls fib(3) again — the same subproblem appears many times in the recursion tree, and the total number of calls grows exponentially with n. The algorithmic idea is not wrong; the same answer is simply being recomputed over and over. Store each computed sub-answer in a table ([[memoization|记忆化]]) and each subproblem is computed only once, and the total cost drops to O(n) at once. The whole magic of [[DP]] is this one sentence — spot the overlapping subproblems, and make sure each is solved only once.
+
+
+    Put the repetition into concrete numbers. In fib(5)'s recursion tree, fib(3) appears 2 times, fib(2) appears 3 times, and fib(1) and fib(0) each appear many times; the total node count grows roughly like 1.6 to the power of n, and by n = 50 the naive recursion's call count is already too large to ever finish — while the distinct subproblems number only n + 1. Memoization changes only two places — before computing, check the table first and return at once if the answer is there; after computing, store the result back into the table before returning. The recursion structure does not change by a single character, so each subproblem is genuinely computed once, a table lookup is O(1), the total cost becomes
+    O(n), and the only extra price is a table of size n.
+
+
+    What is saved is not a constant factor but a leap in magnitude, from exponential to linear, and it comes from a single source — no recomputation. Conversely, if the subproblems do not overlap at all — merge sort's two halves each compute their own — storing a table is pure waste. DP's first lesson is to confirm first that the repetition really exists.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: "Chapter 15, Dynamic Programming (memoization and optimal substructure)"
+    claim: Dynamic programming avoids repeated computation by saving subproblem solutions, and applies to problems with optimal substructure and overlapping subproblems
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "Naive recursion's repetition (fib(3) computed 2 times, worse as n grows) vs. each computed once with a table"
+    rows:
+    - label: Naive recursion
+      cells:
+      - v: fib(3) ×2
+        mark: active
+      - v: fib(2) ×3
+        mark: active
+      - v: Exponential calls
+    - label: Memoization
+      cells:
+      - v: fib(3) ×1
+        mark: found
+      - v: fib(2) ×1
+        mark: found
+      - v: O(n) in total
+        mark: found
+  log:
+  - mode: Motivation
+    event: "The motivation is set: dynamic programming is recursion plus an answer table — a subproblem that has been computed is never recomputed, and all the waste is plugged at this one spot."
+- id: conditions
+  title: "Two prerequisites: [[optimal substructure|最优子结构]] + [[overlapping subproblems|子问题重叠]]"
+  tldr: "A table cannot be used just anywhere. This step sets up two checks — can the big problem's optimum be assembled from the small problems' optima, and will the same small problem be used repeatedly? Only when both pass does [[DP]] take the stage; along the way, look at a counterexample that fails the checks, so DP does not get used on problems it should not touch."
+  body: >-
+    Optimal substructure — a problem's optimal solution contains its subproblems' optimal solutions. In the knapsack, the optimum at capacity c necessarily builds on the optima at smaller capacities; a shortest path's subpaths are also shortest (this property also sits behind Dijkstra and Bellman-Ford). Overlapping subproblems — the total number of subproblems is polynomial, and they are reused at high frequency. If the subproblems do not overlap at all (merge sort's two halves, for instance), that is divide and conquer and no table is needed; when the two prerequisites are not both met, DP does not apply either.
+
+
+    Optimal substructure has counterexamples too. In the longest simple path problem, the remaining subpath must avoid the points already used, so the subproblems constrain each other and cannot be optimized independently — which is exactly why it needs exponential search. Now quantify the overlap: the knapsack has n times
+    W states in total; with a table, each state is computed once, and the complexity is pressed down from exponential to the number of states times the transition cost.
+
+
+    One family relationship also needs clarifying. Greedy also requires optimal substructure, but it follows a single choice all the way down, while DP tries every choice and then compares. When some choice can be proved necessarily optimal, greedy is cheaper; when it cannot be proved, do DP honestly.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 15.3 Elements of Dynamic Programming
+    claim: Optimal substructure and overlapping subproblems are the two elements that make dynamic programming applicable
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: Pass these two gates first, then talk about how to write the state
+    rows:
+    - label: Checklist
+      cells:
+      - v: Can sub-optima assemble the global optimum?
+      - v: Will subproblems be solved repeatedly?
+      - v: Both yes → DP
+        mark: found
+  log:
+  - mode: Prerequisites
+    event: "The two checks are set: on a problem without optimal substructure, forcing DP only produces a wrong answer — pass the checks first, then talk about states."
+- id: knapsack-state
+  title: "The knapsack problem: how to define the state"
+  tldr: "Both checks passed — on to the first complete problem, the 0/1 knapsack. This step does exactly one thing — state the state definition clearly: considering up to which item, with what capacity limit, what is the maximum value? Then hand-compute a few states with three items, to verify the definition drops no dimension."
+  body: >-
+    The 0/1 knapsack — n items, each with weight w and value v, a knapsack of capacity W, each item taken at most once; find the maximum total value. Greedy does not work (taking by value density gets blocked by a large item), but [[DP]] does. Define dp[i][c] as the maximum value considering only the first i items with capacity limit c. Look at item i — do not take it, and the answer is dp[i−1][c]; take it, provided c is at least w_i, and the answer is dp[i−1][c−w_i] plus v_i. Taking the maximum of the two is the transition equation; the base case is dp[0][*] = 0. The total number of states is n times W, each state transitions in O(1),
+    and the total complexity is O(nW).
+
+
+    Walk through what the states mean with three items, capacity W = 5, the items being weight 2 value 3, weight 3 value 4, and weight 4 value 5. dp[1][5] looks only at the first item — it fits, value 3. dp[2][5] looks at the first two — not taking the second item gives 3, taking it gives
+    dp[1][2] + 4 = 7, and the maximum is 7, corresponding to taking both of the first two items at total weight exactly 5. dp[3][5] compares again — not taking the third item gives 7; taking it gives dp[2][1] + 5, and at capacity 1 neither of the first two items fits, so the value is 0 and the result is 5; the maximum is still 7.
+
+
+    This example shows that neither of the state's two dimensions can be dropped — record only the capacity and not how many items have been considered, and the same item gets counted repeatedly. Also note that W appearing in the complexity means this is [[pseudopolynomial|伪多项式]] — when W grows to 10 to the 9th power, the table cannot even be allocated, and it is time to switch to a state defined by value, or to an approximation algorithm.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: "Chapters 15/16, discussion of the knapsack problem (the 0/1 vs. fractional contrast)"
+    claim: The 0/1 knapsack is solved optimally with a DP state defined by items and capacity; greedy does not apply to the 0/1 knapsack
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "The whole transition: take or don't take, take the larger"
+    rows:
+    - label: Don't take item i
+      cells:
+      - v: dp[i−1][c]
+    - label: Take item i
+      cells:
+      - v: dp[i−1][c−wᵢ] + vᵢ
+    - label: dp[i][c]
+      cells:
+      - v: = max of the two
+        mark: found
+  log:
+  - mode: State
+    event: "The state is pinned down: the state's two dimensions decide the table's size and the total complexity, and dropping either dimension counts the same item repeatedly."
+- id: knapsack-fill
+  title: "Filling the table: why the order matters"
+  tldr: "The state and the transition are in place; this step looks at why the order of filling the table cannot be written carelessly — each row depends only on the previous row, so computing from small to large never reads an empty value. Finally, when the table is compressed to one dimension, the capacity must be traversed in reverse — the difference between forward and reverse order is the entire dividing line between the 0/1 knapsack and the unbounded knapsack."
+  body: >-
+    In a bottom-up implementation, the transition references only the previous row, so computing from i = 1 up to n is always safe (every value needed has already been computed). Going further, row i uses only row i−1, so the table can be compressed into a one-dimensional array, where dp[c] means the optimum at capacity c after the items processed so far have been considered. One-dimensional compression has a famous trap — if c is traversed from small to large, the same item gets used again within the current round (it becomes the unbounded knapsack); c must be traversed from large to small, so that every c references the previous round's value. This one line's direction is the entire dividing line between the 0/1 and unbounded knapsacks in code.
+
+
+    After the compression to one dimension, the dependency becomes a left-right relation within the same row — traversing in reverse guarantees that the dp[c − w] you read is still the previous row's old value, while traversing forward reads the new value just written in this row, which amounts to allowing the current item to be taken once more. Forward order corresponds exactly to the unbounded knapsack (an unlimited number of each item) — the two knapsacks differ in code by nothing but a traversal direction.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: "Chapter 15, bottom-up computation order"
+    claim: The computation order of a DP table must guarantee that the subproblems a transition references are solved first
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "One-dimensional knapsack: reverse capacity traversal is the key to 0/1"
+    rows:
+    - label: c forward (wrong)
+      cells:
+      - v: This round's new value gets reused
+        mark: active
+      - v: The item gets taken repeatedly
+    - label: c reverse (right)
+      cells:
+      - v: References the previous round's value
+        mark: found
+      - v: Each item at most once
+        mark: found
+  log:
+  - mode: Implementation
+    event: "The filling order is pinned down: with the same transition, one-dimensional forward order corresponds to the unbounded knapsack and reverse order to the 0/1 knapsack — the direction is the entire dividing line."
+  code:
+    lang: typescript
+    code: |-
+      // 0/1 knapsack: one-dimensional DP, capacity must go in reverse
+      function knapsack(w: number[], v: number[], W: number): number {
+        const dp = new Array(W + 1).fill(0);   // dp[c]: maximum value at capacity c
+        for (let i = 0; i < w.length; i++) {
+          for (let c = W; c >= w[i]!; c--) {   // reverse: ensures each item is used only once
+            dp[c] = Math.max(dp[c]!, dp[c - w[i]!]! + v[i]!);
+          }
+        }
+        return dp[W]!;
+      }
+    note: Change the inner loop to forward order and the semantics become the unbounded knapsack
+    highlight: 5
+- id: sequence
+  title: "Sequence [[DP]]: [[LIS]] and [[edit distance|编辑距离]]"
+  tldr: "The knapsack's state hangs on items and capacity; this step switches to another family of problems, where the state hangs on positions and prefixes. First, see how the longest increasing subsequence looks back for a predecessor it can attach to; then see how the edit distance's cell chooses among its three neighbors — left, top, and top-left; and finally work the transitions through with two small examples."
+  body: >-
+    Another large family is sequence problems. The longest increasing subsequence (LIS) — dp[i] is the length of the longest increasing subsequence that must end at a[i], and the transition looks back at every j < i with a[j] < a[i] and takes the maximum of dp[j] + 1,
+    which is O(n²); there is also an O(n log n) solution that maintains a tails array plus binary search (echoing the binary search lesson). Edit distance ([[Levenshtein]]) — dp[i][j] is the minimum number of operations to turn the first i characters of string A into the first j
+    characters of string B, and the transition is a three-way choice — delete (dp[i−1][j] + 1), insert (dp[i][j−1] + 1), or replace-or-keep (dp[i−1][j−1] + whether this position matches). The [[diff]] tool, spelling correction, and DNA alignment are all variants of it.
+
+
+    Add a worked example for LIS, with the sequence 3, 1, 2. The dp for ending at 3 is 1, and for ending at 1 it is also 1; at 2, look back for smaller elements — 3 does not qualify, 1 does — so dp equals the dp for ending at 1 plus 1, which is 2, and the table's maximum, 2, is the answer, corresponding to the subsequence
+    1, 2. Give edit distance a row of feel as well: to turn abc into abd, only the last character differs among the three positions, c versus d, so the replace transition gives dp[2][2] + 1, and dp[2][2] is 0 because ab and ab are identical — a total cost of 1, matching intuition.
+
+
+    Both families hang their states on a prefix or a position, and their transitions look back at only finitely many neighbors — that is sequence DP's fingerprint. One last reminder: the O(n log n) optimization for LIS maintains the smallest possible tail for each subsequence length; it cannot directly produce the subsequence itself, and reconstructing the path takes separately stored predecessors.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: "Chapter 15, longest common subsequence and edit-distance-type problems"
+    claim: Sequence problems can be solved with DP over states defined by prefixes, and edit distance is built from the three transitions of insertion, deletion, and substitution
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "The edit distance table: each cell comes from its three neighbors — left, top, top-left"
+    rows:
+    - label: dp[i][j]
+      cells:
+      - v: Delete dp[i−1][j]+1
+      - v: Insert dp[i][j−1]+1
+      - v: Replace dp[i−1][j−1]+?
+        mark: found
+  log:
+  - mode: Sequences
+    event: "This family is clear: the state is defined on a prefix, and the transition looks back only at nearby cells or predecessors."
+- id: lcs
+  title: "Longest common subsequence: a full walk through the 2D table"
+  tldr: "The [[edit distance|编辑距离]] table takes the minimum of three neighbors; this step looks at its close relative, the longest common subsequence — when the last characters match, take the top-left plus one; when they differ, take the larger of top and left. Walk the whole table with two short strings, then see, once the answer is computed, how to walk backwards and assemble the subsequence itself."
+  body: >-
+    The longest common subsequence, [[LCS]], asks for a string of characters picked from each of two strings in their original order, identical in both, not necessarily contiguous. The state is dp[i][j], the LCS length of the first i characters of A and the first j characters of B, and the transition has two cases — if the last characters are the same, dp equals dp[i − 1][j − 1] + 1; if they differ, take the larger of dp[i − 1][j] and dp[i][j − 1]. The base case is an answer of 0 when either string is empty.
+
+
+    Walk the whole table with A = abc and B = ac. At i = 1, the character is a — at j = 1, a matches a, giving 1; at j = 2, c differs, so take the larger of left and top, giving 1. At i = 2, the character is b, which matches neither a nor c, so the whole row copies the maximum from above and stays at 1. At i
+    = 3, the character is c — at j = 1 the larger value is 1; at j = 2 the last characters, both c, match, so take dp[2][1] + 1 = 2. In the end dp[3][2] = 2, corresponding to the common subsequence ac, and every step's origin can be pointed to in the table.
+
+
+    Reconstructing the actual subsequence means walking backwards from the bottom-right corner — on a match, collect the character and move to the top-left; on a mismatch, move in the direction of the larger value. LCS and edit distance are two readings of the same table — the text differences the [[diff]] tool displays are, underneath, exactly this family computing which lines to keep and which to add or delete.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 15.4 Longest Common Subsequence
+    claim: The longest common subsequence is solved with a state defined by the two strings' prefixes and two transitions for matching or differing last characters, and the subsequence itself can be recovered from the table by backtracking
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "The LCS table for abc and ac — the 2 in the bottom-right comes from the top-left plus 1"
+    rows:
+    - label: Empty row
+      cells:
+      - v: "0"
+      - v: "0"
+      - v: "0"
+    - label: a
+      cells:
+      - v: "0"
+      - v: "1"
+      - v: "1"
+    - label: b
+      cells:
+      - v: "0"
+      - v: "1"
+      - v: "1"
+    - label: c
+      cells:
+      - v: "0"
+      - v: "1"
+      - v: "2"
+        mark: found
+  log:
+  - mode: LCS
+    event: "This table is walked through: on a matching end, take the top-left plus one; on a mismatch, take the larger of top and left — the bottom-right corner is the answer."
+- id: matrix-chain
+  title: "Matrix chain multiplication: enumerate by the last split"
+  tldr: "The states so far were all prefixes; in this step the state becomes an interval — the minimum cost of multiplying a chain of matrices. First compute how two parenthesizations of the same chain differ by a factor of ten, then see how the transition enumerates the position of the last multiplication, and why the table must be filled in order of increasing interval length."
+  body: >-
+    Matrix chain multiplication asks not for the product's value but for the order of parenthesization. Three matrices have dimensions, in sequence, 10 by 100, 100 by 5, and 5 by 50. Multiplying the first two first costs 10 × 100 × 5 = 5000, then multiplying by the third costs 10 × 5 × 50 = 2500, for a total of
+    7500; multiplying the last two first costs 100 × 5 × 50 = 25000, plus 10 × 100 × 50 = 50000, for a total of 75000. The same chain, with only the parentheses moved, differs by a factor of ten — and the more lopsided the dimensions, the larger the gap. This is not a constant-factor optimization but a matter of magnitude.
+
+
+    The state is defined by interval — dp[i][j] is the minimum cost of multiplying matrices i through j — and the transition enumerates the position k of the last multiplication, splitting the interval into i through k and k + 1 through j; the cost is the two parts' optima plus the merge cost, which the product of the three dimensions gives, and the minimum is taken over all k. A single interval's transition has to try every split point inside it, so the total complexity is O(n cubed) — the number of states is quadratic, each state's transition is linear, and the accounts match exactly.
+
+
+    The computation order is this problem's difficulty: dp[i][j] depends on the answers for shorter intervals, so the table must be filled by interval length from small to large — compute length 2 first, then length 3, advancing along the diagonal; filling row by row on a whim reads empty cells. Its difference from the knapsack is that the subproblems are intervals rather than prefixes — recognizing that a state can be an interval is the mark of moving from sequence
+    [[DP]] to interval DP.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 15.2 Matrix-Chain Multiplication
+    claim: Matrix chain multiplication finds the optimal parenthesization with an interval state and a transition that enumerates the last split point, and must be computed in order of increasing interval length
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "The same chain, two parenthesizations: 7500 vs. 75000"
+    rows:
+    - label: First two first
+      cells:
+      - v: 5000 + 2500
+      - v: Total 7500
+        mark: found
+    - label: Last two first
+      cells:
+      - v: 25000 + 50000
+      - v: Total 75000
+        mark: active
+    - label: Transition
+      cells:
+      - v: Enumerate split k, take min
+  log:
+  - mode: Interval DP
+    event: "The interval family is set: the transition enumerates the last split, and the table must be filled in order of increasing interval length."
+- id: space-compression
+  title: "Space compression: when can the table be pressed into one row?"
+  tldr: "How small the table can be pressed depends on exactly which rows and columns the transition references. This step checks the dependency shapes of the tables above one by one — what references only the previous row can roll, what references only the previous two entries needs just two variables, and what enumerates split points cannot be pressed at all; finally, reckon what the space saved by compression is traded for."
+  body: >-
+    There is only one criterion for space compression — look at exactly which rows and columns the transition references. Each row of the knapsack references only the previous row, so keeping two rows rolling, or even pressing it into one dimension, is safe. [[Edit distance|编辑距离]] and [[LCS]]
+    reference three neighbors — left, top, and top-left — so they likewise need only the previous row and the current row; a [[rolling array|滚动数组]] suffices, and when pressing to one dimension the top-left value must be stored separately, because updating the current row overwrites it — forgetting to store it is the most common compression bug.
+
+
+    But compression is not free: once the row dimension is pressed away, the concrete solution can no longer be recovered from the table by backtracking. When the knapsack must output which items were taken, or LCS must output the subsequence itself, either keep the whole table or store decision records separately. Fibonacci is the other extreme — it references only the previous two entries, so two variables suffice; the lower bound of compression is likewise decided by the dependency shape.
+
+
+    Matrix chain multiplication cannot be pressed at all — its transition enumerates split points, so any shorter interval may be referenced, and the whole triangular table must be kept. The conclusion: look at the dependency shape first, then decide how to press; saving space always ranks after getting it right.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: "Dynamic programming lectures (computation order and space optimization)"
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: A DP's space can be compressed according to the range its transitions depend on; when it depends only on the previous layer of states a rolling array works, but the ability to recover the concrete solution from the table is lost
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "The dependency shape decides the pressing method — not every table can be pressed"
+    rows:
+    - label: Knapsack and edit distance
+      cells:
+      - v: Previous row only
+      - v: Can roll
+        mark: found
+    - label: Fibonacci
+      cells:
+      - v: Previous two only
+      - v: Two variables
+        mark: found
+    - label: Matrix chain
+      cells:
+      - v: Any shorter interval
+      - v: Cannot be pressed
+        mark: active
+  log:
+  - mode: Space
+    event: "The compression criterion is pinned down: look at the transition's dependency shape first, then decide how many rows it can be pressed to — saving space always ranks after getting it right."
+- id: state-compression
+  title: "A peek at state compression: pack a set of switches into one integer"
+  tldr: "A state need not be a number or an interval — it can also be a set of switches. This step encodes n switches into an n-bit integer and looks at how the [[traveling salesman|旅行商问题]] problem transitions on such a state; estimate the state-count account first, then decide whether this method can be used at all."
+  body: >-
+    Some problems' states are inherently a set of switches — whether each cell of a board holds a piece, whether each element of a set is chosen. n switches make 2 to the power of n combinations. One combination can be encoded directly as an n-bit binary integer, a bit of 1 meaning chosen — this is state-compression
+    [[DP]]. Transitions use bitwise operations to enumerate subsets or check adjacency and conflicts; common ones are the [[lowbit]] trick for extracting the lowest 1 bit and bitwise AND to test whether two sets intersect, and all of these operations are constant-time.
+
+
+    The traveling salesman problem is its signature application — dp[S][i] is the shortest route whose visited set is S and which currently stops at i, and the transition adds in a point j that is not in S. The number of states is 2 to the power of n times n, and the transition must also enumerate the next point, so it is still computable up to around n = 20;
+    any larger and the state table blows up before the time does. This boundary is hard — estimate this account before writing anything.
+
+
+    Its relation to ordinary DP is a generalization of how a state is defined: a state can be any encodable structure — if it can be encoded, a table can be built; if a table can be built, transitions can be made. The price is equally plain — if the estimate does not pass, switch early to greedy, approximation, or heuristics.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: "Dynamic programming lectures (state compression and the traveling salesman problem)"
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: The traveling salesman problem can be solved with state-compression DP over states encoded by the visited set, with 2 to the power of n times n states, suitable only for small scale
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "Set S as a bitmask — 1 means visited"
+    rows:
+    - label: S = 0101
+      cells:
+      - v: Visited 0 and 2
+      - v: Currently at 2
+    - label: Transition
+      cells:
+      - v: Add point 1
+      - v: S becomes 0111
+        mark: found
+    - label: State count
+      cells:
+      - v: 2^n times n
+      - v: Bounded near n = 20
+        mark: active
+  log:
+  - mode: State compression
+    event: "State compression's boundary is drawn: if it can be encoded, a table can be built — but estimate the state count first, and if the estimate fails, switch to approximation or heuristics."
+- id: design
+  title: "Given a problem: the four-step design method"
+  tldr: "The examples are done — now collect them into a workflow you can use on a new problem: first define the state in one sentence, then write the transition, then fix the base cases and the traversal order, and finally count the complexity. This step spells out the four steps one by one, then names the three most common failure points — a state missing a dimension, base cases left unfilled, and the answer taken from the wrong cell."
+  body: >-
+    A practical mantra. One, the state — say in one sentence what each dimension of dp means and in which cell the answer lives. Two, the transition — how many possibilities does the last decision have (take or don't take, end with whom, where does the last step come from), and write one term for each. Three, the base cases — fill in the smallest states (the empty set, lengths 0 and
+    1) one by one, correctly. Four, the order — guarantee that the states a transition references are computed first (draw the dependency directions if needed). When you cannot write it, first solve the problem with brute-force recursion (the recursive function f
+    is the state's definition), then add a cache to it — [[memoization|记忆化]] and iteration are just two ways of executing the same state. Only at the end talk about space compression (the rolling array); do not write the logic wrong in order to save space first.
+
+
+    Add the three most common failure points. The first is a decision history hidden inside the state definition — for example, dp also depends on what was chosen last time, but that point is not written into the dimensions, so the transition gets contaminated; the fix is to add a dimension, not to patch. The second is filling only dp[0] as a base case while missing a whole row or column — [[edit distance|编辑距离]]'s first row and first column are exactly the costs of converting to and from the empty string, and leaving them unfilled shifts the whole table out of place. The third is taking the answer from the wrong position — some problems' answer is at dp[n][W], others need the maximum over a whole row; [[LIS]]'s
+    answer, for example, is the maximum over the whole table. Before delivering, go back to the state definition's one sentence and check which cell the answer actually lives in.
+
+
+    One more workflow suggestion: first fill the smallest table by hand on paper — n = 2 or 3 is enough. If the hand-fill is right, then write the code; this catches the vast majority of transition slips.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: "Dynamic programming lectures (state and subproblem design)"
+    claim: The DP design workflow is to define the subproblems, guess the choices, write the recurrence, and determine the computation order and complexity
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "Four steps: state → transition → base cases → order"
+    rows:
+    - label: Workflow
+      cells:
+      - v: State in one sentence
+      - v: Enumerate the last decision
+      - v: Fill base cases right
+      - v: Order preserves dependencies
+        mark: found
+  log:
+  - mode: Method
+    event: "The design workflow is collected: get the recursion-plus-cache version right first, then consider converting it to iteration and compressing the space."
+- id: ai-link
+  title: The connection to AI engineering
+  tldr: "Finally, shift the view to the engineering field: when decoding generated text, keeping only the highest-scoring few prefixes at each step is an approximation that truncates the [[DP]] table by width; value iteration in reinforcement learning is table-filling in the literal sense. This step looks at what each of these two applications keeps of DP, and what guarantee it gives up."
+  body: >-
+    Sequence generation cannot enumerate every sentence (there are exponentially many). [[beam search]] keeps only the k highest-scoring prefixes at each step, which amounts to truncating the DP table by width and trading exactness for feasibility (its relation to [[Viterbi]] is that Viterbi does exact DP on a hidden Markov model, while beam search is its engineering approximation). Reinforcement learning is even more direct — the [[Bellman equation|贝尔曼方程]] is a transition equation, and value iteration is bottom-up table-filling. Sequence alignment (from the era before attention), speech recognition decoding, and spelling correction are also all in the [[edit distance|编辑距离]] family. Once you can write an engineering problem as state plus transition, half the solution is already in hand.
+
+
+    The boundary between beam search and exact DP needs stating clearly: with a fixed beam width k, the prefixes it discards never come back, so the result is not guaranteed to be globally optimal; the larger k is, the closer it gets to the exact solution, but the computation and the memory grow with it, and a production system chooses k inside its latency budget. Viterbi
+    instead keeps, at each time step, the best prefix for every hidden state, and is an exact solution when the number of states is fixed. Value iteration in reinforcement learning is DP in the literal sense of filling a table while taking the best action along the way — except that the states come from the environment rather than from a problem statement.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: "Chapter 15 (background on the idea of Viterbi-style sequence decoding)"
+    claim: Exact dynamic programming over state transitions (such as Viterbi) is the standard method for sequence decoding, and beam search is its practical approximation
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "When exact DP is too wide, beam search truncates the table to k columns by score"
+    rows:
+    - label: Exact DP
+      cells:
+      - v: All prefix states
+      - v: Optimality guaranteed
+    - label: beam k=4
+      cells:
+      - v: Keep only the top 4 per step
+        mark: active
+      - v: Approximately optimal
+  log:
+  - mode: Approximation
+    event: "The approximation account is done: the wider the beam, the closer to the exact solution — and the higher the computation and memory, so a production system must choose the width inside its latency budget."
+level: 进阶
+minutes: 37
+prereq:
+- dsa/binary-search
+- dsa/merge-quick-sort
+objectives:
+- Judge whether a problem meets DP's two prerequisites
+- Independently write the 0/1 knapsack's state, transition, and one-dimensional optimization (including why reverse order)
+- Use the four-step method to design states and transitions for sequence problems
+aiLink: Beam search's approximate DP, reinforcement learning's Bellman equation, sequence alignment and decoding — DP is the most invisible fundamental skill in AI engineering. In interviews it is also one of the most frequent problem types, and state-design ability is exactly the watershed here.
+design:
+- mechanism: Why store a table instead of using pure recursion comes down to the subproblem-counting account — Fibonacci has only n + 1 distinct subproblems, yet naive recursion solves them exponentially many times over; storing the table pins each subproblem to being computed exactly once, and the account turns from exponential to linear at once
+  problem: The recursive formulation itself is not wrong; what is wrong is that the same subproblem gets expanded again and again along different call paths, and once n grows a little the call count explodes like a power of the golden ratio — the idea is right and the answer is right, yet the program never finishes. That is the real bill pure recursion has to face
+  choice: Add a cache to the recursion to get memoization, or fill a table bottom-up in dependency order to get iteration; the two routes share the same set of states and transitions — the former computes only the states that get used, the latter computes all states in one pass — and which to choose depends on the state utilization rate and implementation habit
+  tradeoff: Storing the table trades memory on the order of the state count for exponential time, and adds the mental cost of defining the state and determining the order; if the subproblems in fact do not overlap, the table is pure waste — so before storing, verify that the overlap really exists
+  root: The root cause is that the amount of computation is decided by the number of distinct subproblems, not by the number of calls; repeated calls produce no new information at all. DP simply turns this common sense into a discipline — each distinct subproblem is solved exactly once, no more and no less
+- mechanism: A DP's complexity equals the number of states times each state's transition cost, so how the state is defined decides, before the first line of any transition is written, whether the problem is polynomially solvable or whether the state space is so large that no table can even be allocated — beyond recovery
+  problem: One dimension too few in the state drops information and contaminates the transition; one dimension too many multiplies the state count by an order of magnitude at once. The knapsack writes the capacity limit as a numeric dimension and gets a pseudopolynomial — when the capacity reaches a billion, the table simply cannot be allocated. Choose the dimensions wrong and the whole game is lost
+  choice: When defining a state, answer word by word what each dimension means and in which cell the answer lives, and prefer a cut that lets the transition look at only constantly many neighbors; when needed, swap dimensions — for example, define the knapsack's state by value instead, to cope with large-capacity inputs
+  tradeoff: The finer the dimensions, the wider the applicability but the more expensive the state count; the coarser, the faster the speed but the less able it is to hold the problem's constraints. In essence it is balancing expressive power against scale — no single state definition covers every variant of the same problem
+  root: The root cause is that DP turns solving into enumerating the subproblem space; the space's shape is the state's shape, and a transition is only a connection inside the space. Draw the space right first, then talk about connections — reverse the order and you only write more and more chaos on a wrong foundation
+- mechanism: DP dares to assemble subproblems' optima into the global optimum because of optimal substructure — cut an optimal solution at any point and both sides are still optimal for their corresponding subproblems; suppose one side were not optimal, and swapping in a better one would yield a better global solution, a contradiction
+  problem: If the subproblems constrain each other — in the longest simple path, for example, points already visited cannot be visited again, so a subpath's optimum changes with the global path's choices — the premise of assembly is pulled away, and DP on such problems systematically produces wrong answers without knowing it
+  choice: Before starting, run two tests — can the big problem's optimal solution be cut into subproblems' optimal solutions, and will the same subproblem be solved repeatedly along different paths? Only when both pass do you enter state design; if either fails, switch to a greedy, search, or approximation route
+  tradeoff: Strict testing keeps some problems that could only barely be forced into DP outside the door, which looks like one tool fewer; in exchange you do not mistake an exponential problem for a polynomial one and do not waste implementation and debugging time on a wrong premise — over the long run, this account is a gain
+  root: The root cause is that assembly is a lossless compression, and it holds if and only if the coupling between subproblems passes only through the state interface; once the coupling bypasses the interface — sharing a visited set, for example — the foundation of optimal substructure no longer exists, and however tall the building rises, it will collapse
+quiz:
+- q: What are the two prerequisites for using dynamic programming?
+  options:
+  - Sorted data + binary search applies
+  - Optimal substructure + overlapping subproblems
+  - Greedy works + the data is small
+  - The recursion depth is limited
+  answer: 1
+  explain: The subproblems' optima must assemble into the global optimum, and the same subproblem must be solved repeatedly — only then does storing a table mean anything.
+- q: Why must the capacity in the one-dimensional 0/1 knapsack be traversed in reverse?
+  options:
+  - To make the array look nicer
+  - Forward order would reference values just updated in this round, causing the same item to be used repeatedly (it becomes the unbounded knapsack)
+  - Reverse order is faster
+  - There is no difference; pick either
+  answer: 1
+  explain: Reverse order guarantees that dp[c−w] is still the value from before the current item was considered, so each item is used at most once.
+- q: What is the relation between memoized recursion and bottom-up iteration?
+  options:
+  - Two completely different algorithms
+  - Two ways of executing the same state definition — the former computes on demand, the latter computes everything in dependency order
+  - Iteration is necessarily slower
+  - Memoization needs no state definition
+  answer: 1
+  explain: The two share the state and the transition equation; memoization computes only the states that get used, while iteration computes all states in order.

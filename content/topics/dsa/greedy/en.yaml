@@ -1,0 +1,756 @@
+id: dsa/greedy
+subject: dsa
+slug: greedy
+order: 9
+status: published
+license: CC-BY-4.0
+title: "Greedy: taking the best in front of you at every step — why it is sometimes exactly right"
+summary: Greedy never looks back and keeps no table; every step locks its choice in on the spot. Whether it holds depends not on intuition, but on whether the problem has both the [[greedy-choice property|贪心选择性]] and [[optimal substructure|最优子结构]].
+premise: Sometimes picking the best available choice at every step leads to the best overall result in the end; sometimes it goes wrong. This lesson answers when greedy can be trusted and when it cannot, with two contrasting examples — scheduling the most mutually non-conflicting activities into one day, and loading a knapsack by value density — plus a change-making counterexample that shows it crashing.
+position: The dynamic programming lesson ended with a question — when subproblems overlap you keep a table, but if a step's choice never needs revisiting at all, the table is pure waste. This lesson opens a new section, "Greedy — taking the best in front of you at every step", and uses activity selection, a change-making counterexample, and the knapsack dividing line to measure the range of this shortcut. After it, you will be able to pre-judge whether a problem admits greedy using the two checks of the greedy-choice property and optimal substructure, prove activity selection by hand with an [[exchange argument|交换论证]], and kill value-density packing for the 0/1 knapsack on the spot with a counterexample.
+bridge:
+  prev: The previous lesson's dynamic programming dodged repeated subproblems by keeping a table, on the premise that every subproblem is worth computing once in advance. This lesson asks the opposite question — if one step's optimal choice can be locked in on the spot and never regretted afterward, is the table still necessary?
+  next: Greedy handles problems of repeatedly making choices from a candidate set. The next lesson changes the kind of object — finding a short pattern inside one long text. Naively comparing character by character compares the same character over and over many times, and that shape of waste is strikingly similar to the repeated subproblems seen before dynamic programming.
+overview:
+- key: In one sentence
+  value: Greedy locks in one locally optimal choice at each step, never regrets it, never backtracks. It saves the overhead of comparing and tabulating; the price is that once a step is chosen wrong, there is no chance later to make up for it — so before using it, you must first confirm that it holds for this specific problem.
+- key: The two checks it must pass
+  value: Two checks must pass. One is the [[greedy-choice property|贪心选择性]] — some optimal solution contains this step's choice. The other is [[optimal substructure|最优子结构]] — after the choice is made, the remaining subproblem has the same shape as the original problem and is independent of it. In activity selection, for example, you first fix the activity that ends earliest, and what remains is still the problem of scheduling the most activities into the remaining time.
+- key: The line against DP
+  value: DP enumerates choices, tabulates them, and compares; greedy walks a single road. The fractional knapsack admits greedy; the 0/1 knapsack does not. When items can be cut apart, packing by value density from high to low is certainly optimal; when an item can only be taken whole or not at all, the highest-density item may be exactly the one that jams the capacity, and you lose instead.
+- key: The proof tool
+  value: The proof tool is the [[exchange argument|交换论证]] — swap the first step of an arbitrary optimal solution for the greedy choice, without making the total account any worse. Concretely, first assume an optimal solution, then replace its first step with the greedy step and work out clearly that the result does not get worse; that shows at least one optimal solution starts with the greedy choice.
+- key: The rejection tool
+  value: Rejecting greedy takes only one counterexample — with denominations 1, 3, 4 making 6, greedy gives 3 coins while the optimum needs only 2. Greedy first takes the largest denomination, 4, then adds two 1s, three coins in total; taking two 3s directly needs only two. This single example shows that greedily taking by denomination fails for this coin system.
+- key: The unified framework
+  value: "[[Matroids|拟阵]] characterize the full structure under which greedy is correct, and activity selection and [[minimum spanning trees|最小生成树]] are both instances of it. In everyday coding there is no need to learn matroids first — the naive checking method suffices: first work hard to find a counterexample, then try an exchange argument, and only when both pass can you use greedy with confidence."
+visual: datastate
+logColumns:
+- key: mode
+  label: Current state
+- key: event
+  label: What happened
+steps:
+- id: idea
+  title: "What greedy is: choose, and never regret it"
+  tldr: "Set the scene first: six activities apply for the same meeting room in one day, and only one can run at a time; the goal is to hold as many as possible. This step first states the greedy rule — each time pick the activity that ends earliest — walks it through completely, then names its working traits: every step locked in on the spot, and the total accounts of alternative plans never compared."
+  body: >-
+    Look at the problem first. A meeting room receives applications for six activities in one day; each activity has a start and end time, only one can run at a time, and the goal is to schedule as many as possible. The greedy rule is this: each time, among the activities not yet scheduled, approve the one that ends earliest, then delete those that conflict with it, and continue by the same rule until nothing is left to pick.
+
+
+    Sort the six activities by end time: a1 runs from 1 to 4, a2 from 3 to 5, a3 from 0 to 6, a4 from 5 to 7, a5 from 8 to 9, a6 from 5 to 9. Greedy's first step picks a1, the earliest to end, and deletes a2 and a3, which overlap it; among what remains, the earliest to end is a4, and a6, which conflicts with it, is deleted; finally it picks a5. Three activities get held in total: a1, a4, and a5.
+
+
+    Notice two traits of this process. First, each step's choice is locked in on the spot — after a1 is chosen, the algorithm never looks back to consider whether not choosing a1 back then might have been better. Second, it never compares the overall accounts of alternative plans; it only executes a single local rule. This is the exact opposite of the previous lesson's dynamic programming: DP
+    computes the answer to every subproblem, stores them all, and only then compares; greedy does not even build a table.
+
+
+    Why might such recklessness possibly be correct? Because of the problem's own structure. The same "take the best at each step" crashes on a different problem — most of this lesson is spent drawing that line.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 16.1, An Activity-Selection Problem
+    claim: For the activity-selection problem, after sorting by end time, picking the earliest-ending non-conflicting activity at each step yields an optimal solution
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "Six activities queued by end time; greedy takes a1, a4, a5 in turn"
+    rows:
+    - label: Activities (start-end)
+      cells:
+      - v: a1
+        sub: 1-4
+        mark: found
+      - v: a2
+        sub: 3-5
+        mark: muted
+      - v: a3
+        sub: 0-6
+        mark: muted
+      - v: a4
+        sub: 5-7
+        mark: found
+      - v: a6
+        sub: 5-9
+        mark: muted
+      - v: a5
+        sub: 8-9
+        mark: found
+    aux:
+    - label: Greedy's result
+      items:
+      - a1
+      - a4
+      - a5
+      - 3 activities in total
+  log:
+  - mode: The rule
+    event: "The rule is set: at each step pick the activity that ends earliest and does not conflict; choices once made are never reopened, until nothing is left to pick."
+  points:
+  - "Greedy's two traits: choices locked in on the spot, and no table, no backtracking, ever"
+  - Whether it is correct is a question about the problem's structure, not about algorithmic cleverness
+- id: activity-proof
+  title: "Why activity selection admits greedy: the [[exchange argument|交换论证]]"
+  tldr: "The last step's rule produced a result — but on what grounds is it optimal? This step answers with an exchange argument: take any optimal schedule, swap its first activity for the one that ends earliest, and work out why the result is still feasible with the count unchanged — securing the guarantee for the first step first."
+  body: |-
+    The general tool for proving greedy correct is the exchange argument, in three parts. First, take some optimal solution and call its first activity x. Next, swap x for a1, the greedy pick (the activity that ends earliest), and argue that the resulting plan is still feasible, with the number of activities unchanged. Finally, note that what remains to schedule is the same-shaped subproblem — "activities that start after a1 ends" — so the same argument can be repeated on the subproblem, swapping all the way down, until the whole optimal solution has been transformed into the greedy solution.
+
+    Why does the swap always work? It rests on a single fact: a1 ends earliest among all the activities, so a1's end time is no later than x's end time. After swapping x for a1, the freed time is no less than before; the activities that followed x in the original plan did not conflict with x (they all started after x ended), so they certainly do not conflict with a1, which ends even earlier. Feasibility is preserved, the count is not reduced by one, and a single exchange is complete.
+
+    This property — "some optimal solution contains the greedy choice for this step" — is called the [[greedy-choice property|贪心选择性]]. It is greedy's admission ticket: without it, the very first step might shut the door on the optimal solution. The exchange argument always bears on the first step, because every later step is the first step of some subproblem. One half remains: the leftover problem must have the same shape as the original and be independent of it. That property is called [[optimal substructure|最优子结构]], and the next step puts it side by side with the greedy-choice property for a full hearing.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 16.1 (the exchange argument for the greedy-choice property)
+    claim: The first activity of an optimal solution can be replaced by the earliest-ending activity without reducing the count — the core argument for the correctness of greedy activity selection
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "The exchange argument: swap the optimal solution's first activity for the earliest finisher; everything after it stays exactly as it was"
+    rows:
+    - label: Some optimal solution
+      cells:
+      - v: a2
+        sub: 3-5, goes first
+        mark: active
+      - v: a4
+        sub: 5-7
+      - v: a5
+        sub: 8-9
+    - label: After swapping the first step
+      cells:
+      - v: a1
+        sub: 1-4, ends earlier
+        mark: found
+      - v: a4
+        sub: 5-7, as before
+        mark: found
+      - v: a5
+        sub: 8-9, as before
+        mark: found
+    aux:
+    - label: The exchange's guarantee
+      items:
+      - a1 ends earliest
+      - The swap frees no less time than before
+  log:
+  - mode: Proof
+    event: "The exchange argument is complete: it only needs to watch the first step — every other step is the first step of some subproblem, and induction takes over."
+  points:
+  - "The exchange argument in three parts: take an optimal solution, swap the first step, induct down to the subproblem"
+  - "The guarantee comes from a single monotonic relation: the greedy choice's end time is no later than any alternative's"
+- id: two-conditions
+  title: "The two checks: the [[greedy-choice property|贪心选择性]] and [[optimal substructure|最优子结构]]"
+  tldr: "The [[exchange argument|交换论证]] guaranteed only the first step. This step defines, side by side, the two properties greedy needs to hold: after one step is chosen, the remaining problem must keep the same shape and stay independent; and some optimal solution must contain that step. It also makes clear that dynamic programming needs only the latter of these, while greedy must pass both."
+  body: |-
+    Define the two properties clearly, side by side. Optimal substructure says: a problem's optimal solution can be assembled from the optimal solutions of its subproblems — after one step is fixed, the remaining part must be handled independently by its own optimal solution, unentangled with the part already chosen. Dynamic programming and greedy both stand on this property; without it, there is no way to even talk about "choose a step, then look at what remains".
+
+    The greedy-choice property says: some optimal solution contains the step the greedy rule picks. The global optimum does not reject this locally optimal step; locking in the first step does not block the road to the optimum. This is a strong requirement unique to greedy — DP does not need it at all. DP tries every choice and stores them in a table, relying on exhaustive search plus memory, not on any step's prior guarantee.
+
+    The dividing line is now clear: DP computes the key nodes of the decision tree and stores them, deciding which route to take by table lookup; greedy stands at each fork, picks one direction by a single local rule, and prunes every other branch whole. Daring to prune this hard has exactly one legitimate basis: the greedy-choice property.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 16.2, Elements of the Greedy Strategy
+    claim: The conditions for a greedy algorithm to apply are the greedy-choice property and optimal substructure holding at the same time, the former being greedy's extra requirement beyond dynamic programming
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "The hearing's results for the two checks: DP needs only the second; greedy must pass both"
+    rows:
+    - label: Optimal substructure
+      cells:
+      - v: DP needs it
+        mark: found
+      - v: Greedy needs it
+        mark: found
+    - label: Greedy-choice property
+      cells:
+      - v: DP does not need it
+        mark: muted
+      - v: Greedy needs it
+        mark: found
+    - label: How decisions are made
+      cells:
+      - v: Enumerate and tabulate
+      - v: Lock in one per step
+    - label: Cost of a wrong choice
+      cells:
+      - v: The table catches it
+      - v: Wrong outright, no warning
+        mark: active
+  log:
+  - mode: The threshold
+    event: "The threshold stands: the two checks are preconditions for greedy to hold, and missing either one, the first step may shut the door on the optimal solution."
+  points:
+  - Greedy = optimal substructure (shared with DP) + the greedy-choice property (greedy's alone)
+  - When the greedy-choice property cannot be proved, the right move is to fall back to DP, not to greed anyway
+- id: coin-counterexample
+  title: "A counterexample takes the stage: why making change crashes"
+  tldr: "The two checks are in place — put a new problem through the hearing: making change. First see why greedy feels natural on real-world coin systems, then change the denominations to 1, 3, 4 making 6 and watch it crash on the spot; finally use the two checks to locate exactly which one failed."
+  body: >-
+    The change-making problem goes like this: given a set of coin denominations and a target amount, make the amount with the fewest coins. The greedy rule is obvious — each time, use the largest denomination that fits. Against real coin systems like the US dollar or the RMB, what it gives is indeed the optimal solution.
+
+
+    But change the coin system to three denominations — 1, 3, and 4 — with the target of making 6. Greedy first grabs the largest, 4; the remaining 2 can only be made with two 1s — three coins in total. But 3 plus 3
+    takes only two coins. Greedy here is not slow; it directly returns a wrong answer, and it will not raise a hand to tell you it is wrong — its output looks every bit as respectable as the correct answer.
+
+
+    Review this crash with the two checks. [[Optimal substructure|最优子结构]] is fine: take any coin out of an optimal making, and what remains is still an optimal making of its sub-amount. What failed is the [[greedy-choice property|贪心选择性]]: this step picks the largest denomination, 4, but there is no optimal solution containing 4 at all, because the optimum, 3+3, never uses 4. The moment the first step locked in 4, the door to the optimum was already shut.
+
+
+    Why are real coin systems fine? Because the denomination structure of systems like the dollar and the RMB happens to pass the greedy-choice property — not a birthright of the change-making problem, but a result of how the coin system was designed. Greedy's correctness is a one-off verdict on a specific problem's structure; there is no such thing as "greedy is generally right".
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 16, Greedy Algorithms (discussion of how change-making depends on the coin system)
+    claim: Greedy change-making is optimal for canonical coin systems, but for an arbitrary coin system the greedy-choice property does not hold and the optimum requires dynamic programming
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "Denominations 1, 3, 4 making 6: greedy takes three coins, the optimum takes two"
+    rows:
+    - label: Greedy (grab the largest first)
+      cells:
+      - v: 4
+        mark: active
+      - v: 1
+      - v: 1
+      - v: 3 coins in total
+        sub: not optimal
+    - label: The optimum
+      cells:
+      - v: 3
+        mark: found
+      - v: 3
+        mark: found
+      - v: 2 coins in total
+        sub: contains no 4
+        mark: found
+    aux:
+    - label: Locating the crash
+      items:
+      - The greedy-choice property fails
+      - Optimal substructure is fine
+  log:
+  - mode: Counterexample
+    event: "The counterexample stands: a single counterexample suffices to reject a greedy rule — and when greedy gives a wrong answer, it reports no error and shows no warning."
+  points:
+  - "Greedy's errors are silent: the output format is indistinguishable from a correct answer's"
+  - Real coin systems admit greedy because their structure passes the check, not by the problem's grace
+  mistake: Taking "this is how change is made in real life" as evidence that greedy is correct — that only proves this coin system was designed (or selected) to pass the greedy-choice property.
+- id: knapsack-boundary
+  title: "The line against DP: the fractional knapsack admits greedy, the 0/1 knapsack does not"
+  tldr: "Change-making crashed on the [[greedy-choice property|贪心选择性]]. This step tests the same property once more, on the knapsack problem: one rule — pack by value density — is provably correct when items can be cut, and is killed by a counterexample when items can only be taken whole. The mechanism of the dividing line is exactly those words: can it be cut."
+  body: >-
+    The knapsack problem has a fork in it. In front of a knapsack of capacity 50 stand three items: A weighs 10 and is worth 60, density 6; B weighs 20 and is worth 100, density 5; C weighs 30 and is worth 120, density 4. If items can be cut apart (packing gold dust, say), greedy packs by density from high to low: all of A,
+    all of B, and the remaining 20 of capacity takes two-thirds of C, for a total value of 60 plus 100 plus 80, which is 240. Here greedy is right, and the [[exchange argument|交换论证]] holds: if any optimal packing leaves room on a high-density item while packing a low-density one, swapping equal amounts of the two can only gain, never lose.
+
+
+    If items can only be taken whole or left whole (the 0/1 knapsack), the same rule crashes at once. Greedy takes A first, then B — 30 of capacity used, value 160 — and the remaining 20 cannot fit C, so it can only stop. The optimal solution drops A and takes B plus C: weight exactly 50, value 220. A full 60
+    of value lost, and greedy notices nothing.
+
+
+    The dividing mechanism is the word "cut". When cutting is allowed, capacity can never be jammed dead by one item that does not fit; the density ordering can be filled to the very last gram, and every step of the exchange argument fits seamlessly. When cutting is not allowed, the unusable part of the capacity becomes structural waste, and "which item to take" becomes a genuine combinatorial decision — locking in the first step can push the
+    220 combination out the door. This is exactly where the previous lesson's DP shines.
+
+
+    That yields a durable criterion: the more a problem is "continuous, divisible", the more likely it passes the greedy-choice property; the more it is "discrete, whole-item choices", the more wary you should be — think in the DP direction first by default.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 16.2 (the contrast between the fractional and 0/1 knapsacks)
+    claim: The fractional knapsack is provably optimal when packed greedily by value per unit weight; the 0/1 knapsack lacks the greedy-choice property and requires dynamic programming
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "Capacity 50: on the 0/1 knapsack, density greedy gets 160; the optimum is 220"
+    rows:
+    - label: Items (weight/value/density)
+      cells:
+      - v: A
+        sub: 10 / 60 / density 6
+      - v: B
+        sub: 20 / 100 / density 5
+      - v: C
+        sub: 30 / 120 / density 4
+    - label: Greedy packing (whole items)
+      cells:
+      - v: A in
+        mark: active
+      - v: B in
+        mark: active
+      - v: C does not fit
+        mark: muted
+      - v: value 160
+    - label: Optimal packing
+      cells:
+      - v: A left out
+        mark: muted
+      - v: B in
+        mark: found
+      - v: C in
+        mark: found
+      - v: value 220
+        mark: found
+    aux:
+    - label: The dividing line
+      items:
+      - Can be cut → greedy works
+      - Whole-item choices → back to DP
+  log:
+  - mode: The dividing line
+    event: "The line is drawn: for one and the same problem, whether it can be divided decides greedy's life or death — whole-item choices go back to dynamic programming."
+  points:
+  - "The mechanism that lets the fractional knapsack be greedy: capacity can be filled to the very last gram"
+  - The 0/1 knapsack's choices are combinatorial decisions — exactly where DP's state table earns its keep
+  keyFields:
+  - key: Greedy (0/1)
+    value: A+B, value 160, with 20 of capacity wasted
+  - key: Optimal (0/1)
+    value: B+C, value 220
+  - key: Fractional-knapsack greedy
+    value: A + B + two-thirds of C, value 240, provably optimal
+- id: huffman
+  title: "Greedy's positive specimen: [[Huffman|哈夫曼编码]] coding"
+  tldr: "The last two lessons watched greedy crash; this step looks at a positive specimen: give characters a [[prefix code|前缀码]] while minimizing the total cost. The rule merges the two lowest frequencies into one group each time. First walk one set of frequencies through the merges to the end, then see why its two checks are both complete."
+  body: |-
+    A [[prefix code|前缀码]] requires that no symbol's code is a prefix of another's, so that decoding needs no separators. Give high-frequency symbols short codes and low-frequency symbols long codes; the total cost is each symbol's frequency times its code length, summed. The question is: given a table of character frequencies, how do you build a coding tree with the minimum total cost?
+
+    Huffman's greedy rule works bottom-up: each time, take the two symbols (or already-merged groups) with the smallest frequencies, hang them under a new parent node whose frequency is the sum of the two, put it back, and keep merging until only one root remains. Run a classic set of frequencies as a demonstration: f is 5, e is 9, c is 12, b is 13, d is 16, a is 45. First merge 5 and 9 to get 14; then merge 12 and 13 to get 25; then merge 14 and 16 to get 30; then merge 25 and 30 to get 55; finally merge 45 and 55 into 100. The five merge costs add up — 14 plus 25 plus 30 plus 55 plus 100 equals 224 — and that is this tree's total weighted cost.
+
+    Why is merging the two smallest right? First, the [[greedy-choice property|贪心选择性]]: the two lowest-frequency symbols, in some optimal tree, necessarily sit at the deepest level as siblings — if the deepest level holds some other symbol, swapping it with a low-frequency symbol only lowers the cost or keeps it (the [[exchange argument|交换论证]] appearing once again); after this pair of siblings is merged into one symbol, the problem becomes a same-shaped problem of size one less, and [[optimal substructure|最优子结构]] takes over. Second, with both checks complete, induction can roll to the end: every Huffman step is guaranteed, and the final tree is provably optimal — not a heuristic, not an approximation.
+
+    Contrast the top-down [[Shannon-Fano|香农-法诺编码]] coding (split the symbol table in half by frequency, then recurse): it yields codes that are close but not necessarily optimal — bottom-up merging has the exchange argument behind it; top-down splitting does not. The Huffman trees lying inside [[gzip]] and [[JPEG]] are this greedy rule in its everyday form.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 16.3, Huffman Codes
+    claim: Repeatedly merging the two lowest-frequency symbols constructs an optimal prefix code; the total cost for the classic frequency example is 224
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "The full Huffman merging process: take the two smallest each time; merge costs run 14, 25, 30, 55, 100"
+    rows:
+    - label: Initial frequencies
+      cells:
+      - v: 5
+      - v: 9
+      - v: 12
+      - v: 13
+      - v: 16
+      - v: 45
+    - label: Merge 5 and 9
+      cells:
+      - v: 12
+      - v: 13
+      - v: 14
+      - v: 16
+      - v: 45
+    - label: Merge 12 and 13
+      cells:
+      - v: 14
+      - v: 16
+      - v: 25
+      - v: 45
+    - label: Merge 14 and 16
+      cells:
+      - v: 25
+      - v: 30
+      - v: 45
+    - label: Merge 25 and 30
+      cells:
+      - v: 45
+      - v: 55
+    - label: Final merge
+      cells:
+      - v: 100
+        sub: total cost 224
+        mark: found
+    aux:
+    - label: The guarantee
+      items:
+      - The two lowest frequencies must be siblings at the deepest level of an optimal tree
+  log:
+  - mode: Specimen
+    event: "The specimen checks out: when both checks are present at once, what greedy gives is provably optimal — not a heuristic, not an approximation."
+  points:
+  - Huffman merges the two smallest each step; the sum of the five merge costs is the optimal total cost
+  - Its correctness comes from the same exchange argument as activity selection's
+- id: interval-family
+  title: "The interval family: add weights, and greedy is out"
+  tldr: "Activity selection has a whole family of relatives. This step first looks at why a few equal-weight variants still admit greedy, then attaches a profit to each activity and watches the situation rot — once weighted, locally-earliest-ending no longer agrees with the global optimum, and the algorithm must switch back wholesale to dynamic programming."
+  body: |-
+    Activity selection has a family of relatives. The minimum-meeting-rooms problem (every activity must be held; how few rooms suffice) can be solved by scanning in start-time order and keeping each room's release time in a priority queue — greedy holds. Certain forms of interval covering, where greedy picks "the interval that reaches farthest from the current point", are also provably correct. What these problems share: every activity has equal standing, and only the count matters.
+
+    Attach a profit to each activity, and the situation rots at once. Activity J1 runs from 0 to 10 with profit 100; J2 from 0 to 5 with profit 1; J3 from 5 to 10 with profit 1. Greedy by end time takes J2 first, then J3, for a total profit of 2 — permanently blocking J1, which spans the whole stretch, outside the door. The optimum is obviously to hold J1 alone, for a profit of 100. It treats every activity equally, but the profits are anything but equal, and the first step's choice has become a weighted combinatorial decision.
+
+    [[Weighted interval scheduling|带权区间调度]] is a standard DP example: sort by end time, then for each activity compute "hold it — its profit plus the optimal profit of the last non-conflicting activity before it" against "skip it — the previous activity's optimal profit", and take the larger. It differs from activity selection by a single weight, yet the algorithm switches from greedy to DP: the moment weights enter, the [[greedy-choice property|贪心选择性]] dies — locally-earliest-ending no longer agrees with the global optimum.
+
+    Put this example beside activity selection and keep them together: from now on, whenever you meet an interval problem, the first question is always "are they equally weighted?" Equal weights — try greedy first. Weighted — go straight to DP.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 16.1 and around 15.2 (the contrast between activity selection and its weighted variant)
+    claim: Equal-weight activity selection admits greedy; weighted interval scheduling requires dynamic programming, recursing after sorting by end time
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "Once weighted: greedy takes J2 plus J3 for 2 points in total; the optimum is J1 alone for 100"
+    rows:
+    - label: Activities (start-end/profit)
+      cells:
+      - v: J1
+        sub: 0-10 / 100
+        mark: found
+      - v: J2
+        sub: 0-5 / 1
+      - v: J3
+        sub: 5-10 / 1
+    - label: Greedy by end time
+      cells:
+      - v: J2 ends first
+        mark: active
+      - v: J3 next
+        mark: active
+      - v: total profit 2
+        sub: J1 blocked for good
+    - label: The optimum
+      cells:
+      - v: J1 alone
+        mark: found
+      - v: total profit 100
+        mark: found
+    aux:
+    - label: The watershed
+      items:
+      - Equal weights → greedy
+      - Weighted → DP
+  log:
+  - mode: Variants
+    event: "The variants are clear: add just one dimension — weight — and the whole algorithm family changes. Equal weights, try greedy first; weighted, use dynamic programming directly."
+  points:
+  - "The first question for any interval problem: are the candidates equally weighted?"
+  - Weighted interval scheduling is DP's standard form, not an improved version of greedy
+- id: mst
+  title: "[[Minimum spanning trees|最小生成树]]: greedy backed by the [[cut property|切割性质]]"
+  tldr: "Change battlefields once more: connect a set of sites with optical cable into one network at the lowest total cost, keeping the whole network connected. This step looks at [[Kruskal]]'s rule — queue the edges by cost, take any that does not form a cycle — then works through the guarantee behind it: why the cheapest edge crossing any cut must belong to some minimum spanning tree."
+  body: |-
+    Connect six sites with optical cable into one connected network; each candidate line has a cost, and the goal is the lowest total cost with the whole network connected — remove any single line and the network breaks. That is a minimum spanning tree: n nodes, n−1 edges, no cycles, minimum total weight.
+
+    Kruskal's rule is textbook greedy: queue all the edges from cheapest to most expensive and examine them in turn; take an edge as long as it connects two still-separate regions (taking it merges the two regions), and skip it if it would form a cycle, until n−1 edges are taken. A [[disjoint-set union|并查集]] maintains "who is already connected to whom", so examining each edge costs almost constant time. Walk a small graph: the edges in increasing weight are BC at 1, AC at 2, DE at 2, EF at 3, AB at 4, BD at 5, with DF at 6, CD at 8, and CE at 10 further back — but the tree fills up before their turn comes. Take BC, then AC (now A, B, C form one region), then DE, then EF (D, E, F form one region); when AB's turn comes, it falls inside a single region and would form a cycle, so skip it; then take BD to join the two big regions — five edges taken in all, at a total cost of 13.
+
+    Why dare to lock each step in? The guarantee is the cut property: cut the whole graph into two halves any way you like, and the cheapest of all the edges crossing that cut necessarily belongs to some minimum spanning tree. The proof is again an exchange: if some minimum spanning tree did not choose that edge, adding it necessarily forms a cycle, the cycle necessarily contains another crossing edge whose weight is no smaller than it, and swapping them leaves the total account no worse. Every edge Kruskal takes can be seen as applying this property to some cut — the region partition maintained by the disjoint-set union is exactly this property's executive machinery.
+
+    The other route, [[Prim]], starts from a single point and each time takes the cheapest edge connecting "the chosen set to the outside" — the same property in a different execution order. Whether greedy is right lives in the problem's structure, not in execution details.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 23, Minimum Spanning Trees (the cut property and Kruskal)
+    claim: The minimum-weight edge crossing any cut necessarily belongs to some minimum spanning tree, and Kruskal obtains the optimal solution by selecting edges in increasing weight while avoiding cycles
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: graph
+    caption: "Kruskal takes 1, 2, 2, 3 in turn, skips the cycle-forming 4, and finally joins the two regions with 5 — total cost 13"
+    graph:
+      nodes:
+      - id: A
+        x: 12
+        y: 20
+      - id: B
+        x: 40
+        y: 12
+      - id: C
+        x: 38
+        y: 46
+      - id: D
+        x: 68
+        y: 30
+      - id: E
+        x: 86
+        y: 58
+      - id: F
+        x: 62
+        y: 72
+      edges:
+      - from: B
+        to: C
+        w: 1
+        mark: found
+      - from: A
+        to: C
+        w: 2
+        mark: found
+      - from: D
+        to: E
+        w: 2
+        mark: found
+      - from: E
+        to: F
+        w: 3
+        mark: found
+      - from: A
+        to: B
+        w: 4
+        mark: muted
+      - from: B
+        to: D
+        w: 5
+        mark: found
+      - from: C
+        to: D
+        w: 8
+      - from: C
+        to: E
+        w: 10
+      - from: D
+        to: F
+        w: 6
+    aux:
+    - label: Result
+      items:
+      - 5 edges
+      - Total cost 13
+      - AB skipped for forming a cycle
+  log:
+  - mode: The cut property
+    event: "The cut property is in use: every edge chosen is the cheapest crossing edge of some cut, and the [[exchange argument|交换论证]] guarantees it one by one."
+  points:
+  - The cut property is the guarantee behind MST greedy — the same origin as activity selection's exchange argument
+  - Kruskal and Prim are just two execution orders of the same property
+- id: dijkstra-greedy
+  title: "Looking back at an old lesson: [[Dijkstra]] itself is a greedy"
+  tldr: "Bring a lesson already learned back for re-examination: shortest paths settle the smallest-distance point each round, which is the standard greedy move. This step looks at what its guarantee is staked on — non-negative edge weights — then inserts a negative edge and watches the settling crash on the spot, and sees which algorithm should replace it."
+  body: >-
+    Bring Dijkstra back and re-examine it by greedy's standards. Its every step is this: from the unsettled points, pick the one with the smallest dist, declare its shortest distance locked in for good, and never change it again. That is precisely the standard greedy move — best right now, locked in on the spot, never regretted.
+
+
+    Why does it dare? The guarantee comes from non-negative edge weights: the settled point has the smallest dist, and any other route trying to detour to it must first pass through another unsettled point (whose dist
+    is no smaller than its), then travel a non-negative edge — longer only, never shorter. So "the smallest is settled" is a theorem in the non-negative world. This guarantee is staked, inside and out, on non-negativity — the same kind of structural bet as change-making's stake on the coin system and the knapsack's stake on being divisible.
+
+
+    Insert a negative edge and the guarantee collapses at once. From source S, A is 2 and B is 4; B to A has a negative edge of −3; A to C is 2; B to C is 5. Dijkstra first settles A at 2 (the smallest present), then settles C at
+    4 via A. But the true shortest route is S to B, then borrowing the negative edge to A: 4 minus 3 equals 1 — A's true distance is 1, not 2; C's true optimum is 1 plus 2, which is 3, not 4. The very second A was settled, the door to the truth had closed — the standard posture of a greedy crash.
+
+
+    The correct answer for negative weights, [[Bellman-Ford]], is a different species: it relaxes all the edges for n−1 rounds, each round recursing on the optimal subproblem of "using at most k edges" — dynamic programming written on a graph. One and the same shortest-path problem: non-negative weights use greedy, negative weights use
+    DP. The dividing line is still that old question — for locking in the first step, is there anyone to guarantee it?
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 24.3 Dijkstra and 24.1 Bellman-Ford (the contrast on the non-negativity premise)
+    claim: Dijkstra's correctness depends on non-negative edge weights; with negative weights, Bellman-Ford, based on relaxation recursion, is required instead
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: graph
+    caption: "The negative edge of −3 makes the A = 2 that Dijkstra settled a wrong answer; the true distance is 1"
+    graph:
+      nodes:
+      - id: S
+        x: 8
+        y: 50
+      - id: A
+        x: 45
+        y: 22
+      - id: B
+        x: 45
+        y: 78
+      - id: C
+        x: 85
+        y: 50
+      edges:
+      - from: S
+        to: A
+        w: 2
+        mark: found
+      - from: S
+        to: B
+        w: 4
+      - from: B
+        to: A
+        w: -3
+        mark: active
+      - from: A
+        to: C
+        w: 2
+      - from: B
+        to: C
+        w: 5
+    aux:
+    - label: The true shortest
+      items:
+      - A = 1 (via B)
+      - C = 3 (via B and A)
+  log:
+  - mode: Re-examination
+    event: "The re-examination concludes: non-negative edge weights are this step's [[greedy-choice property|贪心选择性]] itself — pull it away, and the algorithm fails at once."
+  points:
+  - Every round of Dijkstra's settling is a greedy settling; non-negative edge weights are its premise
+  - Bellman-Ford takes over the negative-weight world with DP-style relaxation
+  mistake: Remembering "Dijkstra cannot handle negative edges" without being able to say why — it is not an implementation limit; its greedy-choice guarantee is what the negative edge pulls away.
+- id: when-works
+  title: "When greedy holds: [[matroids|拟阵]], and an engineering checklist"
+  tldr: "Enough cases have been examined; this step collects the unified framework: any problem that can be stated as a matroid is one where greedy is necessarily optimal. But what actually saves you in everyday coding is two far more naive disciplines — first cross-check against a brute-force solver to hunt for counterexamples, then supply the [[exchange argument|交换论证]]. This step lays the theoretical answer and the engineering answer side by side."
+  body: |-
+    Why do greedy solutions hold for activity selection, [[minimum spanning trees|最小生成树]], and the fractional knapsack? The unified theoretical answer is called a matroid. It consists of a set and a family of "independent subsets", and requires only two axioms: a subset of an independent set is still independent; and when two independent sets differ in size, an element can always be taken from the larger and given to the smaller while keeping it independent (the exchange axiom). For any problem that can be stated as "find a maximum-weight independent set in a matroid", greedy by weight from large to small is necessarily optimal; if the structure is not in a matroid, greedy has no general guarantee. Minimum spanning trees correspond to the graphic matroid (the independent sets are forests).
+
+    The theory is beautiful, but what actually saves you in everyday coding is two far more naive disciplines. First, hunt for a counterexample before talking about proofs: write a brute-force program that finds the optimum on small data, and cross-check greedy against it on tens of thousands of random cases. If greedy is wrong, the error usually surfaces on small data (the change-making 1, 3, 4 making 6 is a counterexample you can bump into even by hand). Cross-checking can only falsify, never verify — but it is nearly free, and it blocks the great majority of taken-for-granted greedies.
+
+    Second, when cross-checking finds no counterexample, go back and supply the exchange argument: fix on greedy's first choice and ask, "given any optimal solution, can I swap its first step for my choice without making the total account worse?" If you can prove it, greedy is settled; if you cannot, the structure is probably genuinely wrong, and the honest move is back to DP. Proof and cross-checking insure each other; only with both in place is the chance of a slip-through low enough.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 16.4, Matroids and Greedy Methods
+    claim: A matroid is defined by the independence and exchange axioms, and greedy for a maximum-weight independent set on a matroid is provably optimal
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "The five problems this lesson put on trial: each verdict has its evidence on record"
+    rows:
+    - label: Activity selection
+      cells:
+      - v: Holds
+        mark: found
+      - v: Exchange argument (earliest finish)
+    - label: Change-making (arbitrary denominations)
+      cells:
+      - v: Fails
+        mark: active
+      - v: "Counterexample: 1, 3, 4 make 6"
+    - label: Fractional knapsack
+      cells:
+      - v: Holds
+        mark: found
+      - v: Equal-amount swaps never lose
+    - label: 0/1 knapsack
+      cells:
+      - v: Fails
+        mark: active
+      - v: "Counterexample: 160 vs. 220"
+    - label: Minimum spanning tree
+      cells:
+      - v: Holds
+        mark: found
+      - v: "[[Cut property|切割性质]]"
+  log:
+  - mode: Framework
+    event: "The framework is collected: the matroid is the unified theoretical answer; cross-checking plus the exchange argument is the practical engineering answer."
+  points:
+  - The structural essence of greedy's correctness is the matroid's exchange axiom
+  - The engineering order is fixed — cross-check for counterexamples first, then supply the exchange argument
+- id: practice
+  title: Greedy's real place in engineering
+  tldr: "Finally, back to everyday engineering: scheduling, cache eviction, and rate limiting are full of greedy rules on direct duty. This step separates two levels — when a problem demands a provably optimal answer, only a greedy that passed the two checks qualifies to ship; when greedy is used as an engineering heuristic, the acceptance process is where the real cost lies."
+  body: >-
+    Pull the camera back to everyday engineering, and greedy is everywhere, usually on duty in the role of "reasonable default": shortest-job-first, evicting the least recently used from a cache, a rate limiter letting high-priority traffic through first — all greedy rules at work directly. They get chosen because the rules are simple, the decisions fast, and the effect on real workloads good enough.
+
+
+    This "good enough" and this lesson's fastidious "provably optimal" are two different levels: when a problem demands an optimal solution and errors come without warning, only a greedy that passed the two checks qualifies to replace DP. In engineering systems the objective function is often fuzzy, and greedy is more of a heuristic — ship one simple rule first, keep accounts on real data, and upgrade the strategy when the numbers show a problem.
+
+
+    Having an AI
+    or a template produce a greedy solution takes only seconds, but greedy is the class of algorithm least able to withstand "looks right" — errors are silent, counterexamples are often within reach, and correctness is staked entirely on the problem's structure. So the acceptance process is what most needs fixing in place: ask the two checks first, run a round of cross-checking, and only then discuss complexity. Acceptance is where greedy's real cost lies.
+
+
+    Closing the lesson: whether greedy can be used depends on whether the problem's structure allows each step to be locked in, never to look back. What this lesson gives is the complete method for verifying the problem's structure before reaching for greedy.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: Chapter 16, Greedy Algorithms (discussion of the range where the greedy strategy applies)
+    claim: Greedy gives optimal solutions only under specific structures; away from those structures it can only serve as a heuristic
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "Facing a greedy solution, the acceptance order is fixed: the two checks, cross-checking for counterexamples, the [[exchange argument|交换论证]]"
+    rows:
+    - label: Acceptance process
+      cells:
+      - v: Propose a rule
+      - v: Pass the two checks
+        mark: active
+      - v: Cross-check for counterexamples
+        mark: active
+      - v: Exchange argument
+      - v: Settled
+        mark: found
+    aux:
+    - label: A reminder
+      items:
+      - The rule takes a few lines to write
+      - Acceptance is the cost
+  log:
+  - mode: Wrap-up
+    event: "The whole lesson wraps into one line: whether greedy can be used starts with the problem's structure, and the two checks plus cross-checking must be done before any coding starts."
+  points:
+  - Distinguish the two levels — provably optimal greedy, and engineering-heuristic greedy
+  - A greedy solution's cost lies mainly in acceptance, not in implementation
+design:
+- mechanism: "One-way decisions that never regret: each step locks in a local optimum and prunes the remaining branches, compressing an exponential decision tree into a single chain — premised on the greedy-choice property guaranteeing every step"
+  problem: "The decision space of combinatorial optimization grows exponentially with scale, and comparing every complete plan one by one is impossible. Dynamic programming compresses repeated computation with a table, but the state space itself also swells — and many problems, structurally, actually allow something more drastic: never looking back, not even once."
+  choice: "Locking in on the spot is allowed only when it can be proved that some optimal solution contains this step's choice. The alternative is full dynamic programming — general and reliable, but paying time and memory for the entire state table. The other alternative is unguaranteed heuristic greedy — fast, certainly, but when wrong it silently produces wrong answers, with no alarm at all."
+  tradeoff: The range of application is fenced in tightly by the two checks — when the structure does not comply, greedy is not slow but directly wrong, and wrong without any sign. What this fragility buys is sorting-level or linear complexity, and an implementation writable in a few lines.
+  root: The exchange argument reveals where the guarantee comes from — when a local choice and an arbitrary optimal solution are joined by a one-step replaceable monotonic relation, the local and the global are welded together. Matroid theory goes further and proves that independence plus the exchange axiom characterize exactly this class of structure. Whether greedy is right is never a matter of feel; it is a matter of structural theorems.
+- mechanism: "Huffman's bottom-up merging: each step merges the two lowest-frequency symbols, using the structural insight that the lowest-frequency pair must be siblings at the deepest level of an optimal tree, to turn the search over coding trees into a string of guaranteed merges"
+  problem: "The candidate space of prefix codes is all binary trees — impossible to enumerate. And the coding cost is decided by each symbol's frequency times its depth, so the positions of high- and low-frequency symbols in the tree must be arranged precisely; any intuitively placed arrangement cannot say how far it sits from optimal."
+  choice: "Merge the two lowest frequencies bottom-up; each merge shrinks the problem by one while keeping its shape. The alternative top-down route (split the symbol table by frequency, then recurse) has no exchange argument behind any of its splits and can only reach near-optimal. The alternative of exhaustive search plus DP becomes infeasible once the symbol count grows even slightly."
+  tradeoff: The frequencies must be fully counted first — it is an offline algorithm. When data arrives as a stream with an unknown distribution, you switch to adaptive Huffman and pay higher implementation and maintenance costs. What that buys is provable optimality and extremely low running overhead.
+  root: "This is the exemplar of the greedy-choice property and optimal substructure both at full marks: that the two lowest-frequency symbols are siblings at the deepest level of an optimal tree follows strictly from a single cost-non-increasing exchange. Greedy here is not a rule of thumb but a direct corollary of a theorem — a reminder that the only standard for judging whether a greedy can be trusted is whether the exchange argument can be written down."
+- mechanism: "A counterexample-first verification discipline: a new greedy rule first faces falsification by small-scale brute-force cross-checking, then faces proof by exchange argument — both must pass before it counts"
+  problem: "The way greedy fails is especially insidious: no crash, no timeout, no alarm — it quietly hands over a wrong answer that looks completely normal. The greedies that look right by intuition (change-making, density knapsack) are exactly the ones most likely to be wrong, and the person who wrote them is often the most convinced they are right."
+  choice: "Hedge that insidiousness with an asymmetric verification order: first cross-check with random small data against a brute-force optimum, doing your utmost to falsify; if it cannot be falsified, sit down and supply the exchange argument. The alternatives — shipping on intuition plus one or two hand-worked examples — outsource correctness to luck; proving without cross-checking leaves the proof's own slips unreviewed by anyone."
+  tradeoff: Cross-checking can only falsify, never verify; corners it does not cover may still hide counterexamples. An exchange argument, however rigorous, may still trip on some hidden assumption. Stacking the two disciplines only presses the slip-through probability down, never to zero.
+  root: "This is the asymmetry of falsification projected onto engineering: one counterexample's negation of the rule's correctness is complete, while ten thousand passing examples still do not completely affirm it. So the rational verification order is necessarily falsify first with everything you have, then seek proof — reverse the order, and the cheapest line of defense is wasted."
+level: 进阶
+minutes: 30
+prereq:
+- dsa/dynamic-programming
+objectives:
+- Pre-judge whether a problem admits greedy, using the two checks of the greedy-choice property and optimal substructure
+- Prove the greedy steps of activity selection, Huffman merging, and minimum spanning trees with exchange arguments
+- Reject arbitrary-denomination change-making and the 0/1 knapsack's density greedy with counterexamples
+- Explain why Dijkstra's correctness is staked on non-negative edge weights
+aiLink: Greedy is likewise the default heuristic in AI engineering — greedy decoding (taking the highest-probability token at each step) is the unguaranteed version of greedy, and its contrast with beam search is exactly this lesson's "walk one road vs. enumerate and compare" replayed. Understand when it crashes, and you understand why greedy decoding in long-text generation tends toward repetition and early stopping.

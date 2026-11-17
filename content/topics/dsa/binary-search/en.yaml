@@ -1,0 +1,909 @@
+id: dsa/binary-search
+subject: dsa
+slug: binary-search
+order: 2
+status: published
+license: CC-BY-4.0
+title: "Binary Search: Rule Out Half Every Time"
+summary: Searching a sorted array — check the middle each time, rule out half, and you find it fast.
+premise: In a pile of numbers that are already sorted, looking for one number by scanning one by one is too slow — can each glance rule out half of them? This lesson walks through one concrete example, finding 23 in the sorted array [2, 5, 8, 12, 16, 23, 38, 56], and watches how the search range shrinks after each comparison.
+position: This lesson stays in the "Lookup by Name and by Order" section. It follows the hash table, which scatters its keys and throws all ordering information away, and takes the opposite road — exploiting the array's own sortedness to search. After this lesson you will be able to use the
+  [[loop invariant|循环不变式]] to check whether both writings of binary search — closed interval and half-open interval — are correct, and to explain how [[lower_bound]]
+  locates the first position that is not less than the target among duplicate elements.
+bridge:
+  prev: The previous lesson used the modulo operation to stuff keys into buckets in exchange for arriving in one step on average; this lesson gives up scattering and instead holds on to the precondition of a sorted array, in exchange for the power to rule out half the candidates with each comparison.
+  next: Binary search's precondition is that the array is sorted first. The next lesson, merge sort and quicksort, tackles exactly that — how to sort an unsorted array wholesale at a cost of O(n log n).
+overview:
+- key: In one sentence
+  value: The precondition is sortedness; each comparison against the middle element halves the range. When looking for 23, for example, you first check the middle number — if the target is larger, only the right half stays; if smaller, only the left half — and after a few steps the range shrinks to just the answer.
+- key: Complexity
+  value: The complexity is [[O(log n)|大 O 记号]] — a million elements take at most about 20 comparisons. Because each comparison halves the range, halving a million down to a single element takes only about 20 steps, so the data can grow a lot while the comparison count grows very slowly.
+- key: Precondition
+  value: The data must be sorted, and it must support direct access by index. With no order, one comparison cannot tell you which half the target is in; and if you cannot jump straight to the middle position by index, just walking to the middle costs linear time each round, and binary search saves nothing.
+- key: In practice
+  value: "[[lodash]]'s [[sortedIndex]], the binary search over keys inside a node of a database [[B+ tree|B+ 树]], and [[git bisect]] hunting down the commit that introduced a bug all use the same idea. git bisect treats the commit history as a sorted sequence — test the middle commit each time, and you can tell whether the bug appeared in the first half or the second half."
+- key: Common mistakes
+  value: The easiest place to go wrong is the boundary conditions — whether the interval is closed on the left and open on the right, or closed on both ends, for instance — and computing the middle position by adding the two ends directly can overflow the integer. Get a boundary wrong by one and the result is usually not slightly slower but outright wrong answers or an infinite loop, so pin down what the interval means before you write anything.
+- key: Variants
+  value: Common variants are [[lower_bound]] and [[upper_bound]] — finding the first position not less than, or the first position greater than, the target — and binary searching on a monotone answer. Whenever a problem's yes-or-no flips monotonically with a value — capacity being enough, for instance, flips from not enough to enough as capacity grows — you can binary search on the answer itself.
+- key: The invariant
+  value: The invariant is — if the target exists, it is definitely inside the current interval. Each time you shrink the range you may only throw away the half that definitely does not contain the target. Hold that line, and when the loop ends with an empty interval you can conclude the target does not exist, with no false kills.
+visual: datastate
+logColumns:
+- key: mode
+  label: Current state
+- key: event
+  label: What happened
+steps:
+- id: why
+  title: Why not just scan one by one?
+  tldr: "Look at how slow the dumbest method is first — finding 23 among 8 sorted numbers by comparing one by one takes until the 6th element to hit. This step first does the math on scanning, then points out the information hidden unused inside the sortedness precondition — look at any one number and you know which side the target can only be on."
+  body: >-
+    Finding 23 among 8 numbers by comparing from the start — 2, 5, 8, 12, 16 — hits only at the 6th element; looking for a 7 that does not exist means reading all 8 before you may conclude anything. With a million elements in the array, the worst case is a million comparisons — that is linear search's O(n).
+
+
+    But when the array is sorted, looking at one number tells you which side the target is on — see 12 and you know 23
+    can only be to its right, and the left side never needs looking at again. Sortedness means each comparison rules out a whole stretch rather than a single element — that is the entire source of information binary search runs on. The precondition is sorted data — with no order, the middle number says nothing about where the target is, and binary search fails at once. The first reflex when writing a binary search should be to confirm sortedness, not to write the loop.
+
+    The gap is starker in a real system — if a table with a hundred million rows were compared row by row, one lookup would scan a hundred million entries, while the same lookup landing on a sorted index needs only about 27 comparisons. The in-node binary search of the [[B+ tree|B+ 树]] covered later in this lesson uses exactly this rule-out-half-each-time move.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Binary search lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: A sorted array can be searched with binary search in O(log n) time
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "Linear search reads from the start one by one: the further back the target sits, the more you read — in the worst case, all 8 numbers"
+    rows:
+    - cells:
+      - v: 2
+        mark: active
+        sub: "0"
+      - v: 5
+        sub: "1"
+      - v: 8
+        sub: "2"
+      - v: 12
+        sub: "3"
+      - v: 16
+        sub: "4"
+      - v: 23
+        sub: "5"
+      - v: 38
+        sub: "6"
+      - v: 56
+        sub: "7"
+      pointers:
+      - at: 0
+        label: Read from the start?
+  log:
+  - mode: "Range: all 8"
+    event: "The search starts with the whole array: the target is 23, and scanning one by one hits only at the 6th element — that is the cost of linear search."
+- id: middle
+  title: Look at the middle, rule out half
+  tldr: "The last step said that looking at one number can rule out a whole stretch; this step cashes that in — take the middle number, compare once, and watch the 4 numbers of the left half get ruled out by a single verdict. At the same time it pins down the two sentences the whole algorithm stands on — if the target exists it is still inside the current interval, and the interval strictly shrinks every round."
+  body: |-
+    The initial interval is all 8 numbers, indexes 0 to 7; the middle position is (0 + 7) / 2 rounded down, which is 3, and the element there is 12. 23 is larger than 12, and the order is ascending, so 23 cannot be at 12 or anywhere to its left.
+
+    So indexes 0 to 3 — 4 elements — are ruled out at once, leaving 16, 23, 38, 56. One comparison rules out half: that is the core. The product of a comparison is not "found it or not" but a life-or-death verdict on half the range — even a miss buys you the exclusion of four elements. Abstracted, every round maintains two sentences: if the target exists, it is definitely still inside the current interval (the [[loop invariant|循环不变式]]); and the interval strictly shrinks. The first guarantees no false kills, the second guarantees termination — every variant and every bug later in this lesson can be checked against these two sentences.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Binary search lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: Each comparison rules out half the candidates
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 12 < 23 — the whole left half (including 12) is ruled out
+    rows:
+    - cells:
+      - v: 2
+        mark: muted
+        sub: "0"
+      - v: 5
+        mark: muted
+        sub: "1"
+      - v: 8
+        mark: muted
+        sub: "2"
+      - v: 12
+        mark: active
+        sub: "3"
+      - v: 16
+        sub: "4"
+      - v: 23
+        sub: "5"
+      - v: 38
+        sub: "6"
+      - v: 56
+        sub: "7"
+      range:
+        from: 0
+        to: 7
+      pointers:
+      - at: 0
+        label: lo
+      - at: 3
+        label: mid
+      - at: 7
+        label: hi
+  log:
+  - mode: "Range: the right half, 4 elements"
+    event: "The first comparison already ruled out the left half: the middle value 12 is smaller than 23, so 23 can only be in the right half — the range halved in one step."
+- id: repeat
+  title: Repeat, until found or the range is empty
+  tldr: "Ruling out half was only the first round. This step continues inside what remains of the right half — take the middle, compare again — until it hits, or until the range shrinks to empty and you can conclude the target does not exist. Along the way it explains why, when the target is absent, an empty interval is the only reliable proof of absence."
+  body: >-
+    Continue inside the remaining 16, 23, 38, 56 — indexes 4 to 7, the middle is (4 + 7) / 2 rounded down, which is 5, exactly 23. Hit; return index 5. Two comparisons in total, where linear search needs 6 for the same number.
+
+
+    When the target does not exist, say you are looking for 20 — the first round rules out the left half; in the second round the middle, 23, is larger than 20, so the right half containing 23 is ruled out; in the third round only 16
+    remains, and 16 is smaller than 20, so it is ruled out too — the interval becomes empty and the search returns "not found". An empty interval is the only reliable proof of absence, because the invariant guarantees the target was never killed by mistake. Implementations also often return the insertion point (like [[lodash]]'s [[sortedIndex]]) — everything to the left is smaller than the target and everything to the right is not smaller, so it can be used directly when maintaining a sorted array.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Binary search lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: When the range is empty the search has failed, and the insertion position can be obtained
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: The middle of the right half is exactly 23
+    rows:
+    - cells:
+      - v: 2
+        mark: muted
+        sub: "0"
+      - v: 5
+        mark: muted
+        sub: "1"
+      - v: 8
+        mark: muted
+        sub: "2"
+      - v: 12
+        mark: muted
+        sub: "3"
+      - v: 16
+        sub: "4"
+      - v: 23
+        mark: found
+        sub: "5"
+      - v: 38
+        sub: "6"
+      - v: 56
+        sub: "7"
+      range:
+        from: 4
+        to: 7
+      pointers:
+      - at: 4
+        label: lo
+      - at: 5
+        label: mid
+      - at: 7
+        label: hi
+  log:
+  - mode: Found
+    event: "The second comparison hits: the middle of the right half is exactly 23, so it returns index 5 — only 2 comparisons in all."
+- id: boundary
+  title: "Getting the boundaries right: the [[loop invariant|循环不变式]]"
+  tldr: "The flow works; the real trap is in how you write it — whether the interval includes both endpoints or includes the left and excludes the right, mixing the two by one position produces wrong answers or even an infinite loop. This step picks the left-closed, right-open writing, verifies it round by round, and settles the old rule for computing the middle without integer overflow."
+  body: >-
+    First, the notation this step uses — lo is the index of the left end of the current search range, hi is the index of the right end, and mid is the middle index. The writing [lo, hi) reads as left-closed, right-open — the position at the left end counts as inside the range, the position at the right end does not. Every shrinking move below follows this notation,
+    and vague notation is the number-one source of binary search bugs.
+
+    Pick one interval writing and stick to it to the end — with left-closed, right-open [lo, hi), the loop condition is lo < hi; when the middle value is smaller than the target, lo = mid + 1, otherwise hi = mid. With the closed interval [lo, hi], the condition is lo <= hi, and shrinking uses mid
+    + 1 or mid − 1. Both are correct; mixing them is always wrong.
+
+
+    The canvas shows the left-closed, right-open search for the first position not less than 23 — in [0, 8) the midpoint 4 holds 16, which is smaller than 23, so lo jumps to 5; in [5, 8) the midpoint 6 holds 38, not less than 23, so hi pulls back to 6; in [5, 6) the midpoint 5 holds 23, so hi pulls back to 5; lo and
+    hi meet, and the answer is 5. Every round the interval strictly shrinks, and the answer is never thrown out.
+
+
+    Compute the middle as lo + (hi − lo) / 2 to avoid lo + hi overflowing — that bug lay hidden in the Java standard library for years (see the design section and the last section). Once mid is computed, if some branch moves neither lo nor hi,
+    that is an infinite loop; after writing the code, verify each branch one by one first.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Binary search lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: The easiest place for binary search to go wrong is the boundaries — think first about which range the target is definitely in.
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "Left-closed, right-open [lo, hi), finding the first position ≥ 23: every round the target is still in the interval, and the interval strictly shrinks"
+    rows:
+    - label: Round 1 [0, 8)
+      cells:
+      - v: 2
+        sub: "0"
+      - v: 5
+        sub: "1"
+      - v: 8
+        sub: "2"
+      - v: 12
+        sub: "3"
+      - v: 16
+        mark: active
+        sub: "4"
+      - v: 23
+        sub: "5"
+      - v: 38
+        sub: "6"
+      - v: 56
+        sub: "7"
+      range:
+        from: 0
+        to: 7
+      pointers:
+      - at: 0
+        label: lo
+      - at: 4
+        label: "mid: 16 < 23 → lo = 5"
+    - label: Round 2 [5, 8)
+      cells:
+      - v: 2
+        mark: muted
+        sub: "0"
+      - v: 5
+        mark: muted
+        sub: "1"
+      - v: 8
+        mark: muted
+        sub: "2"
+      - v: 12
+        mark: muted
+        sub: "3"
+      - v: 16
+        mark: muted
+        sub: "4"
+      - v: 23
+        sub: "5"
+      - v: 38
+        mark: active
+        sub: "6"
+      - v: 56
+        sub: "7"
+      range:
+        from: 5
+        to: 7
+      pointers:
+      - at: 5
+        label: lo
+      - at: 6
+        label: "mid: 38 ≥ 23 → hi = 6"
+    - label: Round 3 [5, 6)
+      cells:
+      - v: 2
+        mark: muted
+        sub: "0"
+      - v: 5
+        mark: muted
+        sub: "1"
+      - v: 8
+        mark: muted
+        sub: "2"
+      - v: 12
+        mark: muted
+        sub: "3"
+      - v: 16
+        mark: muted
+        sub: "4"
+      - v: 23
+        mark: active
+        sub: "5"
+      - v: 38
+        mark: muted
+        sub: "6"
+      - v: 56
+        mark: muted
+        sub: "7"
+      range:
+        from: 5
+        to: 5
+      pointers:
+      - at: 5
+        label: "lo = mid: 23 ≥ 23 → hi = 5"
+    - label: lo = hi = 5, done
+      cells:
+      - v: 2
+        sub: "0"
+      - v: 5
+        sub: "1"
+      - v: 8
+        sub: "2"
+      - v: 12
+        sub: "3"
+      - v: 16
+        sub: "4"
+      - v: 23
+        mark: found
+        sub: "5"
+      - v: 38
+        sub: "6"
+      - v: 56
+        sub: "7"
+      pointers:
+      - at: 5
+        label: "Answer: 5"
+    aux:
+    - label: Computing the middle
+      items:
+      - mid = lo + (hi - lo) / 2
+      - Do not write (lo + hi) / 2 — it prevents overflow
+  log:
+  - mode: Search
+    event: "Three rounds of verification are done: the interval always kept the positions where the target could be, shrank strictly every round, and in the end the two ends met at index 5."
+  code:
+    lang: typescript
+    code: |-
+      // Standard binary search (closed-interval version): find the index of target in a sorted array, return -1 if absent
+      function binarySearch(a: number[], target: number): number {
+        let lo = 0, hi = a.length - 1;          // Invariant: if target exists, it is definitely inside [lo, hi]
+        while (lo <= hi) {
+          const mid = lo + ((hi - lo) >> 1);    // Compute the midpoint overflow-safely
+          if (a[mid] === target) return mid;
+          if (a[mid]! < target) lo = mid + 1;   // mid is ruled out
+          else hi = mid - 1;
+        }
+        return -1;                               // Empty interval = does not exist
+      }
+    note: Closed-interval [lo, hi] version
+    highlight: 6
+  points:
+  - Fix the interval semantics first (closed / half-open); the loop condition and the shrinking follow the semantics — never mix writings
+  - The interval must strictly shrink every round, or it is an infinite loop
+  - "The invariant: if the target exists, it is definitely still inside the current interval"
+  mistake: Mixing the closed interval's hi = mid - 1 with the half-open interval's hi = mid — the number-one source of binary search bugs. Pick one writing and stay consistent throughout.
+- id: variants
+  title: "Binary search variants: finding boundaries, searching on the answer"
+  tldr: "The basic version only answers whether the target exists. But when the array holds duplicates, the more common question is where the first position not less than the target is. This step shows how the two boundary searches locate it with the same halving move, then generalizes binary search from arrays to the answer itself, where there is no array — only monotone feasibility."
+  body: >-
+    When the array holds several 23s, the difference between "the first position not less than 23" ([[lower_bound]]) and "the first position greater than 23" ([[upper_bound]]) is exactly the number of times 23 occurs.
+
+
+    The broader use is binary searching on the answer — as long as "is the answer k feasible?" varies monotonically with k, you can find the smallest feasible k, the smallest bandwidth that lets a task finish on time, for example. [[git bisect]] is the same idea (on a linear history — commits are ordered by time, and "does this bug exist?" flips at one commit; the real implementation narrows by ancestry on the commit graph).
+
+
+    An example — split requests across servers, each processing k requests per second without timing out. Feasibility is monotone in k, so binary search on k — checking whether k is feasible takes one O(n) simulation, for a total complexity of O(n log
+    range). The same approach binary-searches the smallest batch size or the lowest confidence threshold. There is only one test — do not look at the data structure, look at whether feasibility is monotone. If it splits cleanly into infeasible, infeasible, feasible, feasible, you can binary search; if feasible and infeasible alternate, binary search has nothing to grip. The next section runs this test through a complete worked example.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Binary search lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: With duplicate elements you can find the first position ≥ x; wherever there is monotonicity, you can binary search.
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "Duplicate 23s: upper_bound − lower_bound = 5 − 2 = 3 of them"
+    rows:
+    - label: Sorted array
+      cells:
+      - v: 5
+        sub: "0"
+      - v: 12
+        sub: "1"
+      - v: 23
+        mark: found
+        sub: "2"
+      - v: 23
+        mark: found
+        sub: "3"
+      - v: 23
+        mark: found
+        sub: "4"
+      - v: 38
+        sub: "5"
+      - v: 56
+        sub: "6"
+      - v: 70
+        sub: "7"
+      pointers:
+      - at: 2
+        label: "lower_bound: first ≥ 23"
+      - at: 5
+        label: "upper_bound: first > 23"
+    - label: Binary search on the answer
+      cells:
+      - v: infeasible
+        mark: muted
+        sub: k=1
+      - v: infeasible
+        mark: muted
+        sub: k=2
+      - v: infeasible
+        mark: muted
+        sub: k=3
+      - v: feasible
+        mark: found
+        sub: k=4
+      - v: feasible
+        sub: k=5
+      - v: feasible
+        sub: k=6
+      pointers:
+      - at: 3
+        label: Smallest feasible k
+    aux:
+    - label: Precondition
+      items:
+      - "Feasibility is monotone in k: once feasible, every larger k is feasible too"
+  log:
+  - mode: Variant
+    event: "The left boundary is located: the difference between the first position not less than 23 and the first position greater than 23 is the number of times 23 occurs."
+  code:
+    lang: typescript
+    code: |-
+      // lower_bound (half-open interval [lo, hi)): the first position >= x; with duplicates it lands on the leftmost one
+      function lowerBound(a: number[], x: number): number {
+        let lo = 0, hi = a.length;
+        while (lo < hi) {
+          const mid = lo + ((hi - lo) >> 1);
+          if (a[mid]! < x) lo = mid + 1; else hi = mid;
+        }
+        return lo; // For upper_bound, change the condition to <= ; the difference of the two = the number of occurrences of x
+      }
+    note: The key tool for handling duplicate elements
+    highlight: 6
+- id: answer-domain
+  title: "Worked example: binary search on the answer domain — the smallest feasible speed"
+  tldr: "The last step said you can binary search on the answer itself; this step runs it in full with four work orders and an 8-hour deadline — first verify by hand why a processing speed of 3 does not work and 4 is exactly enough, then watch binary search find that dividing point in the speed range with only four checks."
+  body: >-
+    Put the variant into a worked example. Four work orders with workloads 3, 6, 7, 11 must all be finished within a total of 8 hours; the processing speed is k items per hour — the larger k is, the easier it gets. The question is the smallest k. Given k, each order takes its workload divided by k, rounded up; sum them and compare against 8 to judge feasibility.
+
+
+    Verify both sides of the dividing point — at k = 3 the four orders take 1, 2, 3, 4 hours, totaling 10 hours — infeasible; at k = 4 they take 1, 2, 2, 3, totaling 8 hours — exactly feasible; at k = 5, 1, 2, 2, 3 totaling 8 — feasible; at k = 6, 1, 1, 2, 2 totaling
+    6 — feasible. Feasibility flips from false to true at k = 4 and stays true afterwards.
+
+
+    So binary search over the range of k from 1 to 11 for the first feasible value — the midpoint 6 is feasible, so the upper bound pulls back to 6; the midpoint 3 is infeasible, so the lower bound rises to 4; the midpoint 5 is feasible, so the upper bound pulls back to 5; the midpoint 4 is feasible, so the upper bound pulls back to 4 — the answer is k = 4. Four checks in all, each scanning the work orders once, so the total complexity is checks times orders — far faster than trying every k starting from 1. Note — what is being binary searched is not an array, but a monotone predicate.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Lectures on binary search and monotone predicates
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: As long as feasibility varies monotonically with the answer, you can binary search the answer domain for the smallest feasible value
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "Feasibility is monotone in k: it flips from infeasible to feasible at k=4, and that dividing point is what binary search looks for"
+    rows:
+    - label: Speed k
+      cells:
+      - v: infeasible
+        mark: muted
+        sub: k=1
+      - v: infeasible
+        mark: muted
+        sub: k=2
+      - v: infeasible
+        mark: muted
+        sub: k=3
+      - v: feasible
+        mark: found
+        sub: k=4
+      - v: feasible
+        sub: k=5
+      - v: feasible
+        sub: k=6
+      - v: feasible
+        sub: k=7
+      - v: feasible
+        sub: k=8
+      pointers:
+      - at: 3
+        label: Smallest feasible k
+    aux:
+    - label: Total hours when checking k
+      items:
+      - k=3 → 10 hours, over time
+      - k=4 → 8 hours, exactly enough
+      - k=6 → 6 hours
+  log:
+  - mode: Variant
+    event: "The answer-domain search is done: what was binary searched was not an array but the feasibility that varies monotonically with speed, and the dividing point sits at speed 4."
+- id: rotated-array
+  title: "Rotated arrays: binary search in a half-sorted array"
+  tldr: "Every binary search so far stood on the whole array being sorted. This step cuts a sorted array in the middle and swaps the two halves, so the whole is no longer monotone, and looks at what structure remains usable — cut at any midpoint, at least one of the two halves is still fully sorted — and where this road fails when there are duplicates."
+  body: >-
+    A rotated array is a sorted array cut at some point with the two halves swapped — 2, 5, 8, 12, 16, 23, 38, 56 cut at 16 becomes
+    16, 23, 38, 56, 2, 5, 8, 12. The whole is no longer monotone and plain binary search fails, but local monotonicity survives — cut at any midpoint, at least one of the two halves is fully sorted.
+
+
+    Worked example, finding 5 — in the first round the interval is indexes 0 to 7 and the midpoint, index 3, is 56. The left end 16 is not greater than 56, which shows the left half 16, 23, 38, 56 is sorted; 5 is not between 16 and 56, so it can only be in the right half, and the lower bound rises to 4. In the second round the interval is 4 to 7 and the midpoint, index 5, is exactly
+    5 — hit. Two rounds and done, still [[O(log n)|大 O 记号]].
+
+
+    The test is a single sentence — first decide which half is sorted, then check whether the target lies inside that half's value range; if it does, go there; if not, go to the other half. With duplicates, if the left end, the midpoint, and the right end are all equal, you cannot tell which half is sorted and can only shrink both ends by one cell each, degrading to O(n) in the worst case — the one back door duplicates open.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Lectures on binary search variants
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: In a rotated sorted array, at least one side of any midpoint is sorted, and binary search can continue on that basis
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "Finding 5: the midpoint 56's left half is sorted and 5 is outside its range, so go right; the second round's midpoint hits"
+    rows:
+    - label: Round 1
+      cells:
+      - v: 16
+        sub: "0"
+      - v: 23
+        sub: "1"
+      - v: 38
+        sub: "2"
+      - v: 56
+        mark: active
+        sub: "3"
+      - v: 2
+        sub: "4"
+      - v: 5
+        sub: "5"
+      - v: 8
+        sub: "6"
+      - v: 12
+        sub: "7"
+      pointers:
+      - at: 0
+        label: lo
+      - at: 3
+        label: "mid: left half sorted, 5 not in 16–56"
+      - at: 7
+        label: hi
+    - label: Round 2
+      cells:
+      - v: 16
+        mark: muted
+        sub: "0"
+      - v: 23
+        mark: muted
+        sub: "1"
+      - v: 38
+        mark: muted
+        sub: "2"
+      - v: 56
+        mark: muted
+        sub: "3"
+      - v: 2
+        sub: "4"
+      - v: 5
+        mark: found
+        sub: "5"
+      - v: 8
+        sub: "6"
+      - v: 12
+        sub: "7"
+      pointers:
+      - at: 5
+        label: "mid: hit"
+    aux:
+    - label: The test
+      items:
+      - First judge which half is sorted
+      - Then judge whether the target is in its range
+  log:
+  - mode: Variant
+    event: "The rotated array hits in two rounds: judge which half is sorted first, then whether the target is in that half's range — still logarithmic."
+- id: lab-play
+  title: "Hands-on: the binary search lab"
+  tldr: "The rules are covered — now single-step it yourself. Pick a target value and watch how the three indexes lo, mid, hi move and how ruled-out cells turn gray; then switch to a target that does not exist and verify how the interval shrinks step by step to empty. Wherever a step fails to halve, that is where the problem is."
+  body: >-
+    Try different targets in the lab — hitting 23 takes only 2 comparisons; the missing 7 takes 3, after which the interval is empty; the minimum 2 and the maximum 56 both finish within 3 to 4. Ruled-out cells turn gray — with n = 8 it takes at most 4, where linear search takes up to 8 in the worst case; change n to a million and the gap becomes 20 against a million.
+
+
+    Then a contrast — switch the target to a nonexistent 100 and watch the interval shrink to the right until it is empty, and understand why a miss often costs the most comparisons of all. Keep your eyes on lo and
+    hi and verify that each round's interval length really does halve. If some step does not halve, you have most likely mixed the shrinking rules of the closed and half-open intervals — go back to the invariant and compare; that is faster than blindly changing code.
+  derivation: original
+  sources: []
+  canvas:
+    kind: lab
+    lab: binary-search-lab
+    caption: "Preset targets + custom targets; single-step / play / reset; linear-search counts for comparison"
+    params:
+      array:
+      - 2
+      - 5
+      - 8
+      - 12
+      - 16
+      - 23
+      - 38
+      - 56
+      targets:
+      - 23
+      - 7
+      - 2
+      - 56
+      target: 23
+    cases:
+    - input:
+        target: 23
+      expect:
+        found: true
+        index: 5
+        comparisons: 2
+        linear: 6
+    - input:
+        target: 7
+      expect:
+        found: false
+        index: -1
+        comparisons: 3
+        linear: 8
+  log:
+  - mode: Lab
+    event: "Single-stepping binary search in the lab: watch the three indexes move and the comparison count, and verify the range really does halve every round."
+- id: complexity
+  title: Why it is [[O(log n)|大 O 记号]]
+  tldr: "After all these rounds, this step settles the total bill — why the maximum number of comparisons is logarithmic. First do the math on halving 8 numbers down to 1, then watch the data grow to a million and to a billion while the comparison count only rises to about 20 and about 30."
+  body: >-
+    Why O(log n) — each comparison halves the candidate range, so n elements can be halved at most log base 2 of n times before one remains. 8 takes at most 4, 1024 takes at most 11, a million about 20, a billion about 30 — 2 to the power of 20 is about a million, and 2 to the power of 30 is about a billion.
+
+
+    This curve's temperament — doubling the data adds one comparison; growing it a thousandfold adds only about 10. That is the watershed between logarithmic and linear, and the reason sorted lookups barely feel the data growing. A database index locates rows instantly mainly thanks to the B+
+    tree's low depth (see the data storage subject); binary search is the ring of it that searches for a key inside each node (the next section expands on this). A common misunderstanding is to call O(log n) a fixed number of comparisons — it does grow with n, just extremely slowly.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Lectures on asymptotic analysis
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: The number of comparisons in binary search is logarithmic
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: Each comparison halves the range
+    rows:
+    - label: Remaining range
+      cells:
+      - v: 8
+        mark: active
+        sub: 1st
+      - v: 4
+        sub: 2nd
+      - v: 2
+        sub: 3rd
+      - v: 1
+        mark: found
+        sub: 4th
+    aux:
+    - label: Scale → max comparisons
+      items:
+      - 8 → 4
+      - 1 million → about 20
+      - 1 billion → about 30
+  log:
+  - mode: Analysis
+    event: "The bill is settled: doubling the data adds just one comparison — that is the watershed between logarithmic and linear."
+- id: btree-echo
+  title: "Echo: binary search inside B-tree nodes"
+  tldr: "Binary search does not live only in arrays. This step zooms out to database indexes — inside every level's node of a [[B+ tree|B+ 树]], keys are found with exactly this binary search; the whole tree is binary search, drop a level, binary search, drop another level, alternating. Along the way it settles why indexes fight so hard over the number of levels rather than the number of comparisons."
+  body: |-
+    Zoom out: one node of a database B+ tree stores dozens to hundreds of sorted keys. Locating a key means first binary searching inside the node to find the child pointer, then following the pointer down to the next level — the whole tree is binary search and level-hopping alternating, and each comparison in this lesson corresponds to one in-page positioning there.
+
+    The math: with about 100 keys per node, the B+ tree over a million rows is only about 3 to 4 levels deep; each level's in-page binary search takes about 7 comparisons, for a total of roughly twenty to thirty comparisons — yet only 3 to 4 disk pages need reading. One disk read costs orders of magnitude more than an in-memory comparison, so B-trees fight to crush the level count (via large fan-out), not the comparison count; binary search's job is pressing each level's in-page cost down to logarithmic. Nodes are not scanned linearly because scanning at every level would multiply the constant across all levels. Conversely, when the data is entirely in memory and small, a linear scan can actually be faster thanks to the cache and branch prediction — logarithmic is an asymptotic conclusion, and engineering choices still depend on constants and hardware; the sorting lesson will meet this again when it covers hybrid strategies.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Binary search lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: Binary search positioning over a set of sorted keys is the basic operation for searching inside the nodes of a multiway search tree
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "A B+ tree sketch (two levels drawn): at each level, binary search inside the node first, then follow the child pointer down"
+    rows:
+    - label: Level 1 (root page)
+      cells:
+      - v: 10
+        sub: ""
+      - v: 30
+        mark: active
+        sub: ""
+      - v: 50
+        sub: ""
+      - v: 70
+        sub: ""
+      pointers:
+      - at: 1
+        label: "Binary search: 23 is between 10 and 30"
+    - label: Level 2 (leaf page)
+      cells:
+      - v: 12
+        sub: ""
+      - v: 18
+        sub: ""
+      - v: 23
+        mark: found
+        sub: ""
+      - v: 27
+        sub: ""
+      pointers:
+      - at: 2
+        label: In-page binary search hits 23
+    aux:
+    - label: The numbers
+      items:
+      - About 100 keys per page
+      - A million rows — about 3–4 levels
+      - Only 3–4 pages read
+  log:
+  - mode: Echo
+    event: "The echo holds: binary search is the ring that locates keys inside each B+ tree node, and the whole tree relies on it to press disk reads down to a single-digit number of levels."
+- id: engineering
+  title: Preconditions and traps
+  tldr: "Finally, the wrap-up — fast as binary search is, it cannot be used when its preconditions fail. This step names the unsuitable scenarios one by one — unsorted data, linked-list storage, frequent insertions and deletions — and tells the story of a midpoint-overflow bug that lay hidden in the Java standard library for about 9 years, to show why that old rule must be kept in any language."
+  body: >-
+    When the data changes often, re-sorting every time is not worth it — a hash table or a balanced tree fits better. A linked list cannot jump to the middle, so it cannot binary search efficiently either. And binary search is not only for arrays — [[git bisect]] binary searches the commit history to find which commit introduced a bug.
+
+
+    The overflow story — the (lo + hi) / 2 bug lay hidden in Java's Arrays.binarySearch for about 9 years before it was made public — when indexes approach 2^30, lo + hi exceeds the int ceiling and turns negative. JavaScript
+    numbers are double-precision floats, and integers within ±(2^53−1) are represented exactly (MAX_SAFE_INTEGER), so they never truly overflow — but the habit of lo + (hi - lo) / 2 is worth keeping; it is safe in any language you switch to.
+
+
+    A precondition that is often overlooked is random access — every step of binary search jumps to the midpoint. An array jumps there in one step by index, while a linked list can only walk from the head, so one jump to the middle is already O(n) and the advantage is gone. Frequent insertions and deletions are the same — maintaining a sorted array costs O(n) of shifting per insertion or deletion, and however fast the lookup is, the writes eat it. That is when to switch to a balanced tree or a hash table.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Binary search lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: Binary search requires sortedness and random access
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  - ref: joshua-bloch
+    locator: Full text (2006-06-02)
+    claim: The (low+high)/2 overflow bug lay hidden in the JDK's Arrays.binarySearch for about nine years, triggered when the array length reaches 2^30
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "Preconditions: sorted, and able to jump straight to the middle by index"
+    rows:
+    - label: Sorted array
+      cells:
+      - v: 2
+        sub: "0"
+      - v: 5
+        sub: "1"
+      - v: 8
+        sub: "2"
+      - v: 12
+        sub: "3"
+      - v: 16
+        sub: "4"
+      - v: 23
+        mark: found
+        sub: "5"
+      - v: 38
+        sub: "6"
+      - v: 56
+        sub: "7"
+    aux:
+    - label: Not suitable
+      items:
+      - Linked lists
+      - Frequently changing data
+    - label: The same idea
+      items:
+      - git bisect
+  log:
+  - mode: Summary
+    event: "The selection conclusion boils down to one line: first confirm the data is sorted, supports direct access by index, and does not change often — then use binary search."
+level: 基础
+minutes: 34
+prereq:
+- dsa/hash-table
+objectives:
+- Write binary search correctly in both the closed-interval and half-open-interval forms
+- Implement lower_bound and handle duplicate elements
+- Recognize monotone problems that can be binary searched on the answer
+aiLink: Binary search keeps reappearing in AI
+  engineering in the shape of "threshold search" — when a metric varies monotonically with a parameter, you can binary search the cost curve for the optimal confidence threshold, batch size, or quantization tier (when it is not monotone this does not apply — verify monotonicity first). As an analogy — the graph indexes of vector retrieval (HNSW) also narrow the candidate range layer by layer, but the mechanism is a greedy walk on a graph, not binary search. Master the invariant-based writing, and searches like these will not ship boundary
+  bugs.
+design:
+- mechanism: When the midpoint is written as lo + (hi − lo) / 2, the interval length computed first never exceeds the interval itself, and every intermediate value stays inside the legal index range; written as (lo + hi) / 2, the addition goes first, the intermediate sum can reach twice the index ceiling, and once it has overflowed, the division afterwards cannot save it.
+  problem: In fixed-width integers (an int tops out at about 2.1 billion, for instance), lo and hi are each legal and neither overflows on its own, but their sum can cross the boundary and turn negative, and every division and index access after that is wrong; and it only triggers on large arrays, so small-scale tests never run into it.
+  choice: Write it uniformly as lo + (hi − lo) / 2, or use a safe-midpoint form the language provides, baking the overflow guard into the template instead of relying on remembering it in the moment. JavaScript numbers are double-precision floats and exact within the safe-integer range, but the habit is kept anyway — it cannot go wrong in any language you switch to.
+  tradeoff: The cost is almost zero — one extra subtraction. The real price is discipline — every binary search must use the same writing; wherever one place takes the shortcut back to averaging by addition, the bug returns from exactly that place, and still only fires at large data volumes.
+  root: The root is that fixed-width arithmetic does not enjoy the closure of mathematical integers — addition can overflow, while the result of subtracting quantities of the same scale stays inside the interval. Bloch pointed out in 2006 that this bug had lain hidden in the JDK's binary search and merge sort implementations for about nine years. The lesson — correctness must be proved within the representable range, not only over mathematical integers.
+- mechanism: Binary search's correctness can be written entirely as one loop invariant (if the target exists, it is definitely inside the current interval) plus one termination property (the interval strictly shrinks every round). Once the interval semantics are chosen, these two uniquely determine the loop condition and both shrinking writings — there is no room left for improvisation.
+  problem: Binary search is widely considered the simplest algorithm that is hardest to write correctly — off by one on a boundary, off by one cell on a shrink, and the symptom is not an immediate error but an occasional infinite loop or an occasionally missed boundary element — and on small data it often happens to be all correct, so the problem drags on until production exposes it.
+  choice: Fix the interval semantics before writing code — half-open pairs with lo < hi and hi = mid; closed pairs with lo <= hi and mid + 1 or mid − 1. After writing, verify branch by branch with the three minimal cases — empty interval, single element, target at both ends — and only then ship it.
+  tradeoff: The half-open interval aligns naturally with lengths and insertion points, which makes boundary searches smoother to write; the closed interval sits closer to spoken intuition and is easier for beginners. Neither is better — only whole-course consistency means anything, and the price of mixing them is exactly the class of invisible bugs above.
+  root: The root is that binary search's correctness is an induction proof, not an empirical matter — the invariant is the induction hypothesis and each round's shrink is the induction step. Write the proof skeleton first and then land the code, and the boundaries stop depending on trial and error — that is its most essential difference from an ordinary loop.
+- mechanism: What binary search truly relies on is not the surface fact that the array is sorted, but a predicate that is monotone along the search direction — one comparison can reliably pronounce a death sentence on a whole half of the candidates. A sorted array, monotone answer feasibility, and the sorted half of a rotated array are all different sources of this same monotonicity.
+  problem: Many problems have no ready-made sorted array on the surface — tuning wants the smallest feasible value, log hunting wants the first bad version, a rotated array is unsorted as a whole. If binary search is equated with finding a number in an array, all of these get misjudged as unrelated to binary search.
+  choice: Construct and verify the monotone predicate first, then apply the invariant template unchanged — for answer-domain problems, write the feasibility check and verify its monotonicity first; for rotated arrays, judge which half is sorted each round. If the verification passes, reuse the template as-is; if it fails, abandon binary search at once and look for another algorithm.
+  tradeoff: The price is that every problem first pays the cost of proving and testing monotonicity, and if the predicate check itself is a linear scan, the total complexity multiplies by the check's cost. In exchange, one verified template covers a large class of problems, with no need to reinvent the search for each.
+  root: The root is information-theoretic — one comparison can rule out at most half the candidates, which requires the ruled-out half to share a uniform reason for being dead — only a total order or a monotone structure can keep supplying that reason. Without monotonicity, comparisons cannot rule out a constant proportion, and binary search cannot stand in principle.
+quiz:
+- q: "In the left-closed, right-open [lo, hi) writing, which loop condition and shrinking are correct?"
+  options:
+  - lo <= hi, hi = mid
+  - lo < hi; when a[mid] < x, lo = mid + 1, otherwise hi = mid
+  - lo < hi, hi = mid - 1
+  - lo <= hi, lo = mid
+  answer: 1
+  explain: A half-open interval is empty exactly when lo == hi; the side that keeps mid as a possible answer uses hi = mid.
+- q: Why mid = lo + (hi - lo) / 2 instead of (lo + hi) / 2?
+  options:
+  - It looks better
+  - To avoid lo + hi exceeding the fixed-width integer ceiling and overflowing
+  - To make the result larger
+  - For linked-list compatibility
+  answer: 1
+  explain: This overflow bug existed in the Java standard library for years (Bloch's 2006 blog post); JavaScript numbers are double-precision floats, with integers represented exactly within ±(2^53−1), but the idea is worth understanding.
+- q: "How many times does 23 occur in the array [5,12,23,23,23,38], and how do you compute it?"
+  options:
+  - One lower_bound
+  - upper_bound − lower_bound = 5 − 2 = 3
+  - Find one and count its neighbors — O(n) in the worst case, not acceptable
+  - Hash counting
+  answer: 1
+  explain: The difference of the two boundaries is the occurrence count, in O(log n) throughout.
+- q: What is the precondition for "binary search on the answer"?
+  options:
+  - The array must be sorted
+  - "Feasibility is monotone in the answer: below some value all infeasible, at and above it all feasible (or the reverse)"
+  - The answer is an integer
+  - The data volume is large
+  answer: 1
+  explain: Monotonicity is the essential precondition; a sorted array is only its most common source.
+legend:
+- key: active
+  label: Element currently being compared / processed
+- key: found
+  label: Found / final position
+- key: done
+  label: Processing complete
+- key: pivot
+  label: Pivot element
+- key: muted
+  label: Ruled out / no longer considered
+- key: visited
+  label: Visited

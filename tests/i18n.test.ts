@@ -57,8 +57,9 @@ describe("bilingual content loading", () => {
     });
   });
   it("topics fall back to Chinese when they have no en.yaml yet", () => {
-    // Only translated lessons have overlays so far; everything else falls back.
-    expect([...c.topicsEn.keys()]).toEqual(["dsa/hash-table"]);
+    // DSA is fully translated (all 11 lessons have overlays); every other
+    // subject still falls back to the Chinese canonical topic.
+    expect([...c.topicsEn.keys()].sort()).toEqual(c.topics.filter((t) => t.subject === "dsa").map((t) => t.id).sort());
     for (const t of c.topics) {
       if (c.topicsEn.has(t.id)) expect(topicForLang(c, t, "en")).toBe(c.topicsEn.get(t.id));
       else expect(topicForLang(c, t, "en")).toBe(t);
