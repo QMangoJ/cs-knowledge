@@ -147,7 +147,7 @@ subjects:
     blurb: 没有继承、没有类：类型靠方法集自动对上接口，复用靠把现成类型嵌进来，错误靠显式返回一层层交代。
     topics: [go/interfaces-composition]
 - id: backend
-  tagline: 后端工程讲的是服务写完之后的事：代码怎样打包成容器、在集群里被编排着跑、顺着流水线安全地发布、出事之后又怎样靠日志、指标与追踪找到病根。
+  tagline: 后端工程讲两件事：服务怎么写才站得住——认证、缓存、请求链路、SQL、安全、测试与单机部署；以及服务写完之后怎么上岗——打包成容器、在集群里编排、顺着流水线发布、出事靠日志、指标与追踪找到病根，最后算微服务与 AI 应用这两道形态题。
   blocks:
   - name: 打包：容器与 Docker
     blurb: 先解决「在我机器上是好的」：把应用连同环境一起打包成镜像，靠内核的隔离与限额机制在一台机器上安稳地跑很多个。
@@ -161,6 +161,27 @@ subjects:
   - name: 观测：日志、指标与链路追踪
     blurb: 上线不是终点：系统对外吐出的三类数据，决定了出事时你是在几分钟内找到病根，还是登上机器瞎猜一整夜。
     topics: [backend/observability]
+  - name: 身份：认证与会话
+    blurb: 换到写服务这一侧，第一道关口是门禁：登录态存在哪（Session 还是 JWT）、第三方登录怎么借用身份、密码该怎么存、权限怎么分。
+    topics: [backend/auth-sessions]
+  - name: 加速：缓存与 Redis
+    blurb: 热点数据被反复读时，把它抄一份放进内存：读走旁路、写先落库再删缓存，再防住穿透、击穿、雪崩这三种翻车。
+    topics: [backend/cache-redis]
+  - name: 请求的一生：API 服务的写法
+    blurb: 追一个请求过完全部关口：网关、限流、认证、中间件、校验、分层、幂等与统一错误——API 服务的骨架就是这条链。
+    topics: [backend/request-lifecycle]
+  - name: 数据实务：SQL 与后端安全
+    blurb: 和数据库打交道的日常手艺（执行计划、N+1、连接池、事务边界），加上攻击者视角的三道防线（注入、越权、密钥）。
+    topics: [backend/sql-practice, backend/backend-security]
+  - name: 单机部署：Linux 与 Nginx
+    blurb: 一台云服务器怎么把服务养活：systemd 管生死、Nginx 守入口、环境变量给配置、日志有落点且要轮转。
+    topics: [backend/linux-nginx-deploy]
+  - name: 质量与形态：测试与微服务
+    blurb: 先织测试网（单元、集成、契约各拦一类 bug），再算形态账：微服务买的是组织扩展性，付的是分布式税，拆不拆是判断题。
+    topics: [backend/backend-testing, backend/microservices]
+  - name: AI 应用后端：把模型接成服务
+    blurb: 模型在应用里只是一个慢、贵、会出错、会编的远程接口：流式藏住慢、RAG 管住编、设防对付错、token 账本管住贵。
+    topics: [backend/ai-app-backend]
 - id: math
   tagline: 数学基础是其余各科的暗线：概率是描述不确定性的语言，缓存命中、排队延迟、模型输出，最后都要用它来度量。
   blocks:

@@ -107,7 +107,7 @@ subjects:
   - name: "The type system: interfaces and composition"
     blurb: "No inheritance, no classes: types satisfy interfaces automatically through their method sets, reuse comes from embedding existing types, and errors are returned explicitly, layer by layer."
 - id: backend
-  tagline: "Backend engineering is everything after the service is written: how code is packaged into containers, orchestrated on a cluster, released safely down a pipeline, and — when something breaks — traced to the root cause with logs, metrics, and traces."
+  tagline: "Backend engineering covers both halves of a service's life: how to write one that holds up — authentication, caching, the request path, SQL, security, testing, and single-box deployment — and what happens after it is written: packaging, orchestration, release, observability, and the shape questions of microservices and serving a model as a product."
   blocks:
   - name: "Packaging: containers and Docker"
     blurb: "Solve 'it works on my machine' first: package the app together with its environment as an image, and let the kernel's isolation and limits mechanisms run many of them steadily on one machine."
@@ -117,6 +117,20 @@ subjects:
     blurb: "Merging code is only the start: the pipeline strings build, test, and deploy into one automated line, and blue-green and canary decide how big a step the new version takes toward real users."
   - name: "Observability: logs, metrics, and tracing"
     blurb: "Shipping is not the finish line: the three kinds of data a system emits decide whether an incident takes minutes to root-cause, or a whole night of guessing on the box."
+  - name: "Identity: authentication and sessions"
+    blurb: "Switching to the writing side, the first gate is the door: where login state lives (Session or JWT), how third-party sign-in borrows an identity, how passwords must be stored, and how permissions are handed out."
+  - name: "Speed: caching and Redis"
+    blurb: "When hot data is read over and over, keep a copy in memory: reads go cache-aside, writes land in the database first and then delete the copy, and penetration, breakdown, and avalanche each get their fixed countermeasure."
+  - name: "Life of a request: how an API service is written"
+    blurb: "Follow one request through every gate: gateway, rate limiting, authentication, middleware, validation, layering, idempotency, and a unified error format — that chain is the skeleton of an API service."
+  - name: "Data in practice: SQL and backend security"
+    blurb: "The everyday craft of living with a database (execution plans, N+1, connection pools, transaction boundaries), plus the attacker's view of three defenses: injection, broken access control, and secrets."
+  - name: "Single-box deployment: Linux and Nginx"
+    blurb: "How one cloud server keeps a service alive: systemd owns its lifecycle, Nginx guards the entrance, environment variables carry the configuration, and logs have a home — and a rotation policy."
+  - name: "Quality and shape: testing and microservices"
+    blurb: "First weave the test net (unit, integration, and contract tests each catch their own class of bug), then do the shape math: microservices buy organizational scaling and charge the distributed-systems tax, so splitting is a judgment call."
+  - name: "AI application backends: serving a model"
+    blurb: "Inside an application, a model is just a remote API that is slow, expensive, fallible, and prone to making things up: streaming hides the slow, RAG fences in the fabrication, defenses handle the failures, and a token ledger keeps the bill in check."
 - id: math
   tagline: "Math foundations are the thread running under every other subject: probability is the language of uncertainty, and cache hits, queueing delays, and model outputs are all measured in it in the end."
   blocks:

@@ -285,3 +285,67 @@
   title: "Martin Fowler: Continuous Integration（持续集成：勤合并、自动构建与测试）"
   url: https://martinfowler.com/articles/continuousIntegration.html
   license: "见原文"
+- id: rfc-6265
+  title: "RFC 6265: HTTP State Management Mechanism（Cookie 的 Set-Cookie / Cookie 头与属性）"
+  url: https://www.rfc-editor.org/rfc/rfc6265
+  license: "见原文"
+- id: rfc-6749
+  title: "RFC 6749: The OAuth 2.0 Authorization Framework（授权码等授权流程的定义）"
+  url: https://www.rfc-editor.org/rfc/rfc6749
+  license: "见原文"
+- id: rfc-7519
+  title: "RFC 7519: JSON Web Token (JWT)（头部、载荷、签名三段结构）"
+  url: https://www.rfc-editor.org/rfc/rfc7519
+  license: "见原文"
+- id: openid-connect-core
+  title: "OpenID Connect Core 1.0（在 OAuth 2.0 之上补 id_token 与身份信息）"
+  url: https://openid.net/specs/openid-connect-core-1_0.html
+  license: "见原文"
+- id: owasp-password-storage
+  title: "OWASP Password Storage Cheat Sheet（盐值加慢哈希、Argon2id / bcrypt 的参数建议）"
+  url: https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html
+  license: "见原文"
+- id: owasp-sql-injection
+  title: "OWASP SQL Injection Prevention Cheat Sheet（参数化查询为首选防法）"
+  url: https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html
+  license: "见原文"
+- id: owasp-authorization
+  title: "OWASP Authorization Cheat Sheet（逐请求、贴着资源做授权校验）"
+  url: https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html
+  license: "见原文"
+- id: redis-docs
+  title: "Redis 官方文档（数据结构、缓存用法与内存淘汰策略）"
+  url: https://redis.io/docs/latest/
+  license: "见原文"
+- id: postgresql-docs
+  title: "PostgreSQL 官方文档（查询执行、EXPLAIN 与连接管理）"
+  url: https://www.postgresql.org/docs/current/
+  license: "见原文"
+- id: nginx-docs
+  title: "nginx 官方文档（反向代理、静态文件与配置）"
+  url: https://nginx.org/en/docs/
+  license: "见原文"
+- id: systemd-docs
+  title: "systemd.service 官方手册（服务单元与重启策略）"
+  url: https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html
+  license: "见原文"
+- id: fowler-test-pyramid
+  title: "Martin Fowler: Test Pyramid（单元多、集成适量、端到端少的配比）"
+  url: https://martinfowler.com/bliki/TestPyramid.html
+  license: "见原文"
+- id: fowler-microservices
+  title: "James Lewis & Martin Fowler: Microservices（按业务能力拆分、去中心化治理）"
+  url: https://martinfowler.com/articles/microservices.html
+  license: "见原文"
+- id: fowler-monolith-first
+  title: "Martin Fowler: Monolith First（先单体、摸清边界再拆）"
+  url: https://martinfowler.com/bliki/MonolithFirst.html
+  license: "见原文"
+- id: stripe-idempotency
+  title: "Stripe API 文档：Idempotent requests（幂等键的服务端语义）"
+  url: https://docs.stripe.com/api/idempotent_requests
+  license: "见原文"
+- id: hnsw-paper
+  title: "Malkov & Yashunin: Efficient and robust approximate nearest neighbor search using HNSW graphs"
+  url: https://arxiv.org/abs/1603.09320
+  license: "见原文"
