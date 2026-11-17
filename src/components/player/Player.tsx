@@ -83,7 +83,7 @@ export function Player({ topic, initialStep, nextTopic, nav }: { topic: ViewTopi
           </div>
         </header>
 
-        <div className={rows.length > 0 || caption ? "p-grid" : "p-grid no-log"}>
+        <div className={(rows.length > 0 || caption ? "p-grid" : "p-grid no-log") + (step.special === "overview" ? " is-overview" : "")}>
           <aside className="p-rail">
             <nav className="steplist" aria-label={t.steps}>
               <ol>

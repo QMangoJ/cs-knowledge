@@ -336,6 +336,18 @@ details.ref-sol summary{cursor:pointer;font-weight:700}
   .canvas-wrap > *{flex:none}
   .p-details{grid-area:details;overflow-y:auto;padding-right:6px;height:0;min-height:100%}
   .p-logbar{grid-area:log}
+  /* Overview step form change (Daniel approved 2026-11-17): the step is all
+     text — premise on the stage, intro + position in the details column — and
+     side-by-side boxes gave it no reading order. On this step only, stage and
+     details stack into ONE reading column (premise → intro → position): the
+     stage sizes to its content (no fixed-height stage box, no internal stage
+     scroll), the details keep the remaining height and scroll inside, exactly
+     as on every other step. Content steps keep the three-column stage form. */
+  .p-grid.is-overview{grid-template-columns:300px minmax(0,1fr);
+    grid-template-rows:auto minmax(0,1fr) 142px;
+    grid-template-areas:"rail stage" "rail details" "rail log"}
+  .p-grid.is-overview.no-log{grid-template-rows:auto minmax(0,1fr) 0}
+  .p-grid.is-overview .canvas-wrap{flex:none;overflow:visible}
 }
 
 @container (max-width:1119px){
@@ -352,6 +364,13 @@ details.ref-sol summary{cursor:pointer;font-weight:700}
   .p-logbar{order:4;max-height:220px;flex:none}
   .p-rail{order:5;flex:none;max-height:22dvh;overflow-y:auto}
   .p-rail .steplist{display:none}
+  /* Overview step, small screens: one scrolling reading column (premise →
+     intro → position) instead of a height-capped stage box stacked over a
+     separately scrolling details pane. */
+  .p-grid.is-overview{overflow-y:auto}
+  .p-grid.is-overview .stage-body{max-height:none;overflow:visible}
+  .p-grid.is-overview .p-details{flex:none;overflow:visible}
+  .p-grid.is-overview .p-rail{max-height:none;overflow:visible}
   .stage-body{min-height:190px}
   .stage-body > .swimlane{height:auto}
   .stage-body > .datastate{height:auto}
@@ -419,12 +438,16 @@ details.ref-sol summary{cursor:pointer;font-weight:700}
 .nav-toggle:hover{background:var(--line-soft)}
 .sidenav{width:240px;flex:none;border-right:1px solid var(--line-mid);overflow-y:auto;padding:14px 10px 24px;background:var(--panel)}
 .sidenav.drawer{display:none}
-.sn-home{display:block;padding:5px 9px;border-radius:6px;color:var(--ink-soft);text-decoration:none;font-family:var(--font-cjk);font-size:var(--fs-sm);font-weight:700}
+.sn-home{display:block;padding:5px 9px;border-radius:6px;color:var(--ink-strong);text-decoration:none;font-family:var(--font-cjk);font-size:16px;font-weight:700}
 .sn-home:hover{color:var(--ink-strong);background:var(--line-soft)}
 .sn-home.current{color:var(--active)}
-.sn-subject{margin-top:16px}
-.sn-subject-name{margin:0 0 4px;padding:0 9px;font-size:var(--fs-xs);color:var(--ink-muted);letter-spacing:.05em}
-.sn-topic{display:block;padding:4px 9px;border-radius:6px;color:var(--ink-soft);text-decoration:none;font-family:var(--font-cjk);font-size:var(--fs-sm);line-height:1.55}
+/* Nav hierarchy (from the v3 sample, approved by Daniel 2026-11-17): the
+   subject name is the first level — 20px bold in the strongest ink, groups
+   separated by whitespace; topics sit one step down at 13px, indented under
+   their subject. 20/13 = 1.54x. */
+.sn-subject{margin-top:28px}
+.sn-subject-name{margin:0 0 8px;padding:0 9px;font-family:var(--font-cjk);font-size:20px;font-weight:700;line-height:1.35;color:var(--ink-strong)}
+.sn-topic{display:block;padding:5px 9px 5px 20px;border-radius:6px;color:var(--ink-soft);text-decoration:none;font-family:var(--font-cjk);font-size:13px;line-height:1.55}
 .sn-topic:hover{color:var(--ink-strong);background:var(--line-soft)}
 .sn-topic.current{color:var(--active);font-weight:700;background:color-mix(in srgb,var(--active) 9%,transparent)}
 @media (max-width:1199px){
