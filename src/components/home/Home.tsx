@@ -21,6 +21,7 @@ const ROUTE: { subject: string; blurb: string }[] = [
   { subject: "math", blurb: "数学基础穿插着补：概率与期望是理解模型行为与 A/B 实验的语言。" },
   { subject: "ai", blurb: "最后是程序从数据里学：反向传播怎样给每个权重分摊责任，注意力与 KV 缓存又怎样决定它跑多快、多贵。" },
   { subject: "go", blurb: "再补一门后端语言：Go 为什么把语言做得这么小、并发做进语法里，以及接口与组合怎样替代继承。" },
+  { subject: "backend", blurb: "再看服务怎样真正跑起来：容器打包、Kubernetes 编排、流水线发布、出事之后靠日志指标追踪定位——后端工程的日常四件事。" },
   { subject: "coding", blurb: "到「面试刷题」里把算法题在浏览器里真刀真枪写出来、跑测试、看复杂度。" },
 ];
 const ROADMAP = ["存储进阶：向量索引与混合检索", "AI 系统深化：推理调度、批处理与量化"];
@@ -69,7 +70,7 @@ export function Home({ topics, subjects, journey }: { topics: HomeTopic[]; subje
         <p className="muted">{t.progress}：{doneCount} / {published.length} 个主题（{pct}%）· 完成方式：在每个主题末尾手动标记「已学完」。</p>
       </section>
 
-      {(["os", "co", "dsa", "network", "data", "distributed", "math", "ai", "go"] as const).map((s) => {
+      {(["os", "co", "dsa", "network", "data", "distributed", "math", "ai", "go", "backend"] as const).map((s) => {
         const list = topics.filter((x) => x.subject === s);
         const info = infoOf(s);
         return (

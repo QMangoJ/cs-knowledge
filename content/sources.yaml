@@ -241,3 +241,47 @@
   title: "Istio 官方文档：Traffic Management（服务注册与发现、熔断/超时/重试的服务级配置、按百分比的金丝雀切流）"
   url: https://istio.io/latest/docs/concepts/traffic-management/
   license: "见原文"
+- id: docker-docs
+  title: "Docker 官方文档（镜像、分层存储、Dockerfile 与容器运行时）"
+  url: https://docs.docker.com/
+  license: "见原文"
+- id: kubernetes-docs
+  title: "Kubernetes 官方文档（Pod、Deployment、Service、调度器与 kubelet 的概念说明）"
+  url: https://kubernetes.io/docs/
+  license: "CC BY 4.0（见原文）"
+- id: fowler-continuous-delivery
+  title: "Martin Fowler: Continuous Delivery（持续交付的定义与原则）"
+  url: https://martinfowler.com/bliki/ContinuousDelivery.html
+  license: "见原文"
+- id: fowler-bluegreen
+  title: "Martin Fowler: Blue Green Deployment（蓝绿发布的切换与回滚）"
+  url: https://martinfowler.com/bliki/BlueGreenDeployment.html
+  license: "见原文"
+- id: fowler-canary
+  title: "Martin Fowler: Canary Release（金丝雀发布：先给一小部分用户试用新版本）"
+  url: https://martinfowler.com/bliki/CanaryRelease.html
+  license: "见原文"
+- id: fowler-feature-toggles
+  title: "Martin Fowler: Feature Toggles (Feature Flags)（功能开关的分类与用法）"
+  url: https://martinfowler.com/articles/feature-toggles.html
+  license: "见原文"
+- id: google-sre-book
+  title: "Google SRE Book: Monitoring Distributed Systems（四个黄金信号与按症状告警）"
+  url: https://sre.google/sre-book/monitoring-distributed-systems/
+  license: "见原文"
+- id: grafana-red-method
+  title: "Tom Wilkie (Grafana Blog): The RED Method — How to Instrument Your Services（速率、错误、时长）"
+  url: https://grafana.com/blog/2018/08/02/the-red-method-how-to-instrument-your-services/
+  license: "见原文"
+- id: brendangregg-use
+  title: "Brendan Gregg: The USE Method（利用率、饱和度、错误——逐个资源排查的方法）"
+  url: https://www.brendangregg.com/usemethod.html
+  license: "见原文"
+- id: opentelemetry-docs
+  title: "OpenTelemetry 官方文档（日志、指标、链路追踪三类信号与统一采集）"
+  url: https://opentelemetry.io/docs/
+  license: "见原文"
+- id: fowler-continuous-integration
+  title: "Martin Fowler: Continuous Integration（持续集成：勤合并、自动构建与测试）"
+  url: https://martinfowler.com/articles/continuousIntegration.html
+  license: "见原文"

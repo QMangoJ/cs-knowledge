@@ -171,6 +171,21 @@ subjects:
   - name: 类型系统：接口与组合
     blurb: 没有继承、没有类：类型靠方法集自动对上接口，复用靠把现成类型嵌进来，错误靠显式返回一层层交代。
     topics: [go/interfaces-composition]
+- id: backend
+  tagline: 后端工程讲的是服务写完之后的事：代码怎样打包成容器、在集群里被编排着跑、顺着流水线安全地发布、出事之后又怎样靠日志、指标与追踪找到病根。
+  blocks:
+  - name: 打包：容器与 Docker
+    blurb: 先解决「在我机器上是好的」：把应用连同环境一起打包成镜像，靠内核的隔离与限额机制在一台机器上安稳地跑很多个。
+    topics: [backend/docker-containers]
+  - name: 编排：Kubernetes
+    blurb: 容器上了规模就没人管得过来：声明想要的状态，剩下的放置、补副本、换版本与自愈都交给编排系统。
+    topics: [backend/kubernetes-orchestration]
+  - name: 发布：CI/CD 与上线策略
+    blurb: 代码合并只是开始：流水线把构建、测试与部署串成自动线，蓝绿与金丝雀决定新版本以多大的步子面对真实用户。
+    topics: [backend/cicd-release]
+  - name: 观测：日志、指标与链路追踪
+    blurb: 上线不是终点：系统对外吐出的三类数据，决定了出事时你是在几分钟内找到病根，还是登上机器瞎猜一整夜。
+    topics: [backend/observability]
 
 # 全站系统全景：一个程序的一生，各科是同一件事的不同切面。
 journey:
