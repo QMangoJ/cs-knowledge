@@ -4,6 +4,8 @@ import { stepPath } from "@/lib/paths";
 import { plainText } from "@/lib/terms";
 import { doneKey, isDone, useMounted, useProgressVersion } from "@/lib/progress";
 import { SubjectDiagram, type TopicLinks } from "@/components/coherence/Panorama";
+import { SubjectSectionV2 } from "./SubjectSectionV2";
+import { isV2Subject } from "@/lib/ui-v2";
 import type { JourneyStep, SubjectInfo } from "@/lib/schema";
 import { t } from "@/i18n";
 
@@ -72,6 +74,10 @@ export function Home({ topics, subjects, journey }: { topics: HomeTopic[]; subje
       {(["os", "co", "dsa", "network", "data", "distributed", "math", "ai", "go"] as const).map((s) => {
         const list = topics.filter((x) => x.subject === s);
         const info = infoOf(s);
+        // UI v2 sample gate: only the gated subject gets the new subject page.
+        if (isV2Subject(s) && info) {
+          return <SubjectSectionV2 key={s} name={t.subjects[s]} info={info} topics={list} />;
+        }
         return (
           <section key={s} id={`subject-${s}`} className="subject">
             <h2>{t.subjects[s]}</h2>

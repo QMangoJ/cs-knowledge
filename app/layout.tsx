@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "@/styles/tokens.css";
 import "@/styles/globals.css";
+import "@/styles/ui-v2.css";
 import { t, SITE_URL } from "@/i18n";
 import { loadContent, pageTopics } from "@/lib/content";
 import { stepPath } from "@/lib/paths";

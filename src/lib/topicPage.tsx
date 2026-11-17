@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Player, type PlayerNav } from "@/components/player/Player";
+import { ReaderV2, type ReaderNavData } from "@/components/player/ReaderV2";
+import { isV2Reader } from "./ui-v2";
 import { findTopic, loadContent, pageTopics, subjectPath } from "./content";
 import { toView } from "./view";
 import { plainText } from "./terms";
@@ -41,5 +43,23 @@ export function TopicPage({ subject, slug, index }: { subject: string; slug: str
   const blockName = info.blocks.find((b) => b.topics.includes(topic.id))?.name ?? "";
   const playerNav: PlayerNav = { blockName, station: si + 1, totalStations: path.length };
   const nextTopic = nextT ? { href: stepPath(nextT.subject, nextT.slug, 0), title: plainText(nextT.title) } : null;
+  // UI v2 sample gate: exactly one topic renders through the new reader.
+  if (isV2Reader(topic.id)) {
+    const byId = new Map(path.map((x) => [x.id, x]));
+    const pick = (id: string) => {
+      const x = byId.get(id);
+      return x ? { id: x.id, subject: x.subject, slug: x.slug, title: x.title } : null;
+    };
+    const blocks = info.blocks.map((b) => ({
+      name: b.name,
+      topics: b.topics.map(pick).filter((x): x is NonNullable<typeof x> => !!x),
+    }));
+    const grouped = new Set(blocks.flatMap((b) => b.topics.map((x) => x.id)));
+    const readerNav: ReaderNavData = {
+      blocks,
+      ungrouped: path.filter((x) => !grouped.has(x.id)).map((x) => ({ id: x.id, subject: x.subject, slug: x.slug, title: x.title })),
+    };
+    return <ReaderV2 topic={view} initialStep={index} nextTopic={nextTopic} nav={playerNav} readerNav={readerNav} />;
+  }
   return <Player topic={view} initialStep={index} nextTopic={nextTopic} nav={playerNav} />;
 }

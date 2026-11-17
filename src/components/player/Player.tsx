@@ -260,8 +260,9 @@ export function Player({ topic, initialStep, nextTopic, nav }: { topic: ViewTopi
 }
 
 /** Stage panel for the synthesized steps (概况 / 终端 / 设计): no canvas, the step's
- *  own material presented large; full text lives in the details column. */
-function SpecialStage({ step, topic }: { step: ViewStep; topic: ViewTopic }) {
+ *  own material presented large; full text lives in the details column.
+ *  Exported for the gated UI v2 reader sample, which reuses it verbatim. */
+export function SpecialStage({ step, topic }: { step: ViewStep; topic: ViewTopic }) {
   if (step.special === "overview") {
     // Cover rule: every text appears exactly once on this screen. The summary and the
     // position live in the details column (topic header + position card), the overview
