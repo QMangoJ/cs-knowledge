@@ -1,17 +1,16 @@
-/** UI v2 sample gate (C 版阅读器重构样板).
- *  The v2 layouts exist ONLY behind these gates: the distributed subject
- *  section on the home page and the cap-consistency reader. Every other page
- *  renders through the exact same code paths as before. Promoting the sample
- *  site-wide = widening these two predicates (and then removing them). */
+/** UI v2 gates.
+ *  Reader: PROMOTED SITE-WIDE 2026-11-17 — Daniel reviewed the merged
+ *  content-area reader form (screenshots from the reader-form-sample branch)
+ *  and approved rolling it out to every lesson, so isV2Reader is open for
+ *  all topics. The old Player stays in the tree as a rollback path; it is
+ *  simply no longer selected.
+ *  Home-page subject sections: the v2 gate stays OFF (not part of the
+ *  reader promotion). */
 export const V2_SUBJECT_ID = "distributed";
 export const V2_READER_TOPIC_ID = "distributed/cap-consistency";
 
-/** Sample pulled from production 2026-11-17 (Daniel: mixed old/new sections
- *  on mobile read as a mess). Code stays in tree; gates off until the sample
- *  is reworked as a coherent whole (nav + mobile + desktop) and approved
- *  from screenshots before going live again. */
 export const isV2Subject = (subject: string): boolean => false;
-export const isV2Reader = (topicId: string): boolean => false;
+export const isV2Reader = (topicId: string): boolean => true;
 
 /** localStorage key for the reader font-size setting ("std" | "large"). */
 export const READER_FS_KEY = "cs-reader-fs";

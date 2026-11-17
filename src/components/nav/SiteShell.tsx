@@ -49,6 +49,16 @@ export function SiteShell({ nav, children }: { nav: NavSubject[]; children: Reac
    *  localStorage has been read (first paint matches SSR: only the current
    *  subject expanded). */
   const [storedOpen, setStoredOpen] = useState<string[] | null>(null);
+  // The desktop sidebar as a whole can collapse to a slim strip to give the
+  // content area room; the choice persists.
+  const [navCollapsed, setNavCollapsed] = useState(false);
+  useEffect(() => {
+    try { setNavCollapsed(localStorage.getItem("cs-nav-collapsed") === "1"); } catch { /* private mode */ }
+  }, []);
+  const toggleNavCollapsed = () => setNavCollapsed((v) => {
+    try { localStorage.setItem("cs-nav-collapsed", v ? "0" : "1"); } catch { /* private mode */ }
+    return !v;
+  });
   const desktopNavRef = useRef<HTMLElement | null>(null);
   const drawerNavRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
@@ -135,7 +145,12 @@ export function SiteShell({ nav, children }: { nav: NavSubject[]; children: Reac
         <span className="hint">{t.keyboardHint}</span>
       </header>
       <div className="shell-row">
-        <aside className="sidenav" ref={desktopNavRef}>{renderList("sb")}</aside>
+        <aside className={navCollapsed ? "sidenav collapsed" : "sidenav"} ref={desktopNavRef}>
+          <button type="button" className="sn-collapse-btn" aria-expanded={!navCollapsed}
+            aria-label={navCollapsed ? "展开课程导航" : "收起课程导航"} title={navCollapsed ? "展开课程导航" : "收起课程导航"}
+            onClick={toggleNavCollapsed}>{navCollapsed ? "»" : "«"}</button>
+          {!navCollapsed && renderList("sb")}
+        </aside>
         {open && <div className="nav-backdrop" onClick={() => setOpen(false)} aria-hidden="true" />}
         <aside className={open ? "sidenav drawer open" : "sidenav drawer"} ref={drawerNavRef}>{renderList("dr")}</aside>
         <main className="site-main">{children}</main>

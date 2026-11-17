@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePlayer } from "./usePlayer";
 import { Canvas } from "@/components/renderers";
@@ -21,26 +21,29 @@ export type ReaderNavData = {
 type NextTopic = { href: string; title: string } | null;
 
 /** UI v2 sample reader (gated to one topic; see lib/ui-v2.ts).
- *  Same DOM skeleton and class names as Player, so below the 1200px container
- *  breakpoint every existing rule applies unchanged and the layout is the
- *  current one. At ≥1200px (ui-v2.css, .uiv2 scope) the rail becomes a subject
- *  nav tree, the details column gains a collapse toggle, the top bar shows a
- *  single progress readout, and a two-level font-size setting applies to the
- *  details column. The stage itself (canvas, one step per screen, manual
- *  navigation, scroll inside the stage) is the Player's, untouched. */
+ *  Form sample (Daniel's spec, 2026-11-17): the left keeps two columns — the
+ *  shell's site nav plus this rail (subject tree / step list) — while the
+ *  right merges the old stage and details into ONE content area. A step with
+ *  a canvas visual puts text left and the visual right (sticky); a step
+ *  without one reads in a single column, stage content first, then details
+ *  (the overview step is then naturally premise → intro → position). The
+ *  content area scrolls internally, the page itself never scrolls, and the
+ *  prev/next controls sit at the bottom of the content area. The old
+ *  collapse-details toggle goes away: merging the two areas is its
+ *  replacement. One step per screen and manual navigation are unchanged. */
 export function ReaderV2({ topic, initialStep, nextTopic, nav, readerNav }: {
   topic: ViewTopic; initialStep: number; nextTopic: NextTopic; nav: PlayerNav; readerNav: ReaderNavData;
 }) {
   const total = topic.steps.length;
   const { index, goTo, next, prev } = usePlayer(topic.subject, topic.slug, total, initialStep);
   const step = topic.steps[index]!;
+  const hasVisual = !!step.canvas;
   const rows = topic.steps.slice(0, index + 1).flatMap((s, si) => s.log.map((r, ri) => ({ r, key: `${si}-${ri}`, fresh: si === index })));
   const caption = step.canvas && step.canvas.kind !== "swimlane" ? step.canvas.caption : undefined;
   const subjectName = t.subjects[topic.subject];
 
   useProgressVersion();
   const mounted = useMounted();
-  const [detailsOpen, setDetailsOpen] = useState(true);
   const [fsLarge, setFsLarge] = useState(false);
   useEffect(() => {
     try { setFsLarge(localStorage.getItem(READER_FS_KEY) === "large"); } catch { /* private mode */ }
@@ -49,6 +52,55 @@ export function ReaderV2({ topic, initialStep, nextTopic, nav, readerNav }: {
     setFsLarge(large);
     try { localStorage.setItem(READER_FS_KEY, large ? "large" : "std"); } catch { /* private mode */ }
   };
+  // Draggable widths (sample): the step-list rail and, on visual steps, the
+  // text/visual split. Both persist; CSS vars carry them into ui-v2.css.
+  const RAIL_W_KEY = "cs-v2-rail-w";
+  const VISUAL_PCT_KEY = "cs-v2-visual-pct";
+  const clampRail = (w: number) => Math.min(480, Math.max(220, Math.round(w)));
+  const clampPct = (p: number) => Math.min(62, Math.max(28, Math.round(p * 10) / 10));
+  const [railW, setRailW] = useState<number | null>(null);
+  const [visualPct, setVisualPct] = useState<number | null>(null);
+  const railRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    try {
+      const w = Number(localStorage.getItem(RAIL_W_KEY));
+      if (w) setRailW(clampRail(w));
+      const p = Number(localStorage.getItem(VISUAL_PCT_KEY));
+      if (p) setVisualPct(clampPct(p));
+    } catch { /* private mode */ }
+  }, []);
+  useEffect(() => { try { if (railW !== null) localStorage.setItem(RAIL_W_KEY, String(railW)); } catch { /* ignore */ } }, [railW]);
+  useEffect(() => { try { if (visualPct !== null) localStorage.setItem(VISUAL_PCT_KEY, String(visualPct)); } catch { /* ignore */ } }, [visualPct]);
+  const startDrag = (e: React.PointerEvent, onMove: (dx: number) => void) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const move = (ev: PointerEvent) => onMove(ev.clientX - startX);
+    const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+  const onRailDrag = (e: React.PointerEvent) => {
+    const startW = railRef.current?.getBoundingClientRect().width ?? railW ?? 300;
+    startDrag(e, (dx) => setRailW(clampRail(startW + dx)));
+  };
+  const onVisualDrag = (e: React.PointerEvent) => {
+    const main = (e.currentTarget as HTMLElement).closest(".p-content-main");
+    const mainW = main?.getBoundingClientRect().width ?? 0;
+    if (!mainW) return;
+    const startPct = visualPct ?? 46;
+    startDrag(e, (dx) => setVisualPct(clampPct(startPct - (dx / mainW) * 100)));
+  };
+  const railKeys = (e: React.KeyboardEvent) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    setRailW((w) => clampRail((w ?? railRef.current?.getBoundingClientRect().width ?? 300) + (e.key === "ArrowRight" ? 8 : -8)));
+  };
+  const visualKeys = (e: React.KeyboardEvent) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    setVisualPct((p) => clampPct((p ?? 46) + (e.key === "ArrowLeft" ? 2 : -2)));
+  };
+
   const [closedBlocks, setClosedBlocks] = useState<ReadonlySet<string>>(new Set());
   const toggleBlock = (name: string) => setClosedBlocks((prevSet) => {
     const s = new Set(prevSet);
@@ -150,15 +202,15 @@ export function ReaderV2({ topic, initialStep, nextTopic, nav, readerNav }: {
               <button type="button" className="v2-ctl" aria-pressed={!fsLarge} onClick={() => applyFs(false)}>标准</button>
               <button type="button" className="v2-ctl" aria-pressed={fsLarge} onClick={() => applyFs(true)}>大</button>
             </span>
-            <button type="button" className="v2-only v2-ctl" aria-expanded={detailsOpen} onClick={() => setDetailsOpen((v) => !v)}>
-              {detailsOpen ? "收起详情" : "展开详情"}
-            </button>
             <MarkDone topicId={topic.id} />
           </div>
         </header>
 
-        <div className={(rows.length > 0 || caption ? "p-grid" : "p-grid no-log") + (detailsOpen ? "" : " details-collapsed")}>
-          <aside className="p-rail">
+        <div className={rows.length > 0 || caption ? "p-grid" : "p-grid no-log"}
+          style={{ "--v2-rail-w": railW ? `${railW}px` : undefined, "--v2-visual-pct": visualPct ? `${visualPct}%` : undefined } as React.CSSProperties}>
+          <aside className="p-rail" ref={railRef}>
+            <div className="v2-rail-handle" role="separator" aria-orientation="vertical" aria-label="拖动调整步列表宽度"
+              tabIndex={0} onPointerDown={onRailDrag} onKeyDown={railKeys} />
             <nav className="v2-tree" aria-label="本学科课程">
               {readerNav.blocks.map((b) => {
                 const closed = closedBlocks.has(b.name);
@@ -215,8 +267,15 @@ export function ReaderV2({ topic, initialStep, nextTopic, nav, readerNav }: {
             ))}
           </nav>
 
-          <section className="p-stage" aria-label="画布">
-            <div className="canvas-wrap stage-card">
+          <section className={hasVisual ? "p-content has-visual" : "p-content"} aria-label="内容">
+            <div className="p-content-scroll">
+              <div className="p-content-main">
+                <div className="p-visual">
+                  {hasVisual && (
+                    <div className="v2-visual-handle" role="separator" aria-orientation="vertical" aria-label="拖动调整图文宽度比例"
+                      tabIndex={0} onPointerDown={onVisualDrag} onKeyDown={visualKeys} />
+                  )}
+                  <div className="canvas-wrap stage-card">
               {step.log.length > 0 && (
                 <p className="now-bar" aria-live="polite"><b>{t.nowHappening}</b>{plainText(step.log.map((r) => topic.logColumns.map((c) => r[c.key]).filter(Boolean).join(" · ")).join("；"))}</p>
               )}
@@ -227,18 +286,8 @@ export function ReaderV2({ topic, initialStep, nextTopic, nav, readerNav }: {
                 <ul className="regs">{step.canvas.registers.map((r) => <li key={r.name} className={r.changed ? "changed" : ""}><code>{plainText(r.name)}</code> <Tx text={r.value} terms={topic.terms} /></li>)}</ul>
               )}
             </div>
-            <div className="stepnav stage-controls" role="toolbar" aria-label="步骤导航">
-              <button type="button" onClick={prev} disabled={index === 0}>← {t.prev}</button>
-              <input className="scrub" type="range" min={0} max={total - 1} value={index} aria-label={t.scrub}
-                onChange={(e) => goTo(Number(e.target.value))} />
-              <span className="count">{index + 1} / {total}</span>
-              {index < total - 1
-                ? <button type="button" onClick={next}>{t.next} →</button>
-                : nextTopic ? <a className="btn" href={nextTopic.href}>{t.nextTopic}：{nextTopic.title} →</a> : <button type="button" disabled>{t.next} →</button>}
-            </div>
-          </section>
-
-          <article className="step p-details" aria-live="polite">
+                </div>
+                <article className="step p-details" aria-live="polite">
             {index === 0 && (
               <header className="topic-intro">
                 <p className="eyebrow">{subjectName} · {nav.blockName} · 第 {nav.station} / {nav.totalStations} 站</p>
@@ -326,10 +375,10 @@ export function ReaderV2({ topic, initialStep, nextTopic, nav, readerNav }: {
                 </p>
               </>
             )}
-          </article>
-
-          {(rows.length > 0 || caption) && (
-            <section className="log p-logbar" aria-label={t.log}>
+                </article>
+              </div>
+              {(rows.length > 0 || caption) && (
+                <section className="log p-logbar" aria-label={t.log}>
               <div className="logbar-head">
                 <h3>{t.log}</h3>
                 {topic.legend && <ul className="legend">{topic.legend.map((l) => <li key={l.key}><b>{l.key}</b><Tx text={l.label} terms={topic.terms} /></li>)}</ul>}
@@ -346,6 +395,17 @@ export function ReaderV2({ topic, initialStep, nextTopic, nav, readerNav }: {
               )}
             </section>
           )}
+            </div>
+            <div className="stepnav p-content-nav" role="toolbar" aria-label="步骤导航">
+              <button type="button" onClick={prev} disabled={index === 0}>← {t.prev}</button>
+              <input className="scrub" type="range" min={0} max={total - 1} value={index} aria-label={t.scrub}
+                onChange={(e) => goTo(Number(e.target.value))} />
+              <span className="count">{index + 1} / {total}</span>
+              {index < total - 1
+                ? <button type="button" onClick={next}>{t.next} →</button>
+                : nextTopic ? <a className="btn" href={nextTopic.href}>{t.nextTopic}：{nextTopic.title} →</a> : <button type="button" disabled>{t.next} →</button>}
+            </div>
+          </section>
         </div>
       </div>
       <GlossPopover pop={pop} terms={topic.terms} onClose={() => setPop(null)} />
