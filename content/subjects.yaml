@@ -2,48 +2,6 @@
 # 一处定义，全站复用：首页导览、课程页全景位置、OS 内核结构图都读这里。
 # 校验在 src/lib/content.ts：板块引用的课必须存在且属于本科；每门 published 课必须恰好出现一次。
 subjects:
-- id: os
-  tagline: 操作系统是程序与硬件之间的总管：CPU、内存、磁盘、设备都只有一份，它负责把这些硬件安全地分给许多程序同时使用。
-  blocks:
-  - name: 系统调用接口
-    blurb: 用户态与内核态之间唯一的受控门——程序想碰硬件、读文件、上网，都得先敲这扇门。
-    topics: [os/syscall]
-  - name: 进程管理
-    blurb: 进程怎样诞生、怎样被轮流换上 CPU——一个核心伺候全部程序的调度台。
-    topics: [os/fork-exec, os/context-switch, os/threads-scheduling]
-  - name: 内存管理
-    blurb: 给每个程序一份「独占内存」的错觉，并在它真正用到时才把物理页补上。
-    topics: [os/virtual-memory, os/page-fault]
-  - name: 并发与同步
-    blurb: 多个执行流同时改同一份数据时，用锁与同步把竞态关进笼子。
-    topics: [os/lock]
-  - name: 文件系统
-    blurb: 把磁盘上的裸字节组织成有名字、能长期保存、崩溃后还能恢复的文件与目录。
-    topics: [os/file-system]
-  - name: I/O 与设备
-    blurb: 程序等外部数据时怎样不傻等：从阻塞、轮询一路演进到 epoll。
-    topics: [os/io-multiplexing]
-- id: co
-  tagline: 组成原理往下看一层：代码最终变成指令在 CPU 里流动，数据以比特形态躺在内存里——程序快与慢的根源在这一层。
-  blocks:
-  - name: 从代码到可执行文件
-    blurb: 源代码先被翻译、链接成机器能读的产物，再被加载进内存等待执行。
-    topics: [co/compile-link]
-  - name: 指令的执行
-    blurb: CPU 循环往复地取指、译码、执行；流水线让多条指令错峰重叠起来跑。
-    topics: [co/instruction-cycle, co/pipeline]
-  - name: 存储层次与缓存
-    blurb: 从寄存器到主存逐级变大变慢，缓存靠局部性把常用数据留在离 CPU 最近的地方。
-    topics: [co/cache]
-  - name: 调用与数据的形态
-    blurb: 函数调用在栈上压帧与弹帧；数字则以补码与浮点的比特形态存进内存。
-    topics: [co/stack-frame, co/number-representation]
-  - name: 并行硬件
-    blurb: 当一个核不够用：GPU 用成千上万个线程，以吞吐换延迟。
-    topics: [co/gpu-simt]
-  - name: 不止一个主人：设备与多核共享内存
-    blurb: 内存不止 CPU 一个用户：设备经总线与 DMA 自行搬运，多核同时读写还要谈妥彼此能看见什么顺序。
-    topics: [co/bus-dma, co/memory-consistency]
 - id: dsa
   tagline: 数据结构与算法决定数据怎么摆、怎么找：同一批数据，摆法不同，查找与更新的代价可以差出几个数量级。
   blocks:
@@ -71,6 +29,48 @@ subjects:
   - name: 算不动的问题：复杂度的天花板
     blurb: 有一类问题不是不够聪明就能解决：解难找、验飞快，且彼此难度相连——NP 完全性是全科的收官。
     topics: [dsa/np-completeness]
+- id: co
+  tagline: 组成原理往下看一层：代码最终变成指令在 CPU 里流动，数据以比特形态躺在内存里——程序快与慢的根源在这一层。
+  blocks:
+  - name: 从代码到可执行文件
+    blurb: 源代码先被翻译、链接成机器能读的产物，再被加载进内存等待执行。
+    topics: [co/compile-link]
+  - name: 指令的执行
+    blurb: CPU 循环往复地取指、译码、执行；流水线让多条指令错峰重叠起来跑。
+    topics: [co/instruction-cycle, co/pipeline]
+  - name: 存储层次与缓存
+    blurb: 从寄存器到主存逐级变大变慢，缓存靠局部性把常用数据留在离 CPU 最近的地方。
+    topics: [co/cache]
+  - name: 调用与数据的形态
+    blurb: 函数调用在栈上压帧与弹帧；数字则以补码与浮点的比特形态存进内存。
+    topics: [co/stack-frame, co/number-representation]
+  - name: 并行硬件
+    blurb: 当一个核不够用：GPU 用成千上万个线程，以吞吐换延迟。
+    topics: [co/gpu-simt]
+  - name: 不止一个主人：设备与多核共享内存
+    blurb: 内存不止 CPU 一个用户：设备经总线与 DMA 自行搬运，多核同时读写还要谈妥彼此能看见什么顺序。
+    topics: [co/bus-dma, co/memory-consistency]
+- id: os
+  tagline: 操作系统是程序与硬件之间的总管：CPU、内存、磁盘、设备都只有一份，它负责把这些硬件安全地分给许多程序同时使用。
+  blocks:
+  - name: 系统调用接口
+    blurb: 用户态与内核态之间唯一的受控门——程序想碰硬件、读文件、上网，都得先敲这扇门。
+    topics: [os/syscall]
+  - name: 进程管理
+    blurb: 进程怎样诞生、怎样被轮流换上 CPU——一个核心伺候全部程序的调度台。
+    topics: [os/fork-exec, os/context-switch, os/threads-scheduling]
+  - name: 内存管理
+    blurb: 给每个程序一份「独占内存」的错觉，并在它真正用到时才把物理页补上。
+    topics: [os/virtual-memory, os/page-fault]
+  - name: 并发与同步
+    blurb: 多个执行流同时改同一份数据时，用锁与同步把竞态关进笼子。
+    topics: [os/lock]
+  - name: 文件系统
+    blurb: 把磁盘上的裸字节组织成有名字、能长期保存、崩溃后还能恢复的文件与目录。
+    topics: [os/file-system]
+  - name: I/O 与设备
+    blurb: 程序等外部数据时怎样不傻等：从阻塞、轮询一路演进到 epoll。
+    topics: [os/io-multiplexing]
 - id: network
   tagline: 计算机网络只讲一件事：数据怎样可靠、有序、就近地从一台机器走到另一台机器。
   blocks:
@@ -134,31 +134,6 @@ subjects:
   - name: 进阶：让调用可靠
     blurb: 同步调用在部分失败的世界里先天脆弱：能异步的交给队列削峰，剩下的靠限流、带退避的重试与熔断续命，规模再大就靠注册发现、配置与灰度这套治理兜底。
     topics: [distributed/mq-governance]
-- id: math
-  tagline: 数学基础是其余各科的暗线：概率是描述不确定性的语言，缓存命中、排队延迟、模型输出，最后都要用它来度量。
-  blocks:
-  - name: 概率的语言
-    blurb: 条件概率、贝叶斯与期望——判断、估算与实验读数的共同底座。
-    topics: [math/probability, math/distributions]
-- id: ai
-  tagline: 人工智能是把「写规则」换成「调旋钮」：给程序足够多的例子和一块记分牌，它自己学出那套说不清道不明的映射。
-  blocks:
-  - name: 学习是怎么发生的
-    blurb: 一次前向、一次反向：损失把责任沿着链式法则分摊回每个权重，梯度下降再把旋钮逐个拧一小格。
-    topics: [ai/neural-backprop]
-  - name: 注意力与 Transformer
-    blurb: 每个词都按相关程度回头看全句：注意力让任意两个词一跳直连，也让整句话第一次能并行地训。
-    topics: [ai/attention-transformer]
-  - name: 训练的账本
-    blurb: 参数、梯度、优化器状态、激活——显存里住着四类住户；再算一遍每 token 的计算账，看清训练为什么贵。
-    topics: [ai/training]
-  - name: 推理的账本
-    blurb: 逐词生成的慢有出处：先整段读题、再逐个吐字；KV 缓存、连续批处理与投机解码，都是围着带宽与显存找平的招。
-    topics: [ai/inference-kv-cache]
-  - name: 从模型到常驻系统：Agent 的外围架构
-    blurb: 模型只负责一次推理：让它无人值守地长期在岗，要靠收件箱、计时器、记忆、权限与发件箱这套事件驱动的外围。
-    topics: [ai/always-on-agents]
-
 - id: go
   tagline: Go 是为多核、网络与大代码库时代重写的一门后端语言：把语言做小、把并发做进语法、把部署做成一个文件。
   blocks:
@@ -186,6 +161,30 @@ subjects:
   - name: 观测：日志、指标与链路追踪
     blurb: 上线不是终点：系统对外吐出的三类数据，决定了出事时你是在几分钟内找到病根，还是登上机器瞎猜一整夜。
     topics: [backend/observability]
+- id: math
+  tagline: 数学基础是其余各科的暗线：概率是描述不确定性的语言，缓存命中、排队延迟、模型输出，最后都要用它来度量。
+  blocks:
+  - name: 概率的语言
+    blurb: 条件概率、贝叶斯与期望——判断、估算与实验读数的共同底座。
+    topics: [math/probability, math/distributions]
+- id: ai
+  tagline: 人工智能是把「写规则」换成「调旋钮」：给程序足够多的例子和一块记分牌，它自己学出那套说不清道不明的映射。
+  blocks:
+  - name: 学习是怎么发生的
+    blurb: 一次前向、一次反向：损失把责任沿着链式法则分摊回每个权重，梯度下降再把旋钮逐个拧一小格。
+    topics: [ai/neural-backprop]
+  - name: 注意力与 Transformer
+    blurb: 每个词都按相关程度回头看全句：注意力让任意两个词一跳直连，也让整句话第一次能并行地训。
+    topics: [ai/attention-transformer]
+  - name: 训练的账本
+    blurb: 参数、梯度、优化器状态、激活——显存里住着四类住户；再算一遍每 token 的计算账，看清训练为什么贵。
+    topics: [ai/training]
+  - name: 推理的账本
+    blurb: 逐词生成的慢有出处：先整段读题、再逐个吐字；KV 缓存、连续批处理与投机解码，都是围着带宽与显存找平的招。
+    topics: [ai/inference-kv-cache]
+  - name: 从模型到常驻系统：Agent 的外围架构
+    blurb: 模型只负责一次推理：让它无人值守地长期在岗，要靠收件箱、计时器、记忆、权限与发件箱这套事件驱动的外围。
+    topics: [ai/always-on-agents]
 
 # 全站系统全景：一个程序的一生，各科是同一件事的不同切面。
 journey:
@@ -198,15 +197,21 @@ journey:
 - subject: os
   title: 被内核托管
   text: 它以进程的身份被创建、调度与隔离，每一次碰硬件都要经过系统调用这扇门。
-- subject: data
-  title: 数据落盘
-  text: 要长期保存的数据交给存储引擎：索引、事务与日志决定它查得快不快、崩了丢不丢。
 - subject: network
   title: 与外界通信
   text: 程序很少独处：请求与响应要在不可靠的网络上，被可靠、有序、就近地送达对面。
+- subject: data
+  title: 数据落盘
+  text: 要长期保存的数据交给存储引擎：索引、事务与日志决定它查得快不快、崩了丢不丢。
 - subject: distributed
   title: 走出单机
   text: 一台机器装不下、坏不起时，程序要学会与许多台机器协作：靠消息商量出共同的事实，并接受它只能是近似的那一份。
+- subject: go
+  title: 换上趁手的语言
+  text: 走出单机之后，程序要在一群机器上长期协作，得换一门为这件事生的语言：Go 把并发做进语法本身，让成千上万个协程像普通代码一样写出来。
+- subject: backend
+  title: 真正上岗
+  text: 语言写出的代码还要真正上岗：打成容器、在集群里被编排着跑、顺着流水线发布，出事之后靠日志、指标和追踪找到病根。
 - subject: math
   title: 底下垫着数学
   text: 概率与期望贯穿始终：命中率、延迟分布、模型输出的可信程度，都要用它才说得清。
