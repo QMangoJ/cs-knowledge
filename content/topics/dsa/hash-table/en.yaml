@@ -1,0 +1,911 @@
+id: dsa/hash-table
+subject: dsa
+slug: hash-table
+order: 1
+status: published
+license: CC-BY-4.0
+title: "Hash Tables: Collisions and Resizing"
+summary: Find things directly by name — one step on average. The price is handling collisions, and resizing when the table gets crowded.
+premise: To look up a person's grade by name, if the data sits in a plain array you can only scan it from the start, one entry at a time — the more people, the slower it gets. Is there a way to compute, straight from the name, where the entry should go, so a lookup lands in a single step? Using a table with only 8 buckets holding a few students' grades, this lesson shows how a hash table finds its target — and what trouble it runs into.
+position: This site opens with the "Lookup by Name and by Order" section, and the hash table is its entry point, because it answers the most basic question first — without comparing entries one by one, how do you use a hash function to turn an arbitrary key directly into a bucket index? After this lesson you will be able to judge why resizing is unavoidable once the
+  [[load factor|负载因子]] pushes past about 0.7, and to explain what [[separate chaining|拉链法]] and [[open addressing|开放寻址]] each pay for handling collisions.
+bridge:
+  next: A hash table scatters its keys and throws all order away. The next lesson, binary search, tackles the opposite setup — when the array is already sorted, how can a single comparison rule out half the candidates?
+overview:
+- key: In one sentence
+  value: Use a hash function to turn a key into a position, and lookup, insertion, and deletion all take average [[O(1)|大 O 记号]]. A lookup never scans — hash the key once more and you know which bucket to look in, provided collisions stay under control.
+- key: Collisions
+  value: Different keys computing to the same position is bound to happen. There are infinitely many possible keys but only finitely many buckets — more pigeons than holes — so two keys will always end up assigned to the same bucket. The only option is to find them a place to live, not to hope it never happens.
+- key: Load factor
+  value: "The [[load factor|负载因子]] is the number of stored elements divided by the bucket count; when it climbs too high, you resize — Java's [[HashMap]] uses a default threshold of 0.75. For example, 8 buckets holding 6 elements already reach that line; pack in more and collisions multiply noticeably, so resizing first and then continuing is the better deal."
+- key: In practice
+  value: JavaScript's Map and Object, Python's dict, Redis, database hash indexes — underneath, they all run on the hash-table idea. They all feel like fetching a value directly by name, and the speed rests on the same machinery — hash positioning plus collision handling.
+- key: Big-O intuition
+  value: O(1) means the running time does not grow with the amount of data; the worst case — everything colliding — degrades to O(n). Grow the data from a thousand entries to a million and the average lookup time barely moves; but if every key crowds into a single bucket, a lookup turns back into walking a long linked list node by node.
+- key: Complexity
+  value: Average O(1), worst case O(n); the amortized cost of resizing is O(1). One resize re-places every element, which looks expensive in isolation, but it happens so rarely that, spread across all the insertions, each one pays only a tiny extra.
+- key: A good hash function
+  value: A good hash function computes fast and spreads keys evenly, and equal keys must produce equal hash values. An uneven spread leaves some buckets stuffed while others sit empty, and lookups slow down; equal keys hashing to different values is worse — a value you just stored cannot be found again.
+- key: Open addressing
+  value: "[[Open addressing|开放寻址]] covers schemes such as [[linear probing|线性探测]]; a deletion has to leave a [[tombstone|墓碑]] marker behind. When a bucket is taken, you probe forward for the next empty slot. If a deletion simply emptied its slot, elements that had probed past it would be cut off by the broken chain and never found again — so a marker stays behind to hold the place."
+- key: Security
+  value: "A [[hash flooding attack|哈希洪水攻击]] is an attacker deliberately crafting large numbers of mutually colliding keys to drag a hash table down to O(n); the defense is a hash with a random seed, such as [[SipHash]]. With a random seed, the attacker cannot precompute which keys will collide, and the attack has nowhere to start."
+- key: Hash sets
+  value: A hash set stores keys without values; it is for deduplication, and JavaScript's Set is exactly that. Drop the user IDs from a stream of logs into a set and duplicates automatically keep a single copy — checking whether an ID has shown up before is a single step too.
+visual: datastate
+logColumns:
+- key: mode
+  label: Current state
+- key: event
+  label: What happened
+steps:
+- id: why
+  title: Why do we need hash tables?
+  tldr: "Set the scene first — looking up one person's grade by name, a plain array leaves you scanning from the start, and with enough people that becomes unusably slow. This step first does the math on scanning, then points to the array's one real talent — fetching by index in a single step. What a hash table does is move that talent onto string keys."
+  body: |-
+    With a million users, comparing names one by one means up to a million comparisons in the worst case and half a million on average. That is O(n): ten times the data, ten times the lookup time — at a hundred million users, nobody can afford to wait.
+
+    Reading an array by index takes a single step, because the position is computed directly: base address plus index times element size gives the target address, no comparisons needed. A hash table brings that same route to string keys — it turns the name into an index too. This route was forced into existence by the need to look things up by name: a compiler looks up symbols by identifier, a database looks up records by key, and none of those keys arrive as ready-made integer indexes. So people set out to study how any key can be turned, stably, into an index — and the hash function is what that research produced.
+
+    A small worked example: 8 buckets holding Alice, Bob, and Carol. Ideally each person gets a bucket of their own, and looking anyone up costs one hash plus one comparison. In reality, two people can compute to the same bucket — and that is where all of a hash table's complexity comes from: collision handling and resizing, not the lookup itself. An array is the special case where the key happens to be an integer index; a hash table is the generalization that forcibly turns arbitrary keys into indexes.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Hashing lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: Hash tables support expected O(1) lookup
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "The table is ready: 8 empty buckets in a row, numbered 0 to 7, waiting for keys to compute their places and drop in"
+    rows:
+    - label: Buckets
+      cells:
+      - v: ""
+        sub: "0"
+      - v: ""
+        sub: "1"
+      - v: ""
+        sub: "2"
+      - v: ""
+        sub: "3"
+      - v: ""
+        sub: "4"
+      - v: ""
+        sub: "5"
+      - v: ""
+        sub: "6"
+      - v: ""
+        sub: "7"
+    aux:
+    - label: Keys to store
+      items:
+      - Alice
+      - Bob
+      - Carol
+  log:
+  - mode: Empty table
+    event: "The empty table is ready: 8 buckets numbered 0 to 7. Next, Alice, Bob, and Carol go in by key."
+  points:
+  - In an array, finding someone by name means scanning entry by entry; the more data there is, the slower it gets.
+- id: hash
+  title: "Hash functions: turning a key into a position"
+  tldr: "The last step promised to turn names into indexes; this step shows how the transformation actually works — the hash function computes a large integer from the key, then takes it modulo the bucket count to land in a bucket. Follow Alice through one computation to see which bucket she lands in, then pin down the three hard requirements of a good hash function."
+  body: |-
+    The hash function computes Alice into the large integer 63350371. Divide by the bucket count, 8, and take the remainder — 63350371 mod 8 is 3 — which gives bucket 3, and her grade goes into bucket 3. A lookup runs the identical computation once more and goes straight to bucket 3 to fetch it.
+
+    A good hash function has three hard requirements: the same key must always compute to the same result, or what you stored can never be found again; the spread must be even — keys as similar as user1001 and user1002 must not pile into the same bucket; and it must compute fast, because every single operation pays this cost first.
+
+    The modulo step cannot be skipped: a hash value can run into the billions while there are only 8 buckets — without the modulo there is nowhere to put anything. The modulo keeps only some of the bits, so every bit has to be thoroughly mixed in; otherwise patterned keys collide in droves (the next section expands on this).
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Hashing lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: A hash function maps keys to positions in the table
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: hash("Alice") % 8 = 3
+    rows:
+    - label: Buckets
+      cells:
+      - v: ""
+        sub: "0"
+      - v: ""
+        sub: "1"
+      - v: ""
+        sub: "2"
+      - v: Alice
+        mark: new
+        sub: "3"
+      - v: ""
+        sub: "4"
+      - v: ""
+        sub: "5"
+      - v: ""
+        sub: "6"
+      - v: ""
+        sub: "7"
+      pointers:
+      - at: 3
+        label: Alice → 3
+  log:
+  - mode: Insert
+    event: "Alice is in: her key's hash value mod 8 is 3, so her grade went into bucket 3 — and a lookup runs the same computation to go straight there."
+  code:
+    lang: typescript
+    code: >-
+      // A minimal chaining hash table: hash the key to a bucket; a list inside the bucket handles collisions
+
+      class HashMap<K, V> {
+        private buckets: [K, V][][] = Array.from({ length: 16 }, () => []);
+        private hash(k: K) { let h = 0; const s = String(k); for (const c of s) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h % this.buckets.length; }
+        set(k: K, v: V) { const b = this.buckets[this.hash(k)]!; const e = b.find(([x]) => x === k); if (e) e[1] = v; else b.push([k, v]); }
+        get(k: K) { return this.buckets[this.hash(k)]!.find(([x]) => x === k)?.[1]; }
+      }
+    note: TypeScript implementation
+- id: hash-function-design
+  title: "Designing the hash function: the division and multiplication methods"
+  tldr: "The final step of landing in a bucket is squeezing a large integer into the bucket-number range, and the way you squeeze directly decides the quality of the spread. This step compares the two classic squeezes — the division method and the multiplication method — and runs the neighboring keys 21, 22, 23 through both, to see whether they scatter or bunch together."
+  body: >-
+    A hash function works in two steps: first turn the key into an integer (for a string, accumulate character by character), then squeeze it into the bucket range 0 to m−1. There are two classic squeezes. The division method: the bucket number is the hash value mod m. The trap is the choice of m — when m is a power of two, the modulo keeps only the low bits, and however random the high bits may be, they are thrown away. That is why
+    CLRS recommends choosing m as a prime far from a power of two, so that every bit takes part.
+
+
+    The multiplication method: take a constant A between 0 and 1, multiply the hash value by A and keep the fractional part, then multiply by m and round down. It is not picky about m — m may be a power of two, which is convenient for bit operations — because it mainly reads the high-order information, complementary to the division method. A worked example: with m = 8 and A ≈ 0.618, key 21 gives 21 ×
+    0.618 ≈ 12.978; the fraction 0.978 × 8 = 7.82, so it lands in bucket 7. Key 22 gives ≈ 13.596; 0.596 × 8 = 4.76, bucket 4. Key 23 lands in bucket 1. Neighboring keys get scattered — exactly the effect we want.
+
+
+    What real systems do more often is first run an integer hash that mixes thoroughly enough, then take the modulo by a power of two: fast, with an acceptable spread. Java's [[HashMap]] takes this compromise route.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: "Chapter 11, Hashing: the division and multiplication methods"
+    claim: For the division method, the table size for the modulo should be a prime far from a power of two; the multiplication method multiplies the fractional part by the table size and truncates
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "Neighboring keys 21, 22, 23: the division method (mod 8) lands them in adjacent buckets; the multiplication method scatters them to 7, 4, 1"
+    rows:
+    - label: Division, mod 8
+      cells:
+      - v: ""
+        sub: "0"
+      - v: ""
+        sub: "1"
+      - v: ""
+        sub: "2"
+      - v: ""
+        sub: "3"
+      - v: ""
+        sub: "4"
+      - v: "21"
+        sub: "5"
+      - v: "22"
+        sub: "6"
+      - v: "23"
+        sub: "7"
+    - label: Multiplication, A≈0.618
+      cells:
+      - v: ""
+        sub: "0"
+      - v: "23"
+        mark: new
+        sub: "1"
+      - v: ""
+        sub: "2"
+      - v: ""
+        sub: "3"
+      - v: "22"
+        mark: new
+        sub: "4"
+      - v: ""
+        sub: "5"
+      - v: ""
+        sub: "6"
+      - v: "21"
+        mark: new
+        sub: "7"
+    aux:
+    - label: How to choose
+      items:
+      - "Division: choose m as a prime far from a power of two"
+      - "Multiplication: m may be a power of two; it reads the high bits"
+  log:
+  - mode: Design
+    event: "The squeeze is settled: the division method needs its bucket count to be a prime far from a power of two; the multiplication method reads the high-order information and is not picky about the bucket count."
+- id: collision
+  title: "Collisions: two keys squeeze into one bucket"
+  tldr: "The function and the landing are in place — and trouble arrives with them: Bob computes to bucket 3 as well. This step first explains why collisions are a mathematical certainty that cannot be dodged, then looks at the two roads for settling them — hang them in a list, or move on to an empty bucket — and how each one works."
+  body: >-
+    Bob was computed to bucket 3 as well. That is a collision. A collision is not an implementation blunder but a mathematical necessity: there are infinitely many possible keys and only 8 buckets. By the [[pigeonhole principle|抽屉原理]], once there are more keys than buckets, two different keys must land in the same bucket.
+
+
+    There are two roads for handling it. One is chaining ([[separate chaining|拉链法]]): each bucket hangs a list, colliding elements line up together, and a lookup first locates the bucket, then compares along the chain. The other is [[open addressing|开放寻址]]: when the bucket is taken, follow a rule to find the next empty bucket.
+
+
+    A worked example: in bucket 3, Alice sits in front and Bob behind her, so looking up Bob takes two comparisons; looking up a key that also lands in bucket 3 but does not exist means comparing the entire chain before you may conclude anything. When large numbers of keys crowd into one bucket, the chain grows from 1 to n and lookup degenerates into comparing along a list — [[O(1)|大 O 记号]]
+    goes bankrupt on the spot. Whether a hash table is fast depends, more than half, on collision handling — not on how fast the hash function computes.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Hashing lectures, collision handling
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: Collisions are resolved by chaining or by open addressing
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "Chaining: colliding elements hang off the same bucket"
+    rows:
+    - label: Buckets
+      cells:
+      - v: ""
+        sub: "0"
+      - v: ""
+        sub: "1"
+      - v: ""
+        sub: "2"
+      - v: Alice
+        mark: active
+        sub: "3"
+        chain:
+        - v: Bob
+          mark: new
+      - v: ""
+        sub: "4"
+      - v: ""
+        sub: "5"
+      - v: Carol
+        sub: "6"
+      - v: ""
+        sub: "7"
+      pointers:
+      - at: 3
+        label: Bob is 3 too
+  log:
+  - mode: Collision
+    event: "A collision has happened: bucket 3 now holds Alice and Bob, so looking up Bob takes one extra comparison inside the bucket."
+- id: open-addr
+  title: What each way of handling collisions costs
+  tldr: "There are two roads for settling collisions, and this step lays their costs side by side: chaining can keep hanging elements indefinitely, while [[open addressing|开放寻址]] saves memory and treats the cache kindly. Run Alice and Bob through the landing process once, then see why open addressing must leave a [[tombstone|墓碑]] behind when it deletes."
+  body: >-
+    Chaining: a chain can keep growing and never fills up. Java 8's [[HashMap]] turns a bucket's chain into a red-black tree once the chain reaches length 8 and the table capacity is at least 64 (both conditions at once), pressing worst-case lookup back down to O(log n); when capacity is below 64 it resizes instead, because long chains in a small table usually mean too little capacity, not a poor hash function.
+
+
+    Open addressing: every element lives in one contiguous array, and on a collision you probe forward for an empty slot — friendly to the [[CPU]] cache, and Python's dict follows this approach. The price is that probe sequences lengthen sharply as the table fills, and a deletion cannot simply empty its slot: elements behind it would run into the empty slot early during a lookup and be misjudged as absent. So a deleted marker (a tombstone) has to stay behind.
+
+
+    The arithmetic: Alice takes bucket 3; Bob probes once and lands in bucket 4. Delete Alice and leave a tombstone, and a lookup for Bob first sees the tombstone at bucket 3 and keeps going; the second probe finds him in bucket 4. If bucket 3 were simply emptied, the lookup for Bob would stop at its very first step on the empty slot and falsely report him missing. That is the tombstone's whole reason for existing — keeping the probe chain unbroken.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Hashing lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: Chaining is simple and can hold more elements than there are buckets; open addressing uses less memory and is friendlier to the cache, but deletion is awkward
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "Same setup — Alice and Bob both compute to bucket 3: chaining hangs them in a list, open addressing probes forward for an empty slot"
+    rows:
+    - label: Chaining
+      cells:
+      - v: ""
+        sub: "0"
+      - v: ""
+        sub: "1"
+      - v: ""
+        sub: "2"
+      - v: A→B
+        mark: active
+        sub: "3"
+      - v: ""
+        sub: "4"
+      - v: ""
+        sub: "5"
+      - v: ""
+        sub: "6"
+      - v: ""
+        sub: "7"
+    - label: Open addressing
+      cells:
+      - v: ""
+        sub: "0"
+      - v: ""
+        sub: "1"
+      - v: ""
+        sub: "2"
+      - v: Alice
+        mark: muted
+        sub: "3"
+      - v: Bob
+        mark: new
+        sub: "4"
+      - v: ""
+        sub: "5"
+      - v: ""
+        sub: "6"
+      - v: ""
+        sub: "7"
+      pointers:
+      - at: 3
+        label: Bob computes to 3 — taken
+      - at: 4
+        label: So he goes to 4
+    - label: Alice deleted
+      cells:
+      - v: ""
+        sub: "0"
+      - v: ""
+        sub: "1"
+      - v: ""
+        sub: "2"
+      - v: deleted
+        mark: muted
+        sub: "3"
+      - v: Bob
+        mark: found
+        sub: "4"
+      - v: ""
+        sub: "5"
+      - v: ""
+        sub: "6"
+      - v: ""
+        sub: "7"
+      pointers:
+      - at: 3
+        label: Leave the marker, keep going
+      - at: 4
+        label: Bob found
+    aux:
+    - label: If bucket 3 were simply emptied
+      items:
+      - Looking up Bob stops at the empty slot 3
+      - He is misjudged as absent
+  log:
+  - mode: Collision
+    event: "The two settling strategies are compared: chaining hangs colliding elements in a list; open addressing probed Bob forward into bucket 4."
+- id: chaining-delete
+  title: "Deletion's two fates: unlinking from a chain vs. accumulating [[tombstones|墓碑]]"
+  tldr: "The last step named deletion as the dividing line between the two roads; this step does that math in full. Chaining unlinks the element on the spot and leaves no trace; [[open addressing|开放寻址]] can only leave a tombstone, and as tombstones pile up, probes grow longer. Finally: how far can tombstones accumulate before the whole table must be [[rehashed|再哈希]] to clean them out?"
+  body: >-
+    Deleting an element from a chain means finding it in the list and splicing its predecessor to its successor — unlinked on the spot. The chain gets shorter, and later lookups only get faster. The tombstone problem simply does not exist in chaining.
+
+
+    Open addressing is the mirror image: a deleted position can only leave a tombstone, so the table ends up mixing truly empty slots with tombstones. A lookup steps over tombstones and stops only at a truly empty slot; an insertion may reuse the first tombstone it meets. Tombstones never decrease on their own — after enough insert/delete cycles, a table holding only half its capacity in live elements can still probe for a long time.
+
+
+    A worked example: bucket 3 is a tombstone, bucket 4 is Bob, bucket 5 is empty. Looking up a key that does not exist and hashes to 3 means passing two cells — the tombstone and Bob — before bucket 5 lets you conclude anything. The fix is to count tombstones into the load: when live elements plus tombstones pass the threshold, rehash into a clean table and clear every tombstone at once. Resizing doubles as spring cleaning for the probe chains.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: "Chapter 11, deletion in open addressing"
+    claim: Deletion in open addressing must use a DELETED marker rather than emptying the slot, and tombstones are cleared by rehashing
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "Chaining deletes Alice by unlinking; open addressing can only leave a tombstone, and a lookup for a missing key has to pass the tombstone"
+    rows:
+    - label: Chaining, after delete
+      cells:
+      - v: ""
+        sub: "0"
+      - v: ""
+        sub: "1"
+      - v: ""
+        sub: "2"
+      - v: Bob
+        mark: found
+        sub: "3"
+      - v: ""
+        sub: "4"
+      - v: ""
+        sub: "5"
+      - v: ""
+        sub: "6"
+      - v: ""
+        sub: "7"
+    - label: Open addressing, after delete
+      cells:
+      - v: ""
+        sub: "0"
+      - v: ""
+        sub: "1"
+      - v: ""
+        sub: "2"
+      - v: tombstone
+        mark: muted
+        sub: "3"
+      - v: Bob
+        mark: found
+        sub: "4"
+      - v: ""
+        sub: "5"
+      - v: ""
+        sub: "6"
+      - v: ""
+        sub: "7"
+      pointers:
+      - at: 3
+        label: "Tombstone: keep probing"
+      - at: 5
+        label: "Empty slot: only now may you stop"
+    aux:
+    - label: Cleanup
+      items:
+      - Tombstones count toward the load
+      - Rehashing clears them all
+  log:
+  - mode: Deletion
+    event: "Deletion's math is settled: chaining unlinks on the spot; the tombstones open addressing leaves behind count toward the load and are cleared in one pass by rehashing."
+- id: clustering
+  title: "Clustering in [[open addressing|开放寻址]]: why probes slow down the fuller it gets"
+  tldr: "Open addressing has one more flaw, and it amplifies itself: runs of consecutively occupied buckets grow longer and longer. This step shows how that clustering forms, then works the formula to see how the expected number of probes climbs from about 2 to about 10 as the [[load factor|负载因子]] rises from 0.5 to 0.9."
+  body: >-
+    Open addressing has a self-amplifying flaw called primary clustering: once a run of consecutive buckets is occupied, any new element that hashes into the run gets pushed to the run's tail, and the run grows longer; and the longer the run, the higher the chance of being hit, so the faster it grows. Runs that are empty stay empty. This is the most criticized weakness of [[linear probing|线性探测]].
+
+
+    Quantitatively: under the uniform-hashing assumption, CLRS puts the expected number of probes for an unsuccessful search at about 1 / (1 − load factor). At load factor 0.5 that is about 2 probes; at 0.75, about 4; at 0.9, about 10 — and the closer the load gets to 1, the faster it diverges. That is why open addressing keeps the load factor around 0.7: this is where the probe curve starts to bend sharply upward.
+
+
+    The mitigation is to change the probing: [[quadratic probing|二次探测]] takes larger and larger steps, leaping out of the occupied run; [[double hashing|双重哈希]] computes the step from a second hash function, so different keys stride differently. But as the load approaches 1, every form of open addressing slows down — the real discipline is to resize early.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: "Chapter 11, analysis of open addressing"
+    claim: Under the uniform-hashing assumption, the expected number of probes for an unsuccessful search in open addressing is about 1/(1−α)
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "Buckets 2–6 form a single run: a new key landing anywhere inside the run is pushed to its tail, and the longer the run, the faster it grows"
+    rows:
+    - label: Buckets
+      cells:
+      - v: ""
+        sub: "0"
+      - v: ""
+        sub: "1"
+      - v: K1
+        mark: active
+        sub: "2"
+      - v: K2
+        mark: active
+        sub: "3"
+      - v: K3
+        mark: active
+        sub: "4"
+      - v: K4
+        mark: active
+        sub: "5"
+      - v: K5
+        mark: active
+        sub: "6"
+      - v: new key
+        mark: new
+        sub: "7"
+      pointers:
+      - at: 2
+        label: Lands inside the run
+      - at: 7
+        label: Pushed to the tail
+    aux:
+    - label: Expected probes (unsuccessful search)
+      items:
+      - Load 0.5 → about 2 probes
+      - Load 0.75 → about 4 probes
+      - Load 0.9 → about 10 probes
+  log:
+  - mode: Analysis
+    event: "The clustering math is done: the closer the load gets to 1, the faster the expected probe count climbs — resizing early is the only discipline."
+- id: resize
+  title: "[[Load factor|负载因子]] and resizing"
+  tldr: "Probe sequences grow long because the table is too crowded. This step looks at the load factor, the ruler for that crowding: when the ratio of elements to buckets crosses a threshold, you resize. Work through inserting a million elements starting from 16 buckets and total the carrying work, to see why a resize that is expensive once is still cheap spread across every insertion."
+  body: >-
+    Load factor = number of elements ÷ number of buckets; it measures how crowded the table is. Seven elements in 8 buckets gives about 0.88; squeeze in still more and chain lengths and probe lengths both accelerate upward — so you resize before things get out of hand.
+
+
+    Once past the threshold (Java's [[HashMap]], for example, uses 0.75), you double the bucket count and recompute every element's position under the new count and place it again. This step is called [[rehashing|再哈希]], and every old position is void. A single resize moves all the elements and looks expensive — but it happens rarely.
+
+
+    A numeric example: starting from 16 buckets at threshold 0.75, inserting a million elements triggers about 17 resizes, with total carrying work of about 1.57 million moves — less than 2n. Spread across the insertions, that is under 2 moves per insertion, and the amortized complexity is still [[O(1)|大 O 记号]]. It is the same geometric-series argument as the amortized O(1) of a dynamic array's push: with each doubling, the total carrying work is dominated by the last term.
+
+
+    Amortized does not mean every operation is fast: the one insertion that triggers a resize has to move n elements, and latency spikes. Latency-sensitive systems either build the table at its estimated capacity in one go, or accept the spike.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Hashing / dynamic array lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: Doubling the table size makes the amortized cost of insertion O(1)
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "Load factor 7/8 ≈ 0.88 > 0.75 → after growing to 16 buckets, 7/16 ≈ 0.44 (letters are the initials of the names)"
+    rows:
+    - label: Before resizing
+      cells:
+      - v: F
+        mark: active
+        sub: "0"
+      - v: D
+        mark: active
+        sub: "1"
+      - v: ""
+        sub: "2"
+      - v: A
+        mark: active
+        sub: "3"
+        chain:
+        - v: B
+      - v: ""
+        sub: "4"
+      - v: E
+        mark: active
+        sub: "5"
+      - v: C
+        mark: active
+        sub: "6"
+      - v: G
+        mark: active
+        sub: "7"
+    - label: After resizing
+      cells:
+      - v: F
+        mark: new
+        sub: "0"
+      - v: ""
+        sub: "1"
+      - v: ""
+        sub: "2"
+      - v: A
+        mark: new
+        sub: "3"
+      - v: ""
+        sub: "4"
+      - v: E
+        mark: new
+        sub: "5"
+      - v: C
+        mark: new
+        sub: "6"
+      - v: ""
+        sub: "7"
+      - v: ""
+        sub: "8"
+      - v: D
+        mark: new
+        sub: "9"
+      - v: ""
+        sub: "10"
+      - v: B
+        mark: new
+        sub: "11"
+      - v: ""
+        sub: "12"
+      - v: ""
+        sub: "13"
+      - v: ""
+        sub: "14"
+      - v: G
+        mark: new
+        sub: "15"
+  log:
+  - mode: Resize
+    event: "Resizing is done: with the bucket count doubled, the load factor fell back, and collisions and probe lengths came down with it."
+- id: playground
+  title: "Hands-on: the hash table playground"
+  tldr: "The rules are covered — now it is your turn: insert with the preset key sets by hand and watch collisions chain up and resizing pull the probe counts back down. Compute each key's landing spot by hand first, then single-step to check it; the step where your prediction fails is exactly where a misunderstanding is hiding."
+  body: >-
+    Try three key sets in the lab: in the chain-collision set, every key is 0 mod 8, so each new key slides forward past the ones before it — count how the probe counts 1, 2, 3 accumulate. In the resize-triggering set, the [[load factor|负载因子]] passes
+    0.7 before the 6th key is inserted, the capacity doubles, the whole table is rehashed, and the new positions are completely different from the old ones. You can also enter a set of numbers of your own: compute the hash values and landing spots by hand first, then single-step to check.
+
+
+    Why does the chain-collision set scatter after resizing? Because the modulus changes from 8 to 16, and keys that were congruent mod 8 are separated by the higher bits — exactly why a power-of-two bucket count is so sensitive to the low bits. Now deliberately enter a set of keys that are all congruent, and watch the probe count grow linearly with the occupied run. Write your prediction down before you single-step: the step where the prediction fails exposes precisely your misunderstanding of the probing rule or the resize timing.
+  derivation: original
+  sources: []
+  log: []
+  canvas:
+    kind: lab
+    lab: hash-playground
+    caption: "Preset key sets + your own key set, [[linear probing|线性探测]] + resizing at load factor 0.7"
+    params:
+      capacity: 8
+    cases:
+    - input:
+        keys:
+        - 8
+        - 16
+        - 24
+        slotOf: 24
+      expect:
+        size: 3
+        probes: 6
+        resizes: 0
+        slotOf: 2
+    - input:
+        keys:
+        - 5
+        - 13
+        - 21
+        - 29
+        - 37
+        - 45
+        - 53
+        slotOf: 53
+      expect:
+        size: 7
+        probes: 22
+        resizes: 1
+        slotOf: 8
+- id: worst-case
+  title: "Worst cases and [[hash flooding attacks|哈希洪水攻击]]"
+  tldr: "Every conclusion so far rests on the average case. This step shows how the average can be sabotaged on purpose: an attacker crafts large numbers of mutually colliding keys and submits them to a server, and the hash table degenerates on the spot. Once you have seen the attack, see why a hash with a random seed defends against it."
+  body: >-
+    A hash table's [[O(1)|大 O 记号]] is an average-case statement, premised on keys spreading evenly. When many keys land in the same bucket, every operation compares along the chain; with n keys all squeezed into a single bucket, one lookup is O(n), and building such a table in the first place costs O(n²).
+
+
+    This is not just theory: around 2011, researchers demonstrated hash flooding attacks against a range of web frameworks — submit a large batch of carefully crafted request parameters whose hash values are all the same, and the server burns its [[CPU]] comparing along one long chain, so that a small number of requests can bring the service down. The attacker forcibly turns the average case into the worst case.
+
+
+    The defense is a hash function with a random seed (such as [[SipHash]]): the seed is generated randomly when the process starts, so the colliding keys an attacker computed offline stop colliding under a different seed — the standard libraries of Python, Rust, and others do exactly this. A second line of defense caps the chain length and converts long chains to trees (the Java approach from earlier), or limits the number of parameters in a single request.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Hashing lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: O(1) is the average case; if an attacker deliberately crafts many colliding keys, the hash table slows down to O(n)
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "Every key the attacker crafted computes to bucket 3: lookup degenerates into comparing along one long chain"
+    rows:
+    - label: Buckets
+      cells:
+      - v: ""
+        mark: muted
+        sub: "0"
+      - v: ""
+        mark: muted
+        sub: "1"
+      - v: ""
+        mark: muted
+        sub: "2"
+      - v: K1→K2→…→Kn
+        mark: active
+        sub: "3"
+      - v: ""
+        mark: muted
+        sub: "4"
+      - v: ""
+        mark: muted
+        sub: "5"
+      - v: ""
+        mark: muted
+        sub: "6"
+      - v: ""
+        mark: muted
+        sub: "7"
+      pointers:
+      - at: 3
+        label: Every operation is O(n)
+    aux:
+    - label: Defenses
+      items:
+      - A hash with a random seed (such as SipHash)
+      - The attacker cannot guess which keys will collide
+  log:
+  - mode: Attack
+    event: "The attack's precondition is clear: when every key computes to the same bucket, lookup degenerates into comparing along one long chain."
+- id: consistent-hashing
+  title: "A peek ahead: why [[consistent hashing|一致性哈希]] needs a ring"
+  tldr: "Scale a hash table up to many machines and a new problem appears: add or remove one machine, and plain modulo makes almost every key move house. This step first does the math on why modulo is so fragile, then shows why — once the mapping lives on a ring — only the arc where something happened needs to move."
+  body: >-
+    Scale a hash table across machines and plain modulo causes a disaster: with 3 machines a key lands at its hash value mod 3; add a fourth machine and it becomes mod 4, and almost every key's landing spot changes — caches invalidate en masse and data moves house across the whole network. The problem is not the hash function; it is that the moment the bucket count changes, the entire mapping rule is rewritten.
+
+
+    Consistent hashing splits the mapping into two hops: machines and keys are both hashed onto the same ring, and the first machine a key meets going clockwise is its home. A worked example: unrolled, the ring reads machine A, key k1, machine B, key k2, then wraps back to A. k1 meets B first, so it belongs to B; k2 passes B and wraps around to A, so it belongs to A. Now B
+    goes offline: only k1, which belonged to B, has to move to A; k2 does not move. Only the arc that belonged to the machine where something happened is affected.
+
+
+    What it solves is the data-movement problem when machines join or leave distributed caches and sharded stores. The price is a less even spread, which takes several [[virtual nodes|虚拟节点]] per machine to smooth out. Understand modulo's fragility first, and the value of going onto a ring becomes clear; distributed caches and [[Dynamo]]-style stores both build on this idea.
+  derivation: original
+  sources:
+  - ref: clrs
+    locator: "Chapter 11, hash functions"
+    claim: A hash function maps keys to table slots; consistent hashing builds on this by organizing the slots into a ring, reducing the data movement when nodes join or leave
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+  canvas:
+    kind: datastate
+    structure: array
+    caption: "The ring, unrolled: k1 goes clockwise to B, k2 wraps around to A; when B goes offline, only k1 has to move"
+    rows:
+    - label: Ring (unrolled)
+      cells:
+      - v: Node A
+        mark: active
+        sub: "pos 0"
+      - v: ""
+        sub: ""
+      - v: k1
+        mark: new
+        sub: "to B"
+      - v: ""
+        sub: ""
+      - v: Node B
+        mark: active
+        sub: "pos 4"
+      - v: ""
+        sub: ""
+      - v: k2
+        sub: "to A"
+      - v: ""
+        sub: "wraps to A"
+      pointers:
+      - at: 2
+        label: Clockwise, meets B first
+      - at: 6
+        label: Past B, wraps back to A
+    aux:
+    - label: The contrast
+      items:
+      - "Modulo: add one machine, almost everything moves"
+      - "Ring: only the affected arc moves"
+  log:
+  - mode: Scaling out
+    event: "Hashing has traveled from one machine to many: with the mapping on a ring, machines joining or leaving only affect the arc where it happened."
+- id: engineering
+  title: Hash tables in everyday engineering
+  tldr: "Finally, back to daily use: caching, deduplication, and counting all run on hash tables underneath. This step matches each use to its place, then names the boundaries — no preserved order, no range queries, and a key that gets mutated is lost forever — so you do not reach for it for a job it should not do."
+  body: >-
+    Using a Map in JS for caching, deduplication, or counting is using a hash table. Map iterates in insertion order, but that is an extra guarantee from the language specification, not a native property of hash tables. Object can serve as a dictionary too, but its keys are converted to strings; Map preserves the key's original type.
+
+
+    A hash table guarantees no order: it cannot answer who comes next, which key is the smallest one greater than a given key, or how many keys fall inside an interval. When you need range queries or nearest-value lookups, reach for a balanced tree or a skip list. Before choosing a structure, list the set of operations it must support.
+
+
+    A key has to hash stably: when an object is used as a Map key, comparison is by reference, so two object literals with identical contents are different keys; and if a mutable object already in the table has a field that feeds into the hash changed, it can never be found again — the most common hash-table
+    bug. For an in-memory cache, also keep a threshold on the [[load factor|负载因子]], monitor the longest chain, and pair it with an eviction policy — a hash table is responsible for storage and retrieval, not for expiry.
+  derivation: original
+  sources:
+  - ref: mit-6006
+    locator: Hashing lectures
+    url: https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/
+    claim: Hash tables suit exact lookups and do not support ordered operations
+    status: verified
+    checkedBy: Checked by Muse
+    checkedAt: 2026-11-07
+    note: Verified against the primary source on 2026-11-07; see docs/curriculum-audit.md
+  canvas:
+    kind: datastate
+    structure: array
+    caption: 'map.get("Alice"): one hash computation, straight to bucket 3'
+    rows:
+    - label: Buckets
+      cells:
+      - v: ""
+        sub: "0"
+      - v: ""
+        sub: "1"
+      - v: ""
+        sub: "2"
+      - v: Alice
+        mark: found
+        sub: "3"
+      - v: ""
+        sub: "4"
+      - v: ""
+        sub: "5"
+      - v: Carol
+        sub: "6"
+      - v: ""
+        sub: "7"
+      pointers:
+      - at: 3
+        label: get
+    aux:
+    - label: JS
+      items:
+      - new Map()
+      - map.set(k, v)
+      - map.get(k)
+  log:
+  - mode: Lookup
+    event: "Everyday use boils down to one line: fetching a value by key in a single step is the hash table's job; when you need order or ranges, switch to a balanced tree or a skip list."
+level: 基础
+minutes: 28
+prereq: []
+objectives:
+- Explain how the hash function, collisions, and the load factor relate
+- Compare the trade-offs of separate chaining and open addressing
+- Explain why resizing is amortized O(1)
+aiLink: Lookups are everywhere in AI pipelines, but keep three kinds apart — a tokenizer mapping tokens to ids is a true hash table (the vocabulary dict); the embedding layer uses an id to index a row of the vector matrix directly — also an O(1)
+  lookup, but with no hash function and no collisions, so it is not a hash table; feature hashing (the hashing trick) uses a hash function to pin a feature directly to a column index, which is true hashing. Understand collisions and resizing, and you understand why hash-based lookups are O(1) on average — and how they degrade in the worst case.
+design:
+- mechanism: The load factor decides the average chain length and probe length — with chaining the average chain length is roughly the load factor, and with open addressing, under the uniform-hashing assumption, the expected number of probes for an unsuccessful search is about 1 / (1 − load factor). Both steepen as the load rises, and past about 0.7 the slope grows markedly.
+  problem: Too empty a table wastes memory; too full, and every operation pays for collisions — and the fuller it gets, the more easily it keeps filling. An implementation needs a trigger point that balances memory waste against collision cost automatically, with no one watching it.
+  choice: Set the threshold in the 0.7 to 0.75 band (Java's HashMap defaults to 0.75; this lesson's lab uses 0.7). Cross the line and the bucket count doubles and the whole table is rehashed — an occasional linear carrying job buys the low load back.
+  tradeoff: A lower threshold resizes too often and uses memory poorly; a higher one makes long chains and long probes the norm. Doubling also brings a one-off latency spike, so latency-sensitive scenarios estimate the capacity and build the table big enough in one go to dodge it.
+  root: The root is the shape of the probability curve — collisions do not worsen linearly with load but accelerate in the high-load region, so the threshold must sit before the bend. The doubling strategy keeps the total carrying work across all resizes bounded by a geometric series, so the amortized cost stays constant.
+- mechanism: A randomly seeded hash makes the hash value depend jointly on the key and a process-level random seed — stable and self-consistent within one process, different landing spots for the same key in different processes, and an attacker cannot precompute offline a batch of keys guaranteed to collide.
+  problem: A deterministic hash is publicly computable, so an attacker can mass-produce same-bucket keys and forcibly turn the average O(1) into O(n) one-by-one comparisons — a hash-flooding denial of service that the server has no way to spot in advance.
+  choice: Standard libraries switched to randomly seeded hashes (such as SipHash), with the seed living only in process memory and regenerated at every start; on top of that, treeification past a chain-length cap and limits on the number of parameters per request provide defense in depth.
+  tradeoff: The price is no reproducibility across processes — the same key has a different bucket order in two processes, so any logic that depends on hash order breaks, production issues are harder to reproduce locally exactly as they happened, and debugging needs its own trail of log clues.
+  root: The fundamental tension is that a hash function must be deterministic enough for lookups to stay self-consistent, yet unpredictable to an opponent. Randomness takes predictability out of the function and keeps it under separate guard — consistency is retained inside the process, unpredictability faces outward.
+- mechanism: Open addressing puts all elements in one contiguous array and probing walks along the array in order, so the cache hit rate is naturally high. Chaining hangs nodes off each bucket; the nodes are scattered across the heap, and walking a chain is pointer chasing, one cache miss after another.
+  problem: Collision handling must be correct (a deletion must not cut off someone else's probe chain) and fast (on a modern CPU, the main cause of slowness is often cache misses rather than the number of comparisons) — and the two goals frequently pull against each other.
+  choice: Open addressing stays correct with tombstones — a deletion only marks, never empties, and lookups step over tombstones and continue. Chaining stays correct by unlinking directly, with treeification as a backstop for the worst chain length. Each implementation chose deletion semantics that match its own storage layout.
+  tradeoff: Tombstones pollute the probe chains and can only be cleaned out periodically by rehashing; chaining pays in pointer memory and cache behavior instead. Neither deletion is free — each simply books the cost in a different ledger, to be hedged according to the scenario.
+  root: The root is that storage layout decides access semantics — in a contiguous array, an empty slot is itself the signal that terminates a lookup, so it cannot be emptied casually; in a linked structure, a position carries no semantics, so deleting really makes it disappear. The difference in semantics comes from the difference in layout.
+quiz:
+- q: Why does a hash table slow down when the load factor gets too high?
+  options:
+  - Out of memory
+  - Collisions multiply; chains and probe sequences lengthen, and the average lookup takes more steps
+  - The hash function gets slower
+  - The CPU throttles down
+  answer: 1
+  explain: Load factor = number of elements / number of buckets; the resize threshold varies by implementation — Java's HashMap, for instance, uses 0.75.
+- q: Resizing moves all n elements into the new table one by one — why is insertion still amortized O(1)?
+  options:
+  - Because moving is free
+  - Each resize doubles the capacity, so the carrying cost is spread thin over the many O(1) insertions that follow
+  - Because it uses a GPU
+  - Because nothing actually moves
+  answer: 1
+  explain: Sum the geometric series — the total carrying work is less than 2n, which spread across n insertions is a constant.
+- q: Why can't open addressing delete an element by simply emptying its slot?
+  options:
+  - It would get slower
+  - It would cut the probe chains of elements inserted later, making them unfindable; a tombstone marker is required
+  - It would leak memory
+  - The hash values would change
+  answer: 1
+  explain: Break the probe chain, and the elements that depend on that chain can no longer be found — hence the tombstone.
+legend:
+- key: active
+  label: Element currently being compared / processed
+- key: found
+  label: Found / final position
+- key: done
+  label: Processing complete
+- key: pivot
+  label: Pivot element
+- key: muted
+  label: Ruled out / no longer considered
+- key: visited
+  label: Visited

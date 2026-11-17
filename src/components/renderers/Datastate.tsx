@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { DatastateState } from "@/lib/schema";
+import { useLang } from "@/i18n/client";
 
 type Cell = NonNullable<DatastateState["rows"]>[number]["cells"][number];
 type Row = NonNullable<DatastateState["rows"]>[number];
@@ -124,12 +125,13 @@ function Graph({ g, h }: { g: NonNullable<DatastateState["graph"]>; h: number })
 
 /** Pure snapshot renderer: every step's state comes from YAML; nothing is computed here. */
 export function Datastate({ state }: { state: DatastateState }) {
+  const { s } = useLang();
   const [hi, setHi] = useState<number | null>(null);
   const hover: Hover = { i: hi, set: setHi };
   const rows = state.structure === "array" ? state.rows ?? [] : [];
   const tree = state.structure === "tree" ? state.tree : undefined;
-  const backing: Row | null = tree?.showArray ? { label: "数组", cells: tree.nodes.map((n, i) => ({ ...n, sub: String(i) })) } : null;
-  const labels = [...rows.map((r) => r.label ?? ""), backing ? "数组" : ""];
+  const backing: Row | null = tree?.showArray ? { label: s.dsArrayLabel, cells: tree.nodes.map((n, i) => ({ ...n, sub: String(i) })) } : null;
+  const labels = [...rows.map((r) => r.label ?? ""), backing ? s.dsArrayLabel : ""];
   const labelW = labels.some(Boolean) ? Math.min(150, Math.max(64, ...labels.map((l) => textW(l, 13) + 14))) : 0;
   const offsets = rows.reduce<number[]>((acc, r, i) => [...acc, (acc[i] ?? 0) + rowHeight(r, labelW)], [0]);
   const gH = 300;
@@ -138,7 +140,7 @@ export function Datastate({ state }: { state: DatastateState }) {
   return (
     <div className={t ? "datastate with-table" : "datastate"}>
       <div className="ds-main">
-        <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={state.caption ?? "数据结构状态图"} preserveAspectRatio="xMidYMid meet">
+        <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={state.caption ?? s.dsStateAria} preserveAspectRatio="xMidYMid meet">
           <defs><marker id="ds-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" /></marker></defs>
           {rows.map((r, i) => <ArrayRow key={i} r={r} y0={offsets[i]!} labelW={labelW} />)}
           {tree && <Tree nodes={tree.nodes} hover={hover} />}
@@ -146,19 +148,19 @@ export function Datastate({ state }: { state: DatastateState }) {
           {state.graph && state.structure === "graph" && <Graph g={state.graph} h={gH} />}
         </svg>
         {state.caption && <p className="ds-caption">{state.caption}</p>}
-        <div className="ds-legend" aria-label="颜色图例">
-          <span><i style={{ background: "var(--line-soft)", borderColor: "var(--active)" }} />active 当前比较/处理中</span>
-          <span><i style={{ background: "var(--active)" }} />found 已找到/最终位置</span>
-          <span><i style={{ background: "var(--done-fill)", borderColor: "var(--done-line)" }} />done 已完成</span>
-          <span><i style={{ background: "var(--pivot-fill)", borderColor: "var(--pivot-line)" }} />pivot 基准元素</span>
-          <span><i style={{ background: "var(--panel)", opacity: 0.35 }} />muted 已排除</span>
-          <span><i style={{ background: "var(--line-soft)" }} />visited 已访问</span>
+        <div className="ds-legend" aria-label={s.dsLegendLabel}>
+          <span><i style={{ background: "var(--line-soft)", borderColor: "var(--active)" }} />active {s.dsLegendActive}</span>
+          <span><i style={{ background: "var(--active)" }} />found {s.dsLegendFound}</span>
+          <span><i style={{ background: "var(--done-fill)", borderColor: "var(--done-line)" }} />done {s.dsLegendDone}</span>
+          <span><i style={{ background: "var(--pivot-fill)", borderColor: "var(--pivot-line)" }} />pivot {s.dsLegendPivot}</span>
+          <span><i style={{ background: "var(--panel)", opacity: 0.35 }} />muted {s.dsLegendMuted}</span>
+          <span><i style={{ background: "var(--line-soft)" }} />visited {s.dsLegendVisited}</span>
         </div>
         {state.aux && state.aux.length > 0 && (
           <div className="ds-aux">
             {state.aux.map((a) => (
               <div key={a.label}><span className="ds-aux-label">{a.label}</span>
-                <ol>{a.items.length ? a.items.map((x, i) => <li key={i}>{String(x)}</li>) : <li className="empty">（空）</li>}</ol>
+                <ol>{a.items.length ? a.items.map((x, i) => <li key={i}>{String(x)}</li>) : <li className="empty">{s.dsEmpty}</li>}</ol>
               </div>
             ))}
           </div>

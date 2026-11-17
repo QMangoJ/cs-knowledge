@@ -56,9 +56,13 @@ describe("bilingual content loading", () => {
       expect(s.tagline).toBe(c.subjectsEn[i]!.tagline);
     });
   });
-  it("topics fall back to Chinese when no en.yaml exists yet", () => {
-    expect(c.topicsEn.size).toBe(0);
-    for (const t of c.topics) expect(topicForLang(c, t, "en")).toBe(t);
+  it("topics fall back to Chinese when they have no en.yaml yet", () => {
+    // Only translated lessons have overlays so far; everything else falls back.
+    expect([...c.topicsEn.keys()]).toEqual(["dsa/hash-table"]);
+    for (const t of c.topics) {
+      if (c.topicsEn.has(t.id)) expect(topicForLang(c, t, "en")).toBe(c.topicsEn.get(t.id));
+      else expect(topicForLang(c, t, "en")).toBe(t);
+    }
   });
   it("an en.yaml overlay is picked up when present (fixture)", () => {
     const root = fs.mkdtempSync(path.join("/tmp", "cs-en-fixture-"));
