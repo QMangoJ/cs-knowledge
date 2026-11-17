@@ -5,7 +5,13 @@ h1{font-size:var(--fs-xl);color:var(--ink-strong);margin:0 0 var(--sp-2)}
 h2{font-size:var(--fs-lg);color:var(--ink-strong);margin:0 0 var(--sp-2)}
 h3{font-size:var(--fs-sm);color:var(--ink-soft);margin:0 0 var(--sp-2);text-transform:uppercase;letter-spacing:.04em}
 code{font-family:var(--font-mono)}
-.site-header{display:flex;justify-content:space-between;align-items:center;padding:var(--sp-3) var(--sp-5);border-bottom:1px solid var(--line-mid);flex:none}
+/* The header is the first box in the 100dvh shell, so with
+   viewport-fit=cover a standalone (home-screen) iOS app runs it underneath
+   the status bar. Grow its top padding by the top safe-area inset so the
+   title row clears the clock/icons; the header's own background covers the
+   inset strip. The inset is 0 in browsers and on desktop, so nothing moves
+   there. */
+.site-header{display:flex;justify-content:space-between;align-items:center;background:var(--bg);padding:calc(var(--sp-3) + env(safe-area-inset-top, 0px)) var(--sp-5) var(--sp-3);border-bottom:1px solid var(--line-mid);flex:none}
 .site-header a{color:var(--ink-strong);font-weight:700;text-decoration:none;font-size:20px;line-height:1.25}
 .hint,.muted{color:var(--ink-muted)}
 .site-footer{padding:var(--sp-5);border-top:1px solid var(--line-mid);color:var(--ink-soft);font-size:var(--fs-xs);flex:none}
@@ -464,10 +470,12 @@ details.ref-sol summary{cursor:pointer;font-weight:700}
   .sidenav{display:none}
   .sidenav.drawer{display:block;position:fixed;top:0;left:0;bottom:0;z-index:40;width:min(300px,84vw);transform:translateX(-105%);visibility:hidden;transition:transform var(--dur-base) var(--ease-out),visibility 0s linear var(--dur-base);box-shadow:0 0 40px rgba(6,12,28,.35);border-right:1px solid var(--line-mid)}
   .sidenav.drawer.open{transform:none;visibility:visible;transition:transform var(--dur-base) var(--ease-out),visibility 0s}
-  /* iOS safe area: the drawer's list must clear the home indicator; the
-     panel background already runs to the screen edge, only the scrollable
-     content needs the extra bottom room (needs viewport-fit=cover). */
-  .sidenav.drawer{padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+  /* iOS safe area: the drawer is fixed to both screen edges, so its list
+     must clear the status bar at the top and the home indicator at the
+     bottom; the panel background already runs to the screen edges, only
+     the scrollable content needs the extra room (needs viewport-fit=cover).
+     Base .sidenav padding is 14px top / 24px bottom. */
+  .sidenav.drawer{padding-top:calc(14px + env(safe-area-inset-top, 0px));padding-bottom:calc(24px + env(safe-area-inset-bottom))}
   .nav-toggle{display:inline-flex}
   .nav-backdrop{position:fixed;inset:0;background:rgba(6,12,28,.45);z-index:39}
 }

@@ -14,7 +14,13 @@ export const metadata: Metadata = {
   description: t.tagline,
   manifest: "/manifest.webmanifest",
   icons: { icon: "/favicon.svg", apple: "/apple-touch-icon.png" },
-  appleWebApp: { capable: true, title: t.siteName, statusBarStyle: "black-translucent" },
+  // statusBarStyle "black": an opaque black bar with white text. The old
+  // "black-translucent" floated white status text over the page itself —
+  // illegible on the light theme's near-white background, and the page ran
+  // underneath it. "black" keeps the text readable under both colour
+  // schemes because the bar carries its own background; the CSS
+  // safe-area-inset-top padding stays as a fallback for translucent modes.
+  appleWebApp: { capable: true, title: t.siteName, statusBarStyle: "black" },
 };
 export const viewport: Viewport = { viewportFit: "cover", themeColor: [{ media: "(prefers-color-scheme: dark)", color: "#0b1020" }, { color: "#fcfdfe" }] };
 
