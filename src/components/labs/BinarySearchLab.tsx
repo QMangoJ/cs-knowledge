@@ -2,9 +2,12 @@
 import { useEffect, useMemo, useState } from "react";
 import type { LabProps } from "./registry";
 import { Cases, num } from "./Cases";
+import { fmt } from "@/i18n";
+import { useLang } from "@/i18n/client";
 import { BS_DEFAULT, bsResult } from "@/lib/labs/search";
 
 export default function BinarySearchLab({ state }: LabProps) {
+  const { s } = useLang();
   const p = state.params ?? {};
   const arr = (Array.isArray(p.array) ? (p.array as number[]) : BS_DEFAULT);
   const presets = (Array.isArray(p.targets) ? (p.targets as number[]) : [23, 7, 2, 56]);
@@ -37,16 +40,16 @@ export default function BinarySearchLab({ state }: LabProps) {
     if (i === cur.hi) l.push("hi");
     return l.join("·");
   };
-  const msg = cur.result === "eq" ? `找到 ${target}，下标 ${r.index}，共 ${cur.comparisons} 次比较。`
-    : cur.result === "empty" ? `${target} 不存在（应插入下标 ${r.insertAt}），共 ${cur.comparisons} 次比较。`
-    : cur.result === "lt" ? `中间值 ${arr[cur.mid]} < ${target}，排除左半边。`
-    : `中间值 ${arr[cur.mid]} > ${target}，排除右半边。`;
+  const msg = cur.result === "eq" ? fmt(s.labBsMsgFound, { t: target, i: r.index, c: cur.comparisons })
+    : cur.result === "empty" ? fmt(s.labBsMsgAbsent, { t: target, i: r.insertAt, c: cur.comparisons })
+    : cur.result === "lt" ? fmt(s.labBsMsgLt, { m: arr[cur.mid]!, t: target })
+    : fmt(s.labBsMsgGt, { m: arr[cur.mid]!, t: target });
   return (
     <div className="lab-bs">
-      <div className="lab-row" role="group" aria-label="预置目标">
-        {presets.map((tgt) => <button key={tgt} onClick={() => reset(tgt)} aria-pressed={target === tgt}>找 {tgt}</button>)}
-        <input value={text} onChange={(e) => setText(e.target.value)} placeholder="自定义目标" aria-label="自定义目标" style={{ width: 110 }} />
-        <button onClick={() => { const n = Number(text); if (Number.isFinite(n) && text.trim()) reset(n); }} disabled={!text.trim() || !Number.isFinite(Number(text))}>查找</button>
+      <div className="lab-row" role="group" aria-label={s.labBsTargetsLabel}>
+        {presets.map((tgt) => <button key={tgt} onClick={() => reset(tgt)} aria-pressed={target === tgt}>{fmt(s.labBsFind, { t: tgt })}</button>)}
+        <input value={text} onChange={(e) => setText(e.target.value)} placeholder={s.labBsCustomPh} aria-label={s.labBsCustomLabel} style={{ width: 110 }} />
+        <button onClick={() => { const n = Number(text); if (Number.isFinite(n) && text.trim()) reset(n); }} disabled={!text.trim() || !Number.isFinite(Number(text))}>{s.labBsSearch}</button>
       </div>
       <div className="bs-cells" style={{ marginTop: 26 }}>
         {arr.map((v, i) => (
@@ -57,11 +60,11 @@ export default function BinarySearchLab({ state }: LabProps) {
         ))}
       </div>
       <p className="lab-out" aria-live="polite">{msg}</p>
-      <p className="lab-out">比较次数：二分 <b>{cur.comparisons}</b> 次 · 线性查找{ r.found ? `需要 ${r.linear} 次` : `需要 ${r.linear} 次（扫完）` } · 范围 [lo={Math.max(cur.lo, 0)}, hi={cur.hi}]</p>
+      <p className="lab-out">{s.labBsCompStart}<b>{cur.comparisons}</b>{fmt(r.found ? s.labBsCompFound : s.labBsCompAbsent, { l: r.linear, lo: Math.max(cur.lo, 0), hi: cur.hi })}</p>
       <div className="lab-row">
-        <button onClick={() => setIdx((i) => Math.min(i + 1, steps.length - 1))} disabled={finished}>单步 →</button>
-        <button onClick={() => setPlaying((x) => !x)} disabled={finished}>{playing ? "暂停" : "播放"}</button>
-        <button onClick={() => reset(target)}>重置</button>
+        <button onClick={() => setIdx((i) => Math.min(i + 1, steps.length - 1))} disabled={finished}>{s.labStep}</button>
+        <button onClick={() => setPlaying((x) => !x)} disabled={finished}>{playing ? s.pause : s.play}</button>
+        <button onClick={() => reset(target)}>{s.labReset}</button>
       </div>
       <Cases state={state} />
     </div>

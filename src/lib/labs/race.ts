@@ -1,4 +1,5 @@
 // counter++ as read / add / write per thread, optionally guarded by a mutex (lock before read, unlock after write).
+import { labFmt, labMsg, type LabLang } from "./messages.ts";
 export type Op = "read" | "add" | "write";
 export const OPS: Op[] = ["read", "add", "write"];
 export type Thread = { pc: number; reg: number; blocked: boolean };
@@ -6,36 +7,37 @@ export type RaceState = { counter: number; threads: Thread[]; owner: number | nu
 
 export const initRace = (n = 2, counter = 0): RaceState => ({ counter, threads: Array.from({ length: n }, () => ({ pc: 0, reg: 0, blocked: false })), owner: null, trace: [] });
 /** Advance thread t by one op. Returns a new state; a thread that can't take the lock is marked blocked. */
-export function stepRace(s: RaceState, t: number, useLock: boolean): RaceState {
+export function stepRace(s: RaceState, t: number, useLock: boolean, lang: LabLang = "zh"): RaceState {
+  const M = labMsg(lang).race;
   const th = s.threads.map((x) => ({ ...x })), me = th[t]!, name = `T${t + 1}`;
   if (me.pc >= OPS.length) return s;
   let { counter, owner } = s; const trace = [...s.trace];
   if (useLock && me.pc === 0 && owner !== t) {
-    if (owner !== null) { me.blocked = true; trace.push(`${name} 等锁`); return { counter, threads: th, owner, trace }; }
-    owner = t; trace.push(`${name} 加锁`);
+    if (owner !== null) { me.blocked = true; trace.push(labFmt(M.waitLock, { name })); return { counter, threads: th, owner, trace }; }
+    owner = t; trace.push(labFmt(M.lock, { name }));
   }
   me.blocked = false;
   const op = OPS[me.pc]!;
   if (op === "read") me.reg = counter; else if (op === "add") me.reg += 1; else counter = me.reg;
-  trace.push(`${name} ${op === "read" ? `读 ${me.reg}` : op === "add" ? `算 ${me.reg}` : `写 ${counter}`}`);
+  trace.push(labFmt(op === "read" ? M.read : op === "add" ? M.add : M.write, { name, v: op === "write" ? counter : me.reg }));
   me.pc++;
-  if (useLock && me.pc === OPS.length && owner === t) { owner = null; trace.push(`${name} 解锁`); th.forEach((x) => (x.blocked = false)); }
+  if (useLock && me.pc === OPS.length && owner === t) { owner = null; trace.push(labFmt(M.unlock, { name })); th.forEach((x) => (x.blocked = false)); }
   return { counter, threads: th, owner, trace };
 }
 /** Product schedule labels like "T1r"/"T2w": each request runs that thread up to and including the named op
  * (so "w" without an explicit "a" does add+write). Requests blocked on the lock are retried after the others. */
-export function runLabels(labels: string[], useLock: boolean, initial = 0, n = 2): RaceState {
+export function runLabels(labels: string[], useLock: boolean, initial = 0, n = 2, lang: LabLang = "zh"): RaceState {
   let s = initRace(n, initial); const q = labels.map((l) => ({ t: Number(l.match(/T(\d+)/)?.[1] ?? 1) - 1, op: Math.max(0, "raw".indexOf(l.slice(-1))) })); let guard = 0;
   while (q.length && guard++ < 1000) {
     const r = q.shift()!;
-    while (s.threads[r.t]!.pc <= r.op) { const before = s.threads[r.t]!.pc; s = stepRace(s, r.t, useLock); if (s.threads[r.t]!.pc === before) { q.push(r); break; } }
+    while (s.threads[r.t]!.pc <= r.op) { const before = s.threads[r.t]!.pc; s = stepRace(s, r.t, useLock, lang); if (s.threads[r.t]!.pc === before) { q.push(r); break; } }
   }
   return s;
 }
 /** Runs a requested order like [0,1,0,1,0,1]; blocked requests are retried after the others (as the scheduler would). */
-export function runSchedule(order: number[], useLock: boolean, n = 2): RaceState {
+export function runSchedule(order: number[], useLock: boolean, n = 2, lang: LabLang = "zh"): RaceState {
   let s = initRace(n); const q = [...order]; let guard = 0;
-  while (q.length && guard++ < 1000) { const t = q.shift()!; const before = s.threads[t]!.pc; s = stepRace(s, t, useLock); if (s.threads[t]!.pc === before && s.threads[t]!.pc < OPS.length) q.push(t); }
+  while (q.length && guard++ < 1000) { const t = q.shift()!; const before = s.threads[t]!.pc; s = stepRace(s, t, useLock, lang); if (s.threads[t]!.pc === before && s.threads[t]!.pc < OPS.length) q.push(t); }
   return s;
 }
 

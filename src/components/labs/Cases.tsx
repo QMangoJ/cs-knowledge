@@ -1,12 +1,14 @@
 import type { LabState } from "@/lib/schema";
 import { RUNNERS } from "@/lib/labs/run";
+import { useLang } from "@/i18n/client";
 /** Re-runs YAML `cases` through the lab's pure function and shows pass/fail. */
 export function Cases({ state }: { state: LabState }) {
+  const { s } = useLang();
   const runner = RUNNERS[state.lab];
   if (!state.cases?.length || !runner) return null;
   const run = (i: Record<string, unknown>) => runner(state.params ?? {}, i);
   return (
-    <details className="lab-cases"><summary>样例自检</summary><ul>
+    <details className="lab-cases"><summary>{s.labCases}</summary><ul>
       {state.cases.map((c, i) => {
         let got: Record<string, unknown> = {}; try { got = run(c.input); } catch (e) { got = { error: String(e) }; }
         const ok = Object.entries(c.expect).every(([k, v]) => JSON.stringify(got[k]) === JSON.stringify(v));

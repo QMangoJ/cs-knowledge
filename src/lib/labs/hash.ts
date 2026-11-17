@@ -1,15 +1,18 @@
 // Pure logic for hash-playground: open addressing with linear probing, h(k) = k mod capacity,
-// doubling rehash when load factor would exceed 0.7. No imports (selftest loads with plain Node).
+// doubling rehash when load factor would exceed 0.7. No app imports (selftest loads with plain Node);
+// frame messages come from the sibling messages.ts table, keyed by the caller's language.
+import { labFmt, labMsg, type LabLang } from "./messages.ts";
 export type HashFrame = { slots: (number | null)[]; msg: string; probes: number; cap: number };
 export type HashResult = { frames: HashFrame[]; slots: (number | null)[]; totalProbes: number; resizes: number; size: number };
 
 const h = (k: number, cap: number) => ((k % cap) + cap) % cap;
 
-export function hashTrace(keys: number[], cap0 = 8): HashResult {
+export function hashTrace(keys: number[], cap0 = 8, lang: LabLang = "zh"): HashResult {
+  const M = labMsg(lang).hash;
   let cap = cap0;
   let slots: (number | null)[] = Array(cap).fill(null);
   let size = 0, totalProbes = 0, resizes = 0;
-  const frames: HashFrame[] = [{ slots: [...slots], msg: `空表，容量 ${cap}，h(k) = k mod ${cap}，冲突时线性探测（往后顺延一格再试）。`, probes: 0, cap }];
+  const frames: HashFrame[] = [{ slots: [...slots], msg: labFmt(M.empty, { cap }), probes: 0, cap }];
   const place = (tbl: (number | null)[], k: number): number => {
     let i = h(k, tbl.length), p = 1;
     while (tbl[i] !== null) { i = (i + 1) % tbl.length; p++; }
@@ -22,12 +25,12 @@ export function hashTrace(keys: number[], cap0 = 8): HashResult {
       cap *= 2; resizes++;
       slots = Array(cap).fill(null);
       for (const v of old) if (v !== null) place(slots, v);
-      frames.push({ slots: [...slots], msg: `负载因子将超过 0.7：容量翻倍到 ${cap}，全部 ${size} 个键按新模数重新散列（rehash）。`, probes: 0, cap });
+      frames.push({ slots: [...slots], msg: labFmt(M.resize, { cap, size }), probes: 0, cap });
     }
     const probes = place(slots, k);
     size++; totalProbes += probes;
     const home = h(k, cap);
-    frames.push({ slots: [...slots], msg: probes === 1 ? `插入 ${k}：h=${home}，槽位空闲，直接落座（探测 1 次）。` : `插入 ${k}：h=${home} 被占，顺延探测 ${probes} 次后落座。`, probes, cap });
+    frames.push({ slots: [...slots], msg: probes === 1 ? labFmt(M.insertDirect, { k, home }) : labFmt(M.insertProbed, { k, home, probes }), probes, cap });
   }
   return { frames, slots, totalProbes, resizes, size };
 }

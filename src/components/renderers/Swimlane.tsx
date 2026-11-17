@@ -1,4 +1,5 @@
 import type { SwimlaneState } from "@/lib/schema";
+import { useLang } from "@/i18n/client";
 
 type Lane = { id: string; label: string };
 type Box = { x: number; y: number; w: number; h: number };
@@ -32,12 +33,13 @@ export function layoutSwimlane(state: SwimlaneState, lanes: Lane[]): Map<string,
 }
 
 export function Swimlane({ state, lanes }: { state: SwimlaneState; lanes?: Lane[] }) {
+  const { s } = useLang();
   const ls = lanes ?? [...new Set(state.actors.map((a) => a.lane))].map((id) => ({ id, label: id }));
   const boxes = layoutSwimlane(state, ls);
   const LANE_H = laneH(ls.length);
   const H = TOP * 2 + ls.length * LANE_H;
   return (
-    <svg className="swimlane" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="泳道时序图" preserveAspectRatio="xMidYMid meet">
+    <svg className="swimlane" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={s.swimlaneAria} preserveAspectRatio="xMidYMid meet">
       <defs>
         <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
           <path d="M0 0L10 5L0 10z" className="sl-arrowhead" />

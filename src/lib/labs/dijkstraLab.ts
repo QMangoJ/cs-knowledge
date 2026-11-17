@@ -1,4 +1,5 @@
 // Pure logic for dijkstra-lab: Dijkstra trace with a plain-array priority selection (same semantics as the topic code).
+import { labFmt, labMsg, type LabLang } from "./messages.ts";
 export type WGraph = Record<string, [string, number][]>;
 export const DIJ_DEFAULT: WGraph = {
   A: [["B", 4], ["C", 2]],
@@ -10,13 +11,14 @@ export const DIJ_DEFAULT: WGraph = {
 };
 export type DijFrame = { current: string | null; settled: string[]; dist: Record<string, number>; msg: string };
 
-export function dijkstraTrace(g: WGraph, source: string): DijFrame[] {
+export function dijkstraTrace(g: WGraph, source: string, lang: LabLang = "zh"): DijFrame[] {
+  const M = labMsg(lang).dijkstra;
   const nodes = Object.keys(g);
   const dist: Record<string, number> = Object.fromEntries(nodes.map((n) => [n, Infinity]));
   dist[source] = 0;
   const settled: string[] = [];
   const done = new Set<string>();
-  const frames: DijFrame[] = [{ current: null, settled: [], dist: { ...dist }, msg: `初始：dist[${source}]=0，其余为 ∞。` }];
+  const frames: DijFrame[] = [{ current: null, settled: [], dist: { ...dist }, msg: labFmt(M.init, { source }) }];
   for (;;) {
     let u: string | null = null;
     for (const n of nodes) if (!done.has(n) && (u === null || dist[n]! < dist[u]!)) u = n;
@@ -26,9 +28,9 @@ export function dijkstraTrace(g: WGraph, source: string): DijFrame[] {
     for (const [v, w] of g[u]!) {
       if (!done.has(v) && dist[u]! + w < dist[v]!) { dist[v] = dist[u]! + w; ups.push(`${v}→${dist[v]}`); }
     }
-    frames.push({ current: u, settled: [...settled], dist: { ...dist }, msg: `未定节点中 dist 最小的是 ${u}（${dist[u]}），定版；松弛其出边${ups.length ? "，更新 " + ups.join("、") : "，无更新"}。` });
+    frames.push({ current: u, settled: [...settled], dist: { ...dist }, msg: labFmt(M.settle, { u, d: dist[u]!, updates: ups.length ? labFmt(M.update, { ups: ups.join(M.joiner) }) : M.noUpdate }) });
   }
-  frames.push({ current: null, settled: [...settled], dist: { ...dist }, msg: `全部定版。最短距离：${nodes.map((n) => `${n}=${dist[n] === Infinity ? "∞" : dist[n]}`).join("，")}。` });
+  frames.push({ current: null, settled: [...settled], dist: { ...dist }, msg: labFmt(M.done, { list: nodes.map((n) => `${n}=${dist[n] === Infinity ? "∞" : dist[n]}`).join(M.listJoiner) }) });
   return frames;
 }
 

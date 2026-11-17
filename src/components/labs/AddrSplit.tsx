@@ -2,10 +2,13 @@
 import { useState } from "react";
 import type { LabProps } from "./registry";
 import { Cases, num, str } from "./Cases";
+import { fmt } from "@/i18n";
+import { useLang } from "@/i18n/client";
 import { parseHex, splitAddress, type AddrCfg } from "@/lib/labs/addr";
 
 const LEVELS = ["PGD", "PUD", "PMD", "PTE"];
 export default function AddrSplit({ state }: LabProps) {
+  const { s: ui } = useLang();
   const p = state.params ?? {};
   const cfg: AddrCfg = { vaBits: num(p.vaBits, 48), pageSize: num(p.pageSize, 4096), levels: num(p.levels, 4), bitsPerLevel: num(p.bitsPerLevel, 9) };
   const [text, setText] = useState(str(p.address, "0x7ffd1234abcd"));
@@ -20,15 +23,15 @@ export default function AddrSplit({ state }: LabProps) {
   }
   return (
     <div className="lab-addr">
-      <div className="lab-row"><label>虚拟地址 <input value={text} onChange={(e) => setText(e.target.value)} aria-label="虚拟地址" spellCheck={false} /></label></div>
-      {!s ? <p className="lab-warn">请输入十六进制地址</p> : (
+      <div className="lab-row"><label>{ui.labAddrLabel} <input value={text} onChange={(e) => setText(e.target.value)} aria-label={ui.labAddrLabel} spellCheck={false} /></label></div>
+      {!s ? <p className="lab-warn">{ui.labAddrInvalid}</p> : (
         <>
           <div className="addr-groups">
             {groups.map((g, i) => (
               <div key={i} className={`addr-g g${i}`}><span className="addr-name">{g.name}</span><code className="addr-bits">{g.bits}</code><b>{g.val}</b></div>
             ))}
           </div>
-          <p className="lab-out">页大小 {cfg.pageSize} B → 低 {s.offsetBits} 位是页内偏移；其余 {cfg.levels} 级 × {cfg.bitsPerLevel} 位，每级在 512 项的页表里选一项。{!s.canonical && <span className="lab-warn"> 非规范地址：第 {cfg.vaBits} 位以上必须与第 {cfg.vaBits - 1} 位相同，访问会触发 #GP。</span>}</p>
+          <p className="lab-out">{fmt(ui.labAddrSummary, { ps: cfg.pageSize, ob: s.offsetBits, lv: cfg.levels, bpl: cfg.bitsPerLevel })}{!s.canonical && <span className="lab-warn">{fmt(ui.labAddrNonCanonical, { vb: cfg.vaBits, vbm: cfg.vaBits - 1 })}</span>}</p>
         </>
       )}
       <Cases state={state} />

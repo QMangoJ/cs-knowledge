@@ -1,16 +1,18 @@
 // Pure logic for heap-lab: build a min-heap by insertion (sift-up), then repeated extract-min (sift-down).
+import { labFmt, labMsg, type LabLang } from "./messages.ts";
 export type HeapFrame = { heap: number[]; msg: string; extracted: number[] };
 
-export function heapTrace(values: number[]): HeapFrame[] {
+export function heapTrace(values: number[], lang: LabLang = "zh"): HeapFrame[] {
+  const M = labMsg(lang).heap;
   const heap: number[] = [];
   const extracted: number[] = [];
-  const frames: HeapFrame[] = [{ heap: [], msg: "空堆。从左到右逐个插入：新元素先放数组末尾，再与父节点比较、逐层上浮（sift-up）。", extracted: [] }];
+  const frames: HeapFrame[] = [{ heap: [], msg: M.empty, extracted: [] }];
   const swap = (a: number[], i: number, j: number) => { const t = a[i]!; a[i] = a[j]!; a[j] = t; };
   for (const v of values) {
     heap.push(v);
     let i = heap.length - 1, moves = 0;
     while (i > 0) { const p = Math.floor((i - 1) / 2); if (heap[p]! <= heap[i]!) break; swap(heap, p, i); i = p; moves++; }
-    frames.push({ heap: [...heap], msg: `插入 ${v}：上浮 ${moves} 次后就位。堆顶（下标 0）是当前最小值 ${heap[0]}。`, extracted: [] });
+    frames.push({ heap: [...heap], msg: labFmt(M.insert, { v, moves, top: heap[0]! }), extracted: [] });
   }
   while (heap.length) {
     const top = heap[0]!;
@@ -26,9 +28,9 @@ export function heapTrace(values: number[]): HeapFrame[] {
         if (m === i) break; swap(heap, i, m); i = m;
       }
     }
-    frames.push({ heap: [...heap], msg: `取出最小值 ${top}：末尾元素补到堆顶再逐层下沉（sift-down），恢复堆序。`, extracted: [...extracted] });
+    frames.push({ heap: [...heap], msg: labFmt(M.extract, { top }), extracted: [...extracted] });
   }
-  frames.push({ heap: [], msg: `全部取出完毕，取出顺序即从小到大：${extracted.join(", ")}——这正是堆排序的后半程。`, extracted: [...extracted] });
+  frames.push({ heap: [], msg: labFmt(M.done, { list: extracted.join(", ") }), extracted: [...extracted] });
   return frames;
 }
 
