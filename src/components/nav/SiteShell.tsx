@@ -55,8 +55,9 @@ export function SiteShell({ lang, nav, children }: { lang: Lang; nav: NavSubject
    *  localStorage has been read (first paint matches SSR: only the current
    *  subject expanded). */
   const [storedOpen, setStoredOpen] = useState<string[] | null>(null);
-  // The desktop sidebar as a whole can collapse to a slim strip to give the
-  // content area room; the choice persists.
+  // The desktop sidebar as a whole can collapse away to give the content
+  // area the full width; the toggle lives in the header (same slot as the
+  // drawer button on narrow viewports) and the choice persists.
   const [navCollapsed, setNavCollapsed] = useState(false);
   useEffect(() => {
     try { setNavCollapsed(localStorage.getItem("cs-nav-collapsed") === "1"); } catch { /* private mode */ }
@@ -147,6 +148,9 @@ export function SiteShell({ lang, nav, children }: { lang: Lang; nav: NavSubject
       <header className="site-header">
         <div className="header-left">
           <button type="button" className="nav-toggle" aria-expanded={open} aria-label={open ? s.menuClose : s.menuOpen} onClick={() => setOpen((v) => !v)}>☰</button>
+          <button type="button" className="nav-collapse-toggle" aria-expanded={!navCollapsed}
+            aria-label={navCollapsed ? s.navExpand : s.navCollapse} title={navCollapsed ? s.navExpand : s.navCollapse}
+            onClick={toggleNavCollapsed}>{navCollapsed ? "»" : "«"}</button>
           <Link href={homeHref}>{s.siteName}</Link>
         </div>
         <div className="header-right">
@@ -156,12 +160,11 @@ export function SiteShell({ lang, nav, children }: { lang: Lang; nav: NavSubject
         </div>
       </header>
       <div className="shell-row">
-        <aside className={navCollapsed ? "sidenav collapsed" : "sidenav"} ref={desktopNavRef}>
-          <button type="button" className="sn-collapse-btn" aria-expanded={!navCollapsed}
-            aria-label={navCollapsed ? s.navExpand : s.navCollapse} title={navCollapsed ? s.navExpand : s.navCollapse}
-            onClick={toggleNavCollapsed}>{navCollapsed ? "»" : "«"}</button>
-          {!navCollapsed && renderList("sb")}
-        </aside>
+        {!navCollapsed && (
+          <aside className="sidenav" ref={desktopNavRef}>
+            {renderList("sb")}
+          </aside>
+        )}
         {open && <div className="nav-backdrop" onClick={() => setOpen(false)} aria-hidden="true" />}
         <aside className={open ? "sidenav drawer open" : "sidenav drawer"} ref={drawerNavRef}>{renderList("dr")}</aside>
         <main className="site-main">{children}</main>
