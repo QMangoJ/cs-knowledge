@@ -446,7 +446,10 @@ details.ref-sol summary{cursor:pointer;font-weight:700}
    separated by whitespace; topics sit one step down at 13px, indented under
    their subject. 20/13 = 1.54x. */
 .sn-subject{margin-top:28px}
-.sn-subject-name{margin:0 0 8px;padding:0 9px;font-family:var(--font-cjk);font-size:20px;font-weight:700;line-height:1.35;color:var(--ink-strong)}
+.sn-subject-name{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;margin:0 0 8px;padding:2px 9px;border:0;border-radius:6px;background:transparent;text-align:left;cursor:pointer;font-family:var(--font-cjk);font-size:20px;font-weight:700;line-height:1.35;color:var(--ink-strong)}
+.sn-subject-name:hover{background:var(--line-soft)}
+.sn-chevron{flex:none;font-size:13px;font-weight:400;color:var(--ink-soft);transition:transform .15s ease}
+.sn-subject-name[aria-expanded="true"] .sn-chevron{transform:rotate(90deg)}
 .sn-topic{display:block;padding:5px 9px 5px 20px;border-radius:6px;color:var(--ink-soft);text-decoration:none;font-family:var(--font-cjk);font-size:13px;line-height:1.55}
 .sn-topic:hover{color:var(--ink-strong);background:var(--line-soft)}
 .sn-topic.current{color:var(--active);font-weight:700;background:color-mix(in srgb,var(--active) 9%,transparent)}

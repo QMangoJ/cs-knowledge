@@ -14,6 +14,12 @@ const isCurrent = (pathname: string, href: string) => {
   return p === h || p.startsWith(h + "/");
 };
 
+/** localStorage key for the set of subject ids whose lesson lists the user
+ *  has expanded in the sidenav. The subject containing the current page is
+ *  always rendered expanded regardless of this set. */
+const OPEN_SUBJECTS_KEY = "cs-nav-open-subjects";
+const CODING_SUBJECT_ID = "coding";
+
 /** App shell: header + two-level course menu (学科 → 课程) + main + footer.
  *  Desktop: fixed in-flow sidebar. Narrow viewports: the same list becomes an
  *  off-canvas drawer behind the header's menu button. The list is rendered twice
@@ -39,8 +45,32 @@ function scrollCurrentIntoView(aside: HTMLElement | null) {
 export function SiteShell({ nav, children }: { nav: NavSubject[]; children: React.ReactNode }) {
   const pathname = usePathname() ?? "/";
   const [open, setOpen] = useState(false);
+  /** Expanded subjects per the user's stored preference; null until
+   *  localStorage has been read (first paint matches SSR: only the current
+   *  subject expanded). */
+  const [storedOpen, setStoredOpen] = useState<string[] | null>(null);
   const desktopNavRef = useRef<HTMLElement | null>(null);
   const drawerNavRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(OPEN_SUBJECTS_KEY);
+      const parsed: unknown = raw ? JSON.parse(raw) : [];
+      setStoredOpen(Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === "string") : []);
+    } catch { setStoredOpen([]); }
+  }, []);
+  const currentSubjectId =
+    nav.find((s) => s.topics.some((x) => isCurrent(pathname, x.href)))?.id ??
+    (isCurrent(pathname, "/coding/") ? CODING_SUBJECT_ID : null);
+  const isSubjectOpen = (id: string) =>
+    id === currentSubjectId || (storedOpen?.includes(id) ?? false);
+  const toggleSubject = (id: string) => {
+    setStoredOpen((prev) => {
+      const base = prev ?? [];
+      const next = base.includes(id) ? base.filter((x) => x !== id) : [...base, id];
+      try { window.localStorage.setItem(OPEN_SUBJECTS_KEY, JSON.stringify(next)); } catch { /* storage unavailable */ }
+      return next;
+    });
+  };
   useEffect(() => { setOpen(false); }, [pathname]);
   useEffect(() => {
     scrollCurrentIntoView(desktopNavRef.current);
@@ -53,24 +83,45 @@ export function SiteShell({ nav, children }: { nav: NavSubject[]; children: Reac
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const list = (
+  /** One subject block: the name is a button toggling its lesson list.
+   *  `prefix` keeps element ids unique across the two rendered copies
+   *  (desktop sidebar + mobile drawer). */
+  const subjectBlock = (prefix: string, id: string, name: string, topics: NavTopic[]) => {
+    const expanded = isSubjectOpen(id);
+    const panelId = `${prefix}-topics-${id}`;
+    return (
+      <div key={id} className="sn-subject">
+        <button
+          type="button"
+          className="sn-subject-name"
+          aria-expanded={expanded}
+          aria-controls={panelId}
+          onClick={() => toggleSubject(id)}
+        >
+          <span>{name}</span>
+          <span className="sn-chevron" aria-hidden="true">▸</span>
+        </button>
+        {expanded && (
+          <div id={panelId}>
+            {topics.map((x) => {
+              const cur = isCurrent(pathname, x.href);
+              return (
+                <Link key={x.id} href={x.href} prefetch={false} className={cur ? "sn-topic current" : "sn-topic"} aria-current={cur ? "page" : undefined}>{plainText(x.title)}</Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderList = (prefix: string) => (
     <nav className="sidenav-list" aria-label="全部课程">
       <Link href="/" prefetch={false} className={pathname === "/" ? "sn-home current" : "sn-home"} aria-current={pathname === "/" ? "page" : undefined}>首页</Link>
-      {nav.map((s) => (
-        <div key={s.id} className="sn-subject">
-          <p className="sn-subject-name">{s.name}</p>
-          {s.topics.map((x) => {
-            const cur = isCurrent(pathname, x.href);
-            return (
-              <Link key={x.id} href={x.href} prefetch={false} className={cur ? "sn-topic current" : "sn-topic"} aria-current={cur ? "page" : undefined}>{plainText(x.title)}</Link>
-            );
-          })}
-        </div>
-      ))}
-      <div className="sn-subject">
-        <p className="sn-subject-name">{t.coding}</p>
-        <Link href="/coding/" prefetch={false} className={isCurrent(pathname, "/coding/") ? "sn-topic current" : "sn-topic"} aria-current={isCurrent(pathname, "/coding/") ? "page" : undefined}>Codility 风格练习与模拟考</Link>
-      </div>
+      {nav.map((s) => subjectBlock(prefix, s.id, s.name, s.topics))}
+      {subjectBlock(prefix, CODING_SUBJECT_ID, t.coding, [
+        { id: "coding-practice", title: "Codility 风格练习与模拟考", href: "/coding/" },
+      ])}
     </nav>
   );
 
@@ -84,9 +135,9 @@ export function SiteShell({ nav, children }: { nav: NavSubject[]; children: Reac
         <span className="hint">{t.keyboardHint}</span>
       </header>
       <div className="shell-row">
-        <aside className="sidenav" ref={desktopNavRef}>{list}</aside>
+        <aside className="sidenav" ref={desktopNavRef}>{renderList("sb")}</aside>
         {open && <div className="nav-backdrop" onClick={() => setOpen(false)} aria-hidden="true" />}
-        <aside className={open ? "sidenav drawer open" : "sidenav drawer"} ref={drawerNavRef}>{list}</aside>
+        <aside className={open ? "sidenav drawer open" : "sidenav drawer"} ref={drawerNavRef}>{renderList("dr")}</aside>
         <main className="site-main">{children}</main>
       </div>
       <footer className="site-footer">{t.footer}</footer>
