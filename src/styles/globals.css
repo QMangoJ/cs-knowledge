@@ -28,7 +28,7 @@ code{font-family:var(--font-mono)}
 .summary,.tldr{color:var(--ink-soft);margin:0 0 var(--sp-3)}
 .step .body{font-family:var(--font-cjk);font-size:var(--fs-md);color:var(--ink)}
 .kv{display:grid;gap:var(--sp-1);margin:var(--sp-3) 0 0}
-.kv div{display:flex;gap:var(--sp-3)} .kv dt{color:var(--ink-muted);min-width:5em} .kv dd{margin:0}
+.kv > div{display:flex;align-items:flex-start;gap:var(--sp-3);min-width:0} .kv dt{color:var(--ink-muted);min-width:5em;flex:none} .kv dd{margin:0;min-width:0;flex:1;overflow-wrap:anywhere}
 .badge{display:inline-block;border:1px solid var(--line-mid);border-radius:var(--radius);padding:0 var(--sp-2);font-size:var(--fs-xs);color:var(--ink-soft)}
 .badge.pending{border-color:var(--warn);color:var(--warn)}
 
@@ -448,6 +448,14 @@ details.ref-sol summary{cursor:pointer;font-weight:700}
 .shell-row{flex:1;min-height:0;display:flex;align-items:stretch}
 .site-main{flex:1;min-width:0;overflow-y:auto;container-type:inline-size}
 .site-main:has(> .player2){overflow:hidden}
+/* Narrow uiv2 reader: unlock page scroll so step content is not clipped by the
+   100dvh + nested-overflow shell (iPad ~1024 dark-mode bug, 2026-11-18). */
+@media (max-width:1199px){
+  .site-main:has(> .player2.uiv2){
+    overflow-y:auto;
+    scroll-padding-bottom:calc(88px + env(safe-area-inset-bottom, 0px));
+  }
+}
 .header-left{display:flex;align-items:center;gap:10px;min-width:0}
 .nav-toggle{display:none;align-items:center;justify-content:center;width:34px;height:34px;border:1px solid var(--line-mid);border-radius:var(--radius);background:var(--panel);color:var(--ink);font-size:16px;cursor:pointer;flex:none}
 .nav-toggle:hover{background:var(--line-soft)}
