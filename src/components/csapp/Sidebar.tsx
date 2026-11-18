@@ -95,8 +95,8 @@ export function Sidebar({
               key={ch.id}
               className={`sb-ch${isCurrent ? " is-current" : ""}${hover ? " is-hover" : ""}${p > 0 ? " is-started" : ""}${p >= 90 ? " is-done" : ""}`}
               data-ch={ch.id}
-              onMouseEnter={() => document.dispatchEvent(new CustomEvent("csapp-sb-hover", { detail: ch.id }))}
-              onMouseLeave={() => document.dispatchEvent(new Event("csapp-sb-leave"))}
+              onPointerEnter={(e) => { if (e.pointerType === "mouse") document.dispatchEvent(new CustomEvent("csapp-sb-hover", { detail: ch.id })); }}
+              onPointerLeave={(e) => { if (e.pointerType === "mouse") document.dispatchEvent(new Event("csapp-sb-leave")); }}
             >
               <Link href={`${base}/${ch.id}/`} className="sb-link">
                 <span className="sb-num">{String(ch.id).padStart(2, "0")}</span>
@@ -108,7 +108,7 @@ export function Sidebar({
                   {SECTION_IDS.map((id) => (
                     <a
                       key={id}
-                      href={id === "quiz" ? `${base}/${ch.id}/quiz/` : `#${id}`}
+                      href={id === "quiz" ? `${base}/${ch.id}/quiz/` : mode === "quiz" ? `${base}/${ch.id}/#${id}` : `#${id}`}
                       className={`${activeSection === id ? "is-active" : ""} ${read.includes(id) ? "is-read" : ""}`}
                     >
                       <i aria-hidden="true" />

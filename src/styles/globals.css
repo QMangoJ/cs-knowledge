@@ -286,7 +286,8 @@ details.ref-sol summary{cursor:pointer;font-weight:700}
 .p-crumb b{color:var(--ink-strong);font-family:var(--font-cjk)}
 .p-station{border:1px solid var(--active);color:var(--active);border-radius:99px;padding:1px 9px;font-size:var(--fs-xs);white-space:nowrap}
 .p-segments{display:flex;gap:3px;flex:1 1 200px;max-width:460px;min-width:140px}
-.p-segments .seg{flex:1;height:6px;border:0;border-radius:3px;background:var(--line-soft);padding:0;cursor:pointer}
+.p-segments .seg{position:relative;flex:1;height:6px;border:0;border-radius:3px;background:var(--line-soft);padding:0;cursor:pointer;touch-action:manipulation}
+.p-segments .seg::before{content:"";position:absolute;inset:-10px 0}
 .p-segments .seg:hover{background:var(--ink-muted)}
 .p-segments .seg.done{background:var(--ok)}
 .p-segments .seg.current{background:var(--active)}
@@ -464,32 +465,31 @@ details.ref-sol summary{cursor:pointer;font-weight:700}
 @media (min-width:1200px){
   .nav-collapse-toggle{display:inline-flex}
 }
-.sn-home{display:block;padding:5px 9px;border-radius:6px;color:var(--ink-strong);text-decoration:none;font-family:var(--font-cjk);font-size:16px;font-weight:700}
-.sn-home:hover{color:var(--ink-strong);background:var(--line-soft)}
+.sn-home{display:block;padding:5px 9px;border-radius:6px;color:var(--ink-strong);text-decoration:none;font-family:var(--font-cjk);font-size:16px;font-weight:700;touch-action:manipulation}
+.sn-home:hover,.sn-home:active{color:var(--ink-strong);background:var(--line-soft)}
 .sn-home.current{color:var(--active)}
 /* Nav hierarchy (from the v3 sample, approved by Daniel 2026-11-17): the
    subject name is the first level — 20px bold in the strongest ink, groups
    separated by whitespace; topics sit one step down at 13px, indented under
    their subject. 20/13 = 1.54x. */
 .sn-subject{margin-top:28px}
-.sn-subject-name{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;margin:0 0 8px;padding:2px 9px;border:0;border-radius:6px;background:transparent;text-align:left;cursor:pointer;font-family:var(--font-cjk);font-size:20px;font-weight:700;line-height:1.35;color:var(--ink-strong)}
-.sn-subject-name:hover{background:var(--line-soft)}
+.sn-subject-name{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;margin:0 0 8px;padding:4px 9px;border:0;border-radius:6px;background:transparent;text-align:left;cursor:pointer;font-family:var(--font-cjk);font-size:20px;font-weight:700;line-height:1.35;color:var(--ink-strong);touch-action:manipulation}
+.sn-subject-name:hover,.sn-subject-name:active{background:var(--line-soft)}
 .sn-chevron{flex:none;font-size:13px;font-weight:400;color:var(--ink-soft);transition:transform .15s ease}
 .sn-subject-name[aria-expanded="true"] .sn-chevron{transform:rotate(90deg)}
-.sn-topic{display:block;padding:5px 9px 5px 20px;border-radius:6px;color:var(--ink-soft);text-decoration:none;font-family:var(--font-cjk);font-size:13px;line-height:1.55}
-.sn-topic:hover{color:var(--ink-strong);background:var(--line-soft)}
+.sn-topic{display:block;padding:6px 9px 6px 20px;border-radius:6px;color:var(--ink-soft);text-decoration:none;font-family:var(--font-cjk);font-size:13px;line-height:1.55;touch-action:manipulation}
+.sn-topic:hover,.sn-topic:active{color:var(--ink-strong);background:var(--line-soft)}
 .sn-topic.current{color:var(--active);font-weight:700;background:color-mix(in srgb,var(--active) 9%,transparent)}
+.drawer-head{display:none}
 @media (max-width:1199px){
   .sidenav{display:none}
-  .sidenav.drawer{display:block;position:fixed;top:0;left:0;bottom:0;z-index:40;width:min(300px,84vw);transform:translateX(-105%);visibility:hidden;transition:transform var(--dur-base) var(--ease-out),visibility 0s linear var(--dur-base);box-shadow:0 0 40px rgba(6,12,28,.35);border-right:1px solid var(--line-mid)}
+  .sidenav.drawer{display:block;position:fixed;top:0;left:0;bottom:0;z-index:40;width:min(300px,84vw);transform:translateX(-105%);visibility:hidden;transition:transform var(--dur-base) var(--ease-out),visibility 0s linear var(--dur-base);box-shadow:0 0 40px rgba(6,12,28,.35);border-right:1px solid var(--line-mid);overscroll-behavior:contain;touch-action:pan-y;padding-top:0;padding-bottom:calc(24px + env(safe-area-inset-bottom))}
   .sidenav.drawer.open{transform:none;visibility:visible;transition:transform var(--dur-base) var(--ease-out),visibility 0s}
-  /* iOS safe area: the drawer is fixed to both screen edges, so its list
-     must clear the status bar at the top and the home indicator at the
-     bottom; the panel background already runs to the screen edges, only
-     the scrollable content needs the extra room (needs viewport-fit=cover).
-     Base .sidenav padding is 14px top / 24px bottom. */
-  .sidenav.drawer{padding-top:calc(14px + env(safe-area-inset-top, 0px));padding-bottom:calc(24px + env(safe-area-inset-bottom))}
-  .nav-toggle{display:inline-flex}
+  .drawer-head{display:flex;position:sticky;top:0;z-index:2;align-items:center;justify-content:space-between;gap:8px;padding:calc(10px + env(safe-area-inset-top, 0px)) 12px 10px 19px;margin:0 -10px 8px;background:var(--panel);border-bottom:1px solid var(--line-soft)}
+  .drawer-brand{color:var(--ink-strong);font-weight:700;text-decoration:none;font-size:16px;line-height:1.25;touch-action:manipulation}
+  .drawer-close{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border:1px solid var(--line-mid);border-radius:var(--radius);background:var(--panel);color:var(--ink-soft);font-size:15px;line-height:1;cursor:pointer;flex:none;touch-action:manipulation}
+  .drawer-close:hover,.drawer-close:active{background:var(--line-soft);color:var(--ink-strong)}
+  .nav-toggle{display:inline-flex;touch-action:manipulation}
   .nav-backdrop{position:fixed;inset:0;background:rgba(6,12,28,.45);z-index:39}
 }
 
@@ -518,7 +518,7 @@ details.ref-sol summary{cursor:pointer;font-weight:700}
 .in-step-report{margin-top:22px}
 
 /* Glossary terms: dotted-underline buttons in reading text + fixed popover. */
-.gloss-term{font:inherit;color:var(--accent);background:none;border:none;border-bottom:1.5px dotted var(--accent);padding:0;margin:0;cursor:pointer;text-align:left}
+.gloss-term{font:inherit;color:var(--accent);background:none;border:none;border-bottom:1.5px dotted var(--accent);padding:0;margin:0;cursor:pointer;text-align:left;touch-action:manipulation}
 .gloss-term:hover,.gloss-term:focus-visible{color:var(--ink-strong);border-bottom-color:var(--ink-strong)}
 .gloss-pop{position:fixed;z-index:60;width:min(320px,calc(100vw - 16px));background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-lg);box-shadow:0 10px 34px rgba(6,12,28,.28);padding:var(--sp-4);font-size:var(--fs-md);line-height:1.55}
 .gloss-pop-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-3)}

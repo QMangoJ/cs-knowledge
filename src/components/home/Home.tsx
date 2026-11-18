@@ -10,6 +10,7 @@ import { useLang } from "@/i18n/client";
 import { CsappShell } from "@/components/csapp/CsappShell";
 import { Spotlight } from "@/components/csapp/Spotlight";
 import { ThemeSwitch } from "@/components/csapp/ThemeSwitch";
+import { MobileScrollMenu } from "@/components/csapp/MobileScrollMenu";
 
 export type HomeTopic = {
   id: string; subject: string; slug: string; title: string; summary: string; status: string;
@@ -67,7 +68,20 @@ export function Home({ topics, subjects, journey }: { topics: HomeTopic[]; subje
   const infoOf = (s: string) => subjects.find((x) => x.id === s);
   const stages = STAGES[lang === "en" ? "en" : "zh"];
   const chunks = [0, 1, 2, 3, 4].map((i) => journey.slice(i * 2, i * 2 + 2)).filter((c) => c.length);
-  const hoverProps = (s: string) => ({ onMouseEnter: () => setHover(s), onMouseLeave: () => setHover(null), onFocus: () => setHover(s), onBlur: () => setHover(null) });
+  const hoverProps = (s: string) => ({
+    onPointerEnter: (e: React.PointerEvent) => { if (e.pointerType === "mouse") setHover(s); },
+    onPointerLeave: (e: React.PointerEvent) => { if (e.pointerType === "mouse") setHover(null); },
+    onFocus: () => setHover(s),
+    onBlur: () => setHover(null),
+  });
+  const jumpTo = (id: string) => (e: React.MouseEvent<HTMLAnchorElement>) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    e.preventDefault();
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+    window.history.replaceState(null, "", id === "top" ? location.pathname : `#${id}`);
+  };
 
   const meta = (x: HomeTopic) => (
     <span className="tp-meta">
@@ -107,13 +121,13 @@ export function Home({ topics, subjects, journey }: { topics: HomeTopic[]; subje
           <Link href={prefixPath(lang, "/")} className="sb-title">{t.siteName}</Link>
           <div className="sb-sub">{t.homeSbSub}</div>
         </div>
-        <a href="#top" className="sb-overview is-active"><span className="sb-ov-ico" aria-hidden="true" />{t.homeOverview}</a>
+        <a href="#top" className="sb-overview is-active" onClick={jumpTo("top")}><span className="sb-ov-ico" aria-hidden="true" />{t.homeOverview}</a>
         <div className="sb-label"><span>{t.homeSubjects}</span><span>{startedSubjects}/{SUBJECTS.length}</span></div>
         <div className="sb-list">
           {SUBJECTS.map((s, i) => (
             <div key={s} data-subj={s} {...hoverProps(s)}
               className={`sb-ch${hover === s ? " is-hover" : ""}${stats[s].done > 0 ? " is-started" : ""}${stats[s].total > 0 && stats[s].pct === 100 ? " is-done" : ""}`}>
-              <a href={`#subject-${s}`} className="sb-link">
+              <a href={`#subject-${s}`} className="sb-link" onClick={jumpTo(`subject-${s}`)}>
                 <span className="sb-num">{pad(i + 1)}</span>
                 <span className="sb-name">{t.subjects[s]}</span>
                 <span className="sb-prog"><Ring p={stats[s].pct} /></span>
@@ -161,7 +175,7 @@ export function Home({ topics, subjects, journey }: { topics: HomeTopic[]; subje
                     {steps.map((j) => {
                       const n = journey.indexOf(j) + 1;
                       return (
-                        <a key={j.subject} href={`#subject-${j.subject}`} data-subj={j.subject} {...hoverProps(j.subject)}
+                        <a key={j.subject} href={`#subject-${j.subject}`} data-subj={j.subject} {...hoverProps(j.subject)} onClick={jumpTo(`subject-${j.subject}`)}
                           className={`spot node${hover === j.subject ? " is-hover" : ""}${stats[j.subject].done > 0 ? " is-started" : ""}`}>
                           <span className="node-no">{pad(n)}</span>
                           <span className="node-name">{t.subjects[j.subject]}</span>
@@ -214,7 +228,7 @@ export function Home({ topics, subjects, journey }: { topics: HomeTopic[]; subje
                 const href = s === "coding" ? prefixPath(lang, "/coding/") : `#subject-${s}`;
                 return (
                   <li key={s}>
-                    <a href={href} className="rt-item">
+                    <a href={href} className="rt-item" onClick={s === "coding" ? undefined : jumpTo(`subject-${s}`)}>
                       <span className="rt-n">{pad(i + 1)}</span>
                       <b>{name}</b>
                       <span>{t.routeBlurbs[s as keyof typeof t.routeBlurbs]}</span>
@@ -304,6 +318,20 @@ export function Home({ topics, subjects, journey }: { topics: HomeTopic[]; subje
           <footer className="hm-foot">{t.footer}</footer>
         </div>
       </div>
+      <MobileScrollMenu
+        title={lang === "en" ? "Jump to" : "快速跳转"}
+        topLabel={lang === "en" ? "↑ Top" : "↑ 顶部"}
+        items={[
+          { id: "hm-journey", short: lang === "en" ? "Map" : "全景", label: t.journey },
+          { id: "route", short: lang === "en" ? "Path" : "路线", label: t.route },
+          ...SUBJECTS.map((s, i) => ({ id: `subject-${s}`, short: pad(i + 1), label: t.subjects[s] })),
+          { id: "subject-csapp", short: lang === "en" ? "More" : "更多", label: t.homeMore },
+        ]}
+        actions={[
+          { label: `${t.csappNavTitle} →`, href: prefixPath(lang, "/csapp/") },
+          { label: `${t.coding} →`, href: prefixPath(lang, "/coding/") },
+        ]}
+      />
     </CsappShell>
   );
 }

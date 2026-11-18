@@ -11,6 +11,7 @@ import { Sidebar } from "./Sidebar";
 import { Spotlight } from "./Spotlight";
 import { CsappShell } from "./CsappShell";
 import { ScrollSpy } from "./ScrollSpy";
+import { MobileScrollMenu } from "./MobileScrollMenu";
 import { Pipeline, StorageHierarchy, LatencyBars } from "./Diagrams";
 
 export function ChapterView({ index, chapter }: { index: CsappIndex; chapter: Chapter }) {
@@ -140,6 +141,23 @@ export function ChapterView({ index, chapter }: { index: CsappIndex; chapter: Ch
           </div>
         </aside>
       </div>
+      <MobileScrollMenu
+        title="本章目录"
+        items={[
+          { id: "mainline", short: "主线", label: "本章主线" },
+          { id: "concepts", short: "概念", label: "核心概念" },
+          { id: "backend", short: "后端", label: "后端 / 全栈视角" },
+          { id: "frontend", short: "前端", label: "和前端的关系" },
+          { id: "interview", short: "面试", label: "面试常考点" },
+          { id: "quiz", short: "自测", label: "自测 8 题" },
+          { id: "refs", short: "小节", label: "对应小节" },
+        ]}
+        actions={[
+          { label: "开始自测 →", href: `${base}/${ch}/quiz/` },
+          { label: "十二章总览", href: `${base}/` },
+        ]}
+        onSelectSection={(id) => { setActive(id); markRead(ch, id); }}
+      />
     </CsappShell>
   );
 }

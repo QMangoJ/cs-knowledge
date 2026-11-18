@@ -9,6 +9,7 @@ export function ScrollSpy({ ch, onActive }: { ch: number; onActive: (id: string)
     const ids = SECTION_IDS.filter((x) => x !== "quiz");
     const nodes = ids.map((id) => document.getElementById(id)).filter(Boolean) as HTMLElement[];
     if (!nodes.length) return;
+    const mainRoot = document.querySelector(".csapp-root .main");
     const io = new IntersectionObserver(
       (entries) => {
         const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio);
@@ -17,7 +18,7 @@ export function ScrollSpy({ ch, onActive }: { ch: number; onActive: (id: string)
           markRead(ch, visible[0].target.id);
         }
       },
-      { rootMargin: "-20% 0px -55% 0px", threshold: [0, 0.25, 0.5, 1] },
+      { root: mainRoot, rootMargin: "-20% 0px -55% 0px", threshold: [0, 0.25, 0.5, 1] },
     );
     nodes.forEach((n) => io.observe(n));
     return () => io.disconnect();

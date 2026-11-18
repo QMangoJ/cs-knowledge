@@ -10,6 +10,7 @@ import { Sidebar } from "./Sidebar";
 import { ProgramMap } from "./ProgramMap";
 import { Spotlight } from "./Spotlight";
 import { CsappShell } from "./CsappShell";
+import { MobileScrollMenu } from "./MobileScrollMenu";
 
 export function HomeView({ index }: { index: CsappIndex }) {
   const { lang } = useLang();
@@ -59,7 +60,7 @@ export function HomeView({ index }: { index: CsappIndex }) {
 
           <ProgramMap index={index} />
 
-          <section className="hm-grid">
+          <section className="hm-grid" id="csapp-progress">
             <Link href={`${base}/${continueCh}/`} className="spot card hm-continue">
               <div className="card-kicker">{overall.started ? "继续阅读" : "从这里开始"}</div>
               <div className="hc-title"><span className="hc-num">{String(continueCh).padStart(2, "0")}</span>{cont?.title}</div>
@@ -100,7 +101,7 @@ export function HomeView({ index }: { index: CsappIndex }) {
             </div>
           </section>
 
-          <section className="hm-sec">
+          <section className="hm-sec" id="csapp-chapters">
             <div className="hm-sec-head"><h2>十二章目录</h2></div>
             <ol className="ch-grid">
               {index.chapters.map((c) => (
@@ -116,6 +117,18 @@ export function HomeView({ index }: { index: CsappIndex }) {
           </section>
         </div>
       </div>
+      <MobileScrollMenu
+        title="快速跳转"
+        items={[
+          { id: "csapp-map", short: "路线", label: "程序一生全景" },
+          { id: "csapp-progress", short: "进度", label: "继续与进度" },
+          { id: "csapp-chapters", short: "目录", label: "十二章目录" },
+        ]}
+        actions={[
+          { label: review.length ? "去复习自测 →" : "开始自测 →", href: `${base}/${review[0]?.ch ?? continueCh}/quiz/` },
+          { label: "返回 CS 首页", href: prefixPath(lang, "/") },
+        ]}
+      />
     </CsappShell>
   );
 }

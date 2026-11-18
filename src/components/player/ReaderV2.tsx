@@ -113,14 +113,16 @@ export function ReaderV2({ topic, initialStep, nextTopic, nav, readerNav }: {
   // Glossary popover: same delegation pattern as Player.
   const [pop, setPop] = useState<PopState>(null);
   useEffect(() => { setPop(null); }, [index]);
+  const elemOf = (target: EventTarget | null): Element | null =>
+    target instanceof Element ? target : (target as Node | null)?.parentElement ?? null;
   useEffect(() => {
     if (!pop) return;
     const onDown = (e: PointerEvent) => {
-      const el = e.target as HTMLElement;
-      if (!el.closest(".gloss-pop") && !el.closest(".gloss-term")) setPop(null);
+      const el = elemOf(e.target);
+      if (!el?.closest(".gloss-pop") && !el?.closest(".gloss-term")) setPop(null);
     };
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setPop(null); };
-    const onScroll = (e: Event) => { if (!(e.target as HTMLElement)?.closest?.(".gloss-pop")) setPop(null); };
+    const onScroll = (e: Event) => { if (!elemOf(e.target)?.closest(".gloss-pop")) setPop(null); };
     const onResize = () => setPop(null);
     document.addEventListener("pointerdown", onDown);
     document.addEventListener("keydown", onKey);
@@ -134,7 +136,7 @@ export function ReaderV2({ topic, initialStep, nextTopic, nav, readerNav }: {
     };
   }, [pop]);
   const onRootClick = (e: React.MouseEvent) => {
-    const btn = (e.target as HTMLElement).closest?.(".gloss-term") as HTMLElement | null;
+    const btn = elemOf(e.target)?.closest(".gloss-term") as HTMLElement | null;
     if (!btn) return;
     const key = btn.dataset.term;
     if (!key || !topic.terms[key]) return;

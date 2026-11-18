@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { stringsFor, SITE_URL, type Lang } from "@/i18n";
 import { loadContent, pageTopics, topicForLang } from "@/lib/content";
+import { loadCsappIndex } from "@/lib/csapp/content";
+import { prefixPath, stringsFor, SITE_URL, type Lang } from "@/i18n";
 import { stepPath } from "@/lib/paths";
-import { SiteShell, type NavSubject } from "@/components/nav/SiteShell";
+import { SiteShell, type NavSubject, type NavTopic } from "@/components/nav/SiteShell";
 import { UsageTracker } from "@/components/UsageTracker";
 import { THEME_INIT } from "@/lib/themeInit";
 
@@ -52,6 +53,15 @@ export function RootShell({ lang, children }: { lang: Lang; children: React.Reac
         }),
     }))
     .filter((sub) => sub.topics.length > 0);
+  const csapp = loadCsappIndex();
+  const csappTopics: NavTopic[] = [
+    { id: "csapp-home", title: s.csappNavTitle, href: prefixPath(lang, "/csapp/"), exact: true },
+    ...csapp.chapters.map((ch) => ({
+      id: `csapp-ch-${ch.id}`,
+      title: `${String(ch.id).padStart(2, "0")} · ${ch.title}`,
+      href: prefixPath(lang, `/csapp/${ch.id}/`),
+    })),
+  ];
   return (
     <html lang={lang === "en" ? "en" : "zh-CN"} suppressHydrationWarning>
       <body>
@@ -61,7 +71,7 @@ export function RootShell({ lang, children }: { lang: Lang; children: React.Reac
             before any visible content, so theme/language are set pre-paint. */}
         {lang === "zh" && <script dangerouslySetInnerHTML={{ __html: LANG_INIT }} />}
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
-        <SiteShell lang={lang} nav={nav}>{children}</SiteShell>
+        <SiteShell lang={lang} nav={nav} csappTopics={csappTopics}>{children}</SiteShell>
         <UsageTracker />
         {/* Web Analytics beacon: added only after Daniel approves (needs token). */}
       </body>

@@ -39,10 +39,12 @@ export function ProgramMap({ index }: { index: CsappIndex }) {
   const p1 = prog[1] ?? 0;
 
   return (
-    <section className="map">
+    <section className="map" id="csapp-map">
       {tour && (
         <Link href={`${base}/1/`} className={`map-tour spot${hover === 1 ? " is-hover" : ""}`} data-ch={1}
-          onMouseEnter={() => enter(1)} onMouseLeave={leave} onFocus={() => enter(1)} onBlur={leave}>
+          onPointerEnter={(e) => { if (e.pointerType === "mouse") enter(1); }}
+          onPointerLeave={(e) => { if (e.pointerType === "mouse") leave(); }}
+          onFocus={() => enter(1)} onBlur={leave}>
           <span className="node-no">01</span>
           <span className="mt-name">{tour.title}</span>
           <span className="mt-tag">全程导览 · {tour.subtitle}</span>
@@ -59,7 +61,9 @@ export function ProgramMap({ index }: { index: CsappIndex }) {
                 return (
                   <Link key={id} href={`${base}/${id}/`} data-ch={id}
                     className={`spot node${hover === id ? " is-hover" : ""}${p > 0 ? " is-started" : ""}`}
-                    onMouseEnter={() => enter(id)} onMouseLeave={leave} onFocus={() => enter(id)} onBlur={leave}>
+                    onPointerEnter={(e) => { if (e.pointerType === "mouse") enter(id); }}
+                    onPointerLeave={(e) => { if (e.pointerType === "mouse") leave(); }}
+                    onFocus={() => enter(id)} onBlur={leave}>
                     <span className="node-no">{String(id).padStart(2, "0")}</span>
                     <span className="node-name">{ch(id)?.title}</span>
                     <span className="node-tag">{ch(id)?.subtitle}</span>

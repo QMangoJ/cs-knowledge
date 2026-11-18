@@ -166,7 +166,7 @@
 .csapp-root .spot::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity var(--dur-base) var(--ease)}
 :root[data-theme="dark"] .csapp-root .spot::after{background:radial-gradient(260px circle at var(--mx,50%) var(--my,0),rgba(129,120,255,.13),transparent 65%)}
 :root[data-theme="dark"] .csapp-root .spot:hover::after,:root[data-theme="dark"] .csapp-root .spot.is-hover::after{opacity:1}
-@media (hover:none){.csapp-root .spot::after{display:none}}
+@media (hover:none){.csapp-root .spot::after,:root[data-theme="dark"] .csapp-root .stage-nodes .node:hover::before,:root[data-theme="dark"] .csapp-root .stage-nodes .node.is-hover::before{content:none;display:none}}
 /* ============ SIDEBAR ============ */
 .csapp-root .sb{background:var(--sb-bg);backdrop-filter:blur(28px) saturate(1.6);-webkit-backdrop-filter:blur(28px) saturate(1.6);border-right:1px solid var(--line);padding:0 12px}
 .csapp-root .sb-head{padding:24px 12px 18px}
@@ -461,7 +461,7 @@
 .site-main:has(> .csapp-root){overflow:hidden}
 .csapp-root{height:100%;display:flex;min-width:0;position:relative;font-family:var(--sans)}
 .csapp-root .sb{position:relative;inset:auto;flex:none;width:var(--sbw);height:100%;overflow-y:auto;z-index:2}
-.csapp-root .main{margin-left:0;flex:1;min-width:0;height:100%;overflow-y:auto;overflow-x:hidden}
+.csapp-root .main{margin-left:0;flex:1;min-width:0;min-height:0;height:100%;overflow-y:auto;overflow-x:hidden;scroll-behavior:smooth}
 .csapp-root .badge{position:static}
 @media (max-width:1023px){
   .csapp-root .sb{display:none}
@@ -501,7 +501,7 @@
 .csapp-root .lat-row{display:grid;grid-template-columns:160px 1fr 140px;gap:12px;align-items:center;font-size:14px}
 .csapp-root .lat-track{height:10px;border-radius:999px;background:var(--line);overflow:hidden}
 .csapp-root .lat-track i{display:block;height:100%;background:var(--acc-grad);border-radius:999px}
-.csapp-root .ch-sec{margin-top:64px;max-width:700px}
+.csapp-root .ch-sec{margin-top:64px;max-width:700px;scroll-margin-top:68px}
 .csapp-root .ch-hero{max-width:700px;padding:48px 0 8px}
 .csapp-root .ch-hero h1{font-size:48px;font-weight:700;line-height:1.15;letter-spacing:-.04em}
 .csapp-root .ch-kicker,.csapp-root .hm-kicker,.csapp-root .hc-kicker,.csapp-root .ov-kicker,.csapp-root .qs-kicker{font-size:12.5px;color:var(--mut);font-weight:500}
@@ -607,7 +607,37 @@
 .csapp-root .cc-num{font:500 12px var(--mono);color:var(--acc-text)}
 .csapp-root :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 @media (max-width:1279px){ .csapp-root .rt-grid{grid-template-columns:repeat(3,minmax(0,1fr))} .csapp-root .hm-head{grid-template-columns:1fr} }
-@media (max-width:1023px){ .csapp-root .rt-grid,.csapp-root .rm-list{grid-template-columns:1fr 1fr} .csapp-root .hm-page{padding-top:28px} .csapp-root .hm-head h1{font-size:34px} .csapp-root .subj-prog{margin-left:0;flex-basis:100%} }
+@media (max-width:1023px){ .csapp-root .rt-grid,.csapp-root .rm-list{grid-template-columns:1fr 1fr} .csapp-root .blk-grid{grid-template-columns:1fr} .csapp-root .hm-page{padding:28px 20px 44px} .csapp-root .hm-head h1{font-size:34px} .csapp-root .subj-prog{margin-left:0;flex-basis:100%} }
 @media (max-width:600px){ .csapp-root .rt-grid,.csapp-root .rm-list{grid-template-columns:1fr} }
 .csapp-root .stage-head{flex-wrap:wrap;row-gap:2px}
 @media (max-width:1023px){ .csapp-root .map-tour{flex-wrap:wrap;row-gap:4px} .csapp-root .mt-tag{order:3;flex-basis:100%} .csapp-root .mt-prog{margin-left:auto} .csapp-root .hm-sec{margin-top:40px} .csapp-root .hm-sec-head h2{font-size:22px} }
+.csapp-root #hm-journey,.csapp-root #csapp-map,.csapp-root #csapp-progress,.csapp-root #csapp-chapters{scroll-margin-top:24px}
+
+/* ============ MOBILE SCROLL MINI-MENU ============ */
+.csapp-root .ms-wrap{display:none}
+@media (max-width:1023px){
+  .csapp-root .ms-wrap{position:fixed;right:max(6px,env(safe-area-inset-right,0px));top:50%;transform:translateY(-50%);z-index:35;display:flex;align-items:center;gap:8px;opacity:0;pointer-events:none;transition:opacity var(--dur-base) var(--ease)}
+  .csapp-root .ms-wrap.is-vis{opacity:1;pointer-events:auto}
+  .csapp-root .ms-trigger{position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 5px;border-radius:999px;background:var(--rail-bg);backdrop-filter:blur(16px) saturate(1.4);-webkit-backdrop-filter:blur(16px) saturate(1.4);border:1px solid var(--line2);box-shadow:var(--sh2);touch-action:manipulation;transition:border-color var(--dur-fast) var(--ease),background var(--dur-fast) var(--ease)}
+  .csapp-root .ms-trigger::before{content:"";position:absolute;inset:-8px}
+  :root[data-theme="dark"] .csapp-root .ms-trigger{background:rgba(20,22,28,.78);border-color:rgba(255,255,255,.14)}
+  .csapp-root .ms-wrap.is-open .ms-trigger{border-color:var(--acc);box-shadow:var(--ring),var(--sh2)}
+  .csapp-root .ms-ticks{display:flex;flex-direction:column;align-items:center;gap:3px}
+  .csapp-root .ms-ticks i{display:block;width:6px;height:2px;border-radius:2px;background:var(--dim);opacity:.55;transition:width var(--dur-fast) var(--ease),background var(--dur-fast) var(--ease),opacity var(--dur-fast) var(--ease)}
+  .csapp-root .ms-ticks i.is-on{width:12px;background:var(--acc);opacity:1;box-shadow:var(--glow)}
+  .csapp-root .ms-cur{font-size:10px;font-weight:600;line-height:1.1;color:var(--acc-text);letter-spacing:.02em}
+  .csapp-root .ms-pop{width:min(220px,calc(100vw - 74px));max-height:min(62dvh,420px);display:flex;flex-direction:column;border-radius:var(--r-md);background:rgba(255,255,255,.96);backdrop-filter:blur(22px) saturate(1.5);-webkit-backdrop-filter:blur(22px) saturate(1.5);border:1px solid var(--line2);box-shadow:var(--sh3);overflow:hidden;animation:rise var(--dur-fast) var(--ease-out)}
+  :root[data-theme="dark"] .csapp-root .ms-pop{background:rgba(16,17,22,.96);border-color:rgba(255,255,255,.14)}
+  .csapp-root .ms-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px 8px;border-bottom:1px solid var(--line);flex:none}
+  .csapp-root .ms-title{font-size:12px;font-weight:600;color:var(--mut)}
+  .csapp-root .ms-top{font-size:12px;font-weight:600;color:var(--acc-text);padding:3px 8px;border-radius:999px;background:var(--acc-s);touch-action:manipulation}
+  .csapp-root .ms-list{overflow-y:auto;padding:6px;display:flex;flex-direction:column;gap:2px}
+  .csapp-root .ms-item{width:100%;display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;text-align:left;font-size:13px;color:var(--ink2);touch-action:manipulation;transition:background var(--dur-fast) var(--ease),color var(--dur-fast) var(--ease)}
+  .csapp-root .ms-item:active,.csapp-root .ms-item:hover{background:var(--fill);color:var(--ink)}
+  .csapp-root .ms-item.is-on{background:var(--acc-s);color:var(--acc-text);font-weight:600}
+  .csapp-root .ms-short{font:500 11px var(--mono);color:var(--mut);min-width:26px;flex:none}
+  .csapp-root .ms-item.is-on .ms-short{color:var(--acc-text)}
+  .csapp-root .ms-lbl{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .csapp-root .ms-foot{display:flex;flex-direction:column;gap:4px;padding:8px 10px 10px;border-top:1px solid var(--line);flex:none}
+  .csapp-root .ms-act{display:flex;align-items:center;justify-content:space-between;padding:6px 8px;border-radius:8px;font-size:12.5px;font-weight:600;color:var(--acc-text);background:var(--acc-s);touch-action:manipulation}
+}

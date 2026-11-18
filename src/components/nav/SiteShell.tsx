@@ -8,7 +8,7 @@ import { LangProvider } from "@/i18n/client";
 import { ThemeToggle } from "./ThemeToggle";
 import { LangToggle } from "./LangToggle";
 
-export type NavTopic = { id: string; title: string; href: string };
+export type NavTopic = { id: string; title: string; href: string; exact?: boolean };
 export type NavSubject = { id: string; name: string; topics: NavTopic[] };
 
 const norm = (p: string) => p.replace(/\/$/, "") || "/";
@@ -16,6 +16,8 @@ const isCurrent = (pathname: string, href: string) => {
   const h = norm(href), p = norm(pathname);
   return p === h || p.startsWith(h + "/");
 };
+const isTopicCurrent = (pathname: string, x: NavTopic) =>
+  x.exact ? norm(pathname) === norm(x.href) : isCurrent(pathname, x.href);
 
 /** localStorage key for the set of subject ids whose lesson lists the user
  *  has expanded in the sidenav. The subject containing the current page is
@@ -39,24 +41,27 @@ function scrollCurrentIntoView(aside: HTMLElement | null) {
   if (!aside || aside.clientHeight === 0) return;
   const link = aside.querySelector<HTMLElement>('[aria-current="page"]');
   if (!link) return;
+  const headH = aside.querySelector<HTMLElement>(".drawer-head")?.offsetHeight ?? 0;
   const a = aside.getBoundingClientRect();
   const l = link.getBoundingClientRect();
-  if (l.top >= a.top && l.bottom <= a.bottom) return;
+  if (l.top >= a.top + headH && l.bottom <= a.bottom) return;
   const itemTop = aside.scrollTop + (l.top - a.top);
-  aside.scrollTop = Math.max(0, itemTop - aside.clientHeight * 0.25);
+  aside.scrollTop = Math.max(0, itemTop - headH - (aside.clientHeight - headH) * 0.25);
 }
 
-export function SiteShell({ lang, nav, children }: { lang: Lang; nav: NavSubject[]; children: React.ReactNode }) {
+export function SiteShell({ lang, nav, csappTopics, children }: { lang: Lang; nav: NavSubject[]; csappTopics?: NavTopic[]; children: React.ReactNode }) {
   const s = stringsFor(lang);
   const homeHref = prefixPath(lang, "/");
   const codingHref = prefixPath(lang, "/coding/");
   const csappHref = prefixPath(lang, "/csapp/");
+  const csappList = csappTopics ?? [{ id: "csapp-home", title: s.csappNavTitle, href: csappHref, exact: true }];
   const pathname = usePathname() ?? "/";
   const [open, setOpen] = useState(false);
   /** Expanded subjects per the user's stored preference; null until
    *  localStorage has been read (first paint matches SSR: only the current
    *  subject expanded). */
   const [storedOpen, setStoredOpen] = useState<string[] | null>(null);
+  const [closedKey, setClosedKey] = useState<string | null>(null);
   // The desktop sidebar as a whole can collapse away to give the content
   // area the full width; the toggle lives in the header (same slot as the
   // drawer button on narrow viewports) and the choice persists.
@@ -81,15 +86,33 @@ export function SiteShell({ lang, nav, children }: { lang: Lang; nav: NavSubject
     nav.find((s) => s.topics.some((x) => isCurrent(pathname, x.href)))?.id ??
     (isCurrent(pathname, csappHref) ? CSAPP_SUBJECT_ID : null) ??
     (isCurrent(pathname, codingHref) ? CODING_SUBJECT_ID : null);
+  const curSubjKey = currentSubjectId ? `${pathname}:${currentSubjectId}` : null;
   const isSubjectOpen = (id: string) =>
-    id === currentSubjectId || (storedOpen?.includes(id) ?? false);
-  const toggleSubject = (id: string) => {
+    id === currentSubjectId ? closedKey !== curSubjKey : (storedOpen?.includes(id) ?? false);
+  const toggleSubject = (id: string, btnEl?: HTMLButtonElement | null) => {
+    const currentlyOpen = isSubjectOpen(id);
+    if (id === currentSubjectId && curSubjKey) {
+      setClosedKey(currentlyOpen ? curSubjKey : null);
+    }
     setStoredOpen((prev) => {
       const base = prev ?? [];
-      const next = base.includes(id) ? base.filter((x) => x !== id) : [...base, id];
+      const next = currentlyOpen ? base.filter((x) => x !== id) : base.includes(id) ? base : [...base, id];
       try { window.localStorage.setItem(OPEN_SUBJECTS_KEY, JSON.stringify(next)); } catch { /* storage unavailable */ }
       return next;
     });
+    if (!currentlyOpen && btnEl) {
+      requestAnimationFrame(() => {
+        const aside = btnEl.closest<HTMLElement>(".sidenav");
+        const block = btnEl.parentElement;
+        if (!aside || !block) return;
+        const headH = aside.querySelector<HTMLElement>(".drawer-head")?.offsetHeight ?? 0;
+        const a = aside.getBoundingClientRect();
+        const b = block.getBoundingClientRect();
+        if (b.bottom > a.bottom) {
+          aside.scrollTop += Math.min(b.bottom - a.bottom + 12, Math.max(0, b.top - a.top - headH - 8));
+        }
+      });
+    }
   };
   useEffect(() => { setOpen(false); }, [pathname]);
   useEffect(() => {
@@ -116,7 +139,7 @@ export function SiteShell({ lang, nav, children }: { lang: Lang; nav: NavSubject
           className="sn-subject-name"
           aria-expanded={expanded}
           aria-controls={panelId}
-          onClick={() => toggleSubject(id)}
+          onClick={(e) => toggleSubject(id, e.currentTarget)}
         >
           <span>{name}</span>
           <span className="sn-chevron" aria-hidden="true">▸</span>
@@ -124,9 +147,9 @@ export function SiteShell({ lang, nav, children }: { lang: Lang; nav: NavSubject
         {expanded && (
           <div id={panelId}>
             {topics.map((x) => {
-              const cur = isCurrent(pathname, x.href);
+              const cur = isTopicCurrent(pathname, x);
               return (
-                <Link key={x.id} href={x.href} prefetch={false} className={cur ? "sn-topic current" : "sn-topic"} aria-current={cur ? "page" : undefined}>{plainText(x.title)}</Link>
+                <Link key={x.id} href={x.href} prefetch={false} onClick={() => setOpen(false)} className={cur ? "sn-topic current" : "sn-topic"} aria-current={cur ? "page" : undefined}>{plainText(x.title)}</Link>
               );
             })}
           </div>
@@ -137,11 +160,9 @@ export function SiteShell({ lang, nav, children }: { lang: Lang; nav: NavSubject
 
   const renderList = (prefix: string) => (
     <nav className="sidenav-list" aria-label={s.navLabel}>
-      <Link href={homeHref} prefetch={false} className={norm(pathname) === norm(homeHref) ? "sn-home current" : "sn-home"} aria-current={norm(pathname) === norm(homeHref) ? "page" : undefined}>{s.home}</Link>
+      <Link href={homeHref} prefetch={false} onClick={() => setOpen(false)} className={norm(pathname) === norm(homeHref) ? "sn-home current" : "sn-home"} aria-current={norm(pathname) === norm(homeHref) ? "page" : undefined}>{s.home}</Link>
       {nav.map((sub) => subjectBlock(prefix, sub.id, sub.name, sub.topics))}
-      {subjectBlock(prefix, CSAPP_SUBJECT_ID, s.csapp, [
-        { id: "csapp-home", title: s.csappNavTitle, href: csappHref },
-      ])}
+      {subjectBlock(prefix, CSAPP_SUBJECT_ID, s.csapp, csappList)}
       {subjectBlock(prefix, CODING_SUBJECT_ID, s.coding, [
         { id: "coding-practice", title: s.codingNavTitle, href: codingHref },
       ])}
@@ -172,7 +193,13 @@ export function SiteShell({ lang, nav, children }: { lang: Lang; nav: NavSubject
           </aside>
         )}
         {open && <div className="nav-backdrop" onClick={() => setOpen(false)} aria-hidden="true" />}
-        <aside className={open ? "sidenav drawer open" : "sidenav drawer"} ref={drawerNavRef}>{renderList("dr")}</aside>
+        <aside className={open ? "sidenav drawer open" : "sidenav drawer"} ref={drawerNavRef}>
+          <div className="drawer-head">
+            <Link href={homeHref} prefetch={false} className="drawer-brand" onClick={() => setOpen(false)}>{s.siteName}</Link>
+            <button type="button" className="drawer-close" aria-label={s.menuClose} onClick={() => setOpen(false)}>✕</button>
+          </div>
+          {renderList("dr")}
+        </aside>
         <main className="site-main">{children}</main>
       </div>
       <footer className="site-footer">{s.footer}</footer>
