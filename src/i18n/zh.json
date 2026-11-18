@@ -69,8 +69,6 @@
   "navExpand": "展开课程导航",
   "navCollapse": "收起课程导航",
   "codingNavTitle": "Codility 风格练习与模拟考",
-  "themeToLight": "切换到浅色模式",
-  "themeToDark": "切换到深色模式",
   "langSwitchLabel": "切换到英文版",
   "langSwitchText": "EN",
   "stationText": "{subject}第 {station} 站 / 共 {total} 站",
@@ -312,5 +310,18 @@
   "csappCardMeta": "12 章 · 自测",
   "csappNavTitle": "CSAPP 笔记",
   "csappJourneyTitle": "系统全景笔记",
-  "csappJourneyText": "把「一个程序的一生」展开成 12 章可读可测的笔记，和左边各科互相印证。"
+  "csappJourneyText": "把「一个程序的一生」展开成 12 章可读可测的笔记，和左边各科互相印证。",
+  "themeLabel": "外观",
+  "themeLight": "浅色",
+  "themeDark": "深色",
+  "themeSystem": "系统",
+  "homeSbKicker": "CS 知识库",
+  "homeSbSub": "十科 · 一个程序的一生",
+  "homeOverview": "总览",
+  "homeSubjects": "科目",
+  "homeMore": "更多",
+  "homeDoneShort": "已学 {done}/{total}",
+  "homeContinue": "继续学习",
+  "homeStartHere": "从这里开始",
+  "homeGo": "进入"
 }

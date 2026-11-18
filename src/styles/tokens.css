@@ -23,11 +23,12 @@
  *  - Datastate state fills (done / pivot) are tokens, not literals: the old
  *    pastel fills made dark-theme node labels (near-white) illegible. */
 :root{
-  --bg:#fcfdfe; --panel:#ffffff;
-  --ink-strong:#0a2a7a; --ink:#16358f; --ink-soft:#4f68a0; --ink-muted:#5d72a0;
-  --line:#7393c6; --line-mid:#cad7ea; --line-soft:#e5eaf3;
-  --accent:#1a73e8; --active:#2459d6; --ok:#07875a; --warn:#9a6700; --info:#0b7c88; --kernel:#6d55d8; --neutral:#8a98b3;
-  --code-bg:#0f172a; --code-ink:#e2e8f0; --code-cap:#94a3b8; --code-prompt:#64748b;
+  /* Unified with the CSAPP design (G「柔和高级」): neutral surfaces, one blue accent. */
+  --bg:#f5f6f8; --panel:#ffffff;
+  --ink-strong:#1d1d1f; --ink:#2c2c30; --ink-soft:#424247; --ink-muted:#6e6e73;
+  --line:#8fa3c8; --line-mid:#dcdfe5; --line-soft:#eceef2;
+  --accent:#1f56d6; --active:#2a66f0; --on-active:#ffffff; --ok:#06784f; --warn:#8f6000; --info:#0b7c88; --kernel:#6d55d8; --neutral:#8a8f98;
+  --code-bg:#14151a; --code-ink:#e6e8ee; --code-cap:#9a9fab; --code-prompt:#6e7380;
   --done-fill:#e8f3ec; --done-line:#3f8f5f; --pivot-fill:#fff4e5; --pivot-line:#c77700;
   --font-mono:"JetBrains Mono","Iosevka",ui-monospace,SFMono-Regular,Menlo,monospace;
   --font-cjk:"PingFang SC","Hiragino Sans GB","Microsoft YaHei UI","Noto Sans SC","Source Han Sans SC",sans-serif;
@@ -40,24 +41,26 @@
   color-scheme: light;
 }
 :root[data-theme="dark"]{
-  --bg:#0b1020; --panel:#111833;
-  --ink-strong:#e3ebff; --ink:#c9d6f5; --ink-soft:#91a3cf; --ink-muted:#7588b5;
-  --line:#5b78b0; --line-mid:#2a3a63; --line-soft:#1a2547;
-  --accent:#5b9dff; --active:#7aa8ff; --ok:#34d399; --warn:#fbbf24; --info:#22b8c8; --kernel:#a28bff; --neutral:#7c8bab;
-  --code-bg:#070b16; --code-ink:#d7e1f5; --code-cap:#8fa3c8; --code-prompt:#7d90b8;
+  /* Unified with the CSAPP design (H「精致深色」): near-black, violet-blue accent. */
+  --bg:#08090a; --panel:#111214;
+  --ink-strong:#f7f8f8; --ink:#d4d7de; --ink-soft:#b4b8c2; --ink-muted:#8a8f98;
+  --line:#5d6170; --line-mid:#26282d; --line-soft:#1a1b1f;
+  --accent:#a5a7ff; --active:#8b8dff; --on-active:#08090a; --ok:#34d399; --warn:#fbbf24; --info:#22b8c8; --kernel:#c4a1ff; --neutral:#7c818b;
+  --code-bg:#050506; --code-ink:#d9dcff; --code-cap:#9a9fab; --code-prompt:#7c818b;
   --done-fill:#123528; --done-line:#34d399; --pivot-fill:#3a2b07; --pivot-line:#f0b23e;
   color-scheme: dark;
 }
 /* No-JS fallback only — keep in sync with the [data-theme="dark"] block. */
 @media (prefers-color-scheme: dark){
   :root:not([data-theme]){
-    --bg:#0b1020; --panel:#111833;
-    --ink-strong:#e3ebff; --ink:#c9d6f5; --ink-soft:#91a3cf; --ink-muted:#7588b5;
-    --line:#5b78b0; --line-mid:#2a3a63; --line-soft:#1a2547;
-    --accent:#5b9dff; --active:#7aa8ff; --ok:#34d399; --warn:#fbbf24; --info:#22b8c8; --kernel:#a28bff; --neutral:#7c8bab;
-    --code-bg:#070b16; --code-ink:#d7e1f5; --code-cap:#8fa3c8; --code-prompt:#7d90b8;
-    --done-fill:#123528; --done-line:#34d399; --pivot-fill:#3a2b07; --pivot-line:#f0b23e;
-    color-scheme: dark;
+  /* Unified with the CSAPP design (H「精致深色」): near-black, violet-blue accent. */
+  --bg:#08090a; --panel:#111214;
+  --ink-strong:#f7f8f8; --ink:#d4d7de; --ink-soft:#b4b8c2; --ink-muted:#8a8f98;
+  --line:#5d6170; --line-mid:#26282d; --line-soft:#1a1b1f;
+  --accent:#a5a7ff; --active:#8b8dff; --on-active:#08090a; --ok:#34d399; --warn:#fbbf24; --info:#22b8c8; --kernel:#c4a1ff; --neutral:#7c818b;
+  --code-bg:#050506; --code-ink:#d9dcff; --code-cap:#9a9fab; --code-prompt:#7c818b;
+  --done-fill:#123528; --done-line:#34d399; --pivot-fill:#3a2b07; --pivot-line:#f0b23e;
+  color-scheme: dark;
   }
 }
 @media (prefers-reduced-motion: reduce){ *,*::before,*::after{ transition:none!important; animation:none!important } }

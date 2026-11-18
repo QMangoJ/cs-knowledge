@@ -171,8 +171,6 @@
   "terminalBody": "Most of the mechanisms in the lesson cast a shadow in the output of some command. Before running one, guess what it will print and which part corresponds to which sentence in the lesson — then check the notes.",
   "terminalTldr": "Take the concepts from this lesson down to real commands: guess the output first, then check yourself against the notes.",
   "testsBadge": "{n} tests",
-  "themeToDark": "Switch to dark mode",
-  "themeToLight": "Switch to light mode",
   "visualDragLabel": "Drag to adjust the text/visual split",
   "yourSolution": "Your solution (JavaScript)",
   "colon": ": ",
@@ -312,5 +310,18 @@
   "csappCardMeta": "12 chapters · quizzes",
   "csappNavTitle": "CSAPP notes",
   "csappJourneyTitle": "Systems panorama notes",
-  "csappJourneyText": "Expand “the life of a program” into 12 readable, testable chapters."
+  "csappJourneyText": "Expand “the life of a program” into 12 readable, testable chapters.",
+  "themeLabel": "Theme",
+  "themeLight": "Light",
+  "themeDark": "Dark",
+  "themeSystem": "System",
+  "homeSbKicker": "CS Knowledge",
+  "homeSbSub": "10 subjects · the life of a program",
+  "homeOverview": "Overview",
+  "homeSubjects": "Subjects",
+  "homeMore": "More",
+  "homeDoneShort": "{done}/{total} done",
+  "homeContinue": "Continue",
+  "homeStartHere": "Start here",
+  "homeGo": "Open"
 }
