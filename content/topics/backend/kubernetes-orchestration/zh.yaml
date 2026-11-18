@@ -5,525 +5,522 @@ title: Kubernetes：编排到底在编排什么
 order: 2
 visual: swimlane
 lanes:
-- id: user
-  label: 使用者
-- id: ctrl
-  label: 控制面
-- id: sched
-  label: 调度器
-- id: node
-  label: 工作节点
+  - id: user
+    label: 使用者
+  - id: ctrl
+    label: 控制面
+  - id: sched
+    label: 调度器
+  - id: node
+    label: 工作节点
 logColumns:
-- key: at
-  label: 阶段
-- key: text
-  label: 发生了什么
+  - key: at
+    label: 阶段
+  - key: text
+    label: 发生了什么
 status: published
 license: CC-BY-4.0
 overview:
-- key: 一句话总结
-  value: Kubernetes 是一个集群级的管家：你告诉它「这个服务要 3 个副本、用这个版本的镜像」，它负责把副本放到合适的机器上、挂了就补、换版本时逐个替换、给一组副本留一个固定入口。你管声明，它管执行。
-- key: 编排四件事
-  value: 编排系统要接手的活可以归成四件：放置——每个容器去哪台机器；保数——说好几个副本就一直保持几个；连通——副本换来换去，调用方用的地址不能变；换版——发新版本时不停机地逐个替换，出事能退回去。
-- key: Pod
-  value: Pod 是调度的最小单位，不是一个容器，而是一组注定要同生共死的容器：它们共享同一个 IP、同一套端口，也能共享存储。最常见的组合是一个主容器，再加一个帮它收集日志或同步配置的边车容器。
-- key: 期望状态
-  value: 整个系统只认一件事：你声明的期望状态，与集群当前的实际状态。两者不一致，就有控制器动手补齐差距。副本少了补副本，节点死了把上面的应用搬到别的节点重建——自愈不是魔法，是这个对比一直在进行。
-- key: 调度与执行
-  value: 做决定和干活的是两拨组件：调度器只负责选机器，选好之后在本机待命的 kubelet 负责把容器真正拉起来，并持续汇报每个容器的健康状况。控制面里其余的控制器，各自盯着一类对象的状态差距。
-- key: 代价
-  value: Kubernetes 自己就是一个需要专人维护的复杂系统：概念多、组件多、出故障时排查的链路也长。服务只有三五个时上它，多半是拿大炮打蚊子；托管服务能省掉养控制面的力气，但省不掉理解这套模型的力气。
-- key: 谁在用
-  value: 它已经是容器编排的事实标准：各大云厂商都提供托管版本，稍有规模的在线服务基本都跑在它上面。但「标准」不等于「默认必选」——该不该上，取决于你的服务数量、机器规模和发布频率，这笔账本课最后一步会算。
-summary: 上一课的容器跑在一台机器上岁月静好，可真实系统是另一幅画面：两百个容器散在二十台机器上，凌晨三点挂掉一个，谁去把它拉起来？流量涨了要扩容，谁来决定新副本放哪台？Kubernetes 就是被请来接手这摊事的编排系统。本课不背命令，只把它的工作模型讲透：编排到底在编排哪四件事、Pod 为什么是最小单位、声明式与自愈是怎么一回事、调度器与 kubelet 各自负责哪一段。
-premise: 这节课的问题是：容器解决了一个服务怎么打包、怎么在一台机器上跑，可一堆容器加一堆机器的局面，谁来管？你不可能雇人二十四小时盯着每个容器——凌晨三点挂掉的那一个，等人爬起来处理，黄花菜都凉了。需要一个不知疲倦的管家，它就是这一课的主角。
-position: 本课位于后端工程学科的第二段「编排：Kubernetes」，紧接《容器与 Docker》：上一课交付的镜像与容器，在这一课里变成被排班、被补数、被换版的对象。它也为后面两课打底——流水线发布的制品最终要交给编排系统上线，链路追踪要看的请求正是在这些副本之间流动的。
+  - key: 一句话总结
+    value: Kubernetes 是跨多台服务器的容器管家：你用一份清单声明「订单服务要 3 个副本、跑 v1.2 镜像」，它负责挑机器落地、挂了自动补齐、换版平滑交接、对外留住固定门牌。
+  - key: 编排四件事
+    value: 集群排班归结为四件活：放置（[[调度器]]挑机器）、保数（[[ReplicaSet]] 盯副本数）、连通（[[Service]] 稳住入口地址）、换版（[[Deployment]] 滚动扩新缩旧）。
+  - key: Pod
+    value: 排班的最小原子单位不是单个容器而是 [[Pod]]：把主业务容器和日志、代理等边车容器绑在同一台机器上，共享同一个 [[IP]]、端口空间与存储卷。
+  - key: 声明式与自愈
+    value: 系统只认「期望状态」与「实际状态」的差额：各控制器死循环比对两边，副本少了就补建、节点断电就跨机重建，[[自愈]]正是控制循环持续对账的结果。
+  - key: 调度与执行分家
+    value: 调度器站在全局只做选机决定，每台工作节点常驻的 [[kubelet]] 只管本机落地——拉镜像、起容器、跑存活与就绪双探针，并把健康状态拼回控制面。
+  - key: 运维代价
+    value: 它自身就是一套重型分布式系统，概念多、网络与调度排障链路长；云托管能包走控制面升级，却包不走探针配置与资源算账的理解门槛。
+  - key: 规模边界
+    value: 几十个无状态服务跨十余台机器高频发版是它的主场；若只有三五个服务跑在一两台云主机上，用 Docker Compose 或托管无服务器容器划算得多。
+summary: |-
+  [[Kubernetes]] 脱胎于 Google 内部管着数十万容器的 Borg 系统（2014 年开源），核心工作模型只有一句话：你提交一份 YAML 清单写明「期望状态」，集群内的一组控制器死循环比对期望与现状，自动动手抹平差距。全课顺着 3 副本订单服务在 20 台服务器上的排班与升级，拆解编排的四件本职活、[[Pod]] 同机共享机制、[[Deployment]] 与 [[ReplicaSet]] 的双层保数、[[Service]] 固定入口、[[调度器]]两步选机与 [[kubelet]] 双探针落地，最后算清引入这套重装备的真实账单与上车门槛。
+premise: 你的线上系统已经从单机长到了 20 台服务器、200 个容器，光核心订单服务就跑着 3 个副本。凌晨三点，4 号服务器突然掉电，上面的订单副本连同十几个邻居瞬间断气——如果全靠值班工程师被电话吵醒、登机器翻剩余内存、手工敲命令重拉容器再逐个通知上游改地址，折腾四十分钟服务早就被流量冲垮了。怎样请一个 24 小时盯盘的集群管家，自动接手选机器、补人头、稳入口和平滑换版？
+position: 本课位于后端工程学科第二板块「编排：Kubernetes」，紧接《容器与 Docker》。上一课封好的单机镜像与受限进程，在这一课变成跨几十台机器自动排班、自愈和滚动升级的对象；同时也为下一课流水线的自动部署与第四课跨副本的链路追踪铺好集群底座。
 level: 进阶
 minutes: 26
 prereq:
-- backend/docker-containers
+  - backend/docker-containers
 objectives:
-- 能说清编排要接手的四件事：放置、保数、连通、换版
-- 能解释 Pod 为什么是最小调度单位，以及它与容器的关系
-- 能讲清 Deployment、ReplicaSet、Service 各自负责什么
-- 能描述一次调度与自愈的完整过程：调度器选机器、kubelet 落地、控制器补差距
-aiLink: 整课抓住一个模型就够了：你声明期望状态，系统用一圈圈控制循环把实际状态往期望上拉。Pod、副本、调度、自愈，全是这个模型的不同侧面。
+  - 说清容器编排接手的四件本职活（放置、保数、连通、换版）及各自对应的核心组件
+  - 解释为什么最小调度单位是 Pod 而非单个容器，以及同 Pod 内容器共享什么、受什么纪律约束
+  - 走通一次节点掉电后的自愈闭环与滚动升级中两个 ReplicaSet 此消彼长的具体数字过程
+  - 区分调度器 requests 算账与 kubelet 存活/就绪双探针的职责，按规模判断何时该上 Kubernetes
+aiLink: 大模型训练与在线推理集群几乎清一色构建在 [[Kubernetes]] 之上：[[调度器]]不仅算 [[CPU]] 和内存，还要按显存大小与卡间互联拓扑给推理 [[Pod]] 分发 GPU；几十 GB 的大模型权重加载进显存动辄一两分钟，全靠 [[kubelet]] 的就绪探针挡在前面——没加载完绝不进 [[Service]] 名单接流量，防止新副本刚启动就把用户请求全卡成超时。
 bridge:
-  prev: 上一课把容器讲清了：镜像负责打包与分发，命名空间与控制组负责隔离与限额，一个服务能在一台机器上安稳地跑。可那一课结尾的问题还悬着——容器上了规模之后，放置、补充、替换这摊排班的活，靠人是盯不过来的。
-  next: 集群管家已经就位，可还有一件事它不管：新版本的镜像是怎么被造出来、验过之后送到它手里的。下一课讲 CI/CD 与发布策略——从提交代码到新版本面对真实用户，中间那条自动流水线与两种放量的打法。
+  prev: 上一课算清了单机容器的底牌：分层镜像焊死运行环境，命名空间与控制组在单个内核上切开视野和配额。可单台机器安顿好了，几十台机器上几百个容器的放置、补数与换版，靠人手根本盯不过来。
+  next: 集群管家能稳稳把 order-service:v1.3 滚动换上去，可这份新镜像是谁编译的、跑没跑过测试、上线时该先放 1% 流量试水还是一刀切？下一课转向集群上游，拆解 CI/CD 流水线与发布回滚策略。
 design:
-- mechanism: 只声明期望状态
-  problem: 如果运维靠一条条命令操作集群，命令执行到一半失败、或者两个人同时改，集群就会停在某个谁也说不清的中间状态，事后也无法复现当时到底想要什么。
-  choice: 让使用者只提交一份「想要的最终状态」的声明，系统自己比较期望与现实的差距并动手补齐；声明本身存进集群，成为唯一算数的事实来源。
-  tradeoff: 声明错了，系统会一丝不苟地把错误状态维持下去；且「为什么现在是这样」要顺着控制器的动作去推，排查比命令式多绕一层。
-  root: 集群是一个一直在变的活物，与其记录每一步操作，不如记录目标本身——目标不变，系统就能在故障之后自己把路重新走完。
-- mechanism: 控制器循环对齐现状
-  problem: 副本会挂、节点会宕机、网络会抖动，任何一次性的检查都保不住状态：你检查完转身，它就又变了。
-  choice: 为每类对象设一个控制器，不停地循环做同一件事：看期望、看现状、动手缩小差距。所有控制器的动作拼起来，就是集群的自愈能力。
-  tradeoff: 系统永远在「追赶」而不是「到达」，短时不一致是常态；控制器太多时，两个控制器对同一对象的理解不一致还会互相打架。
-  root: 在故障是常态的环境里，可靠不是「不出错」，而是「出错后能自己收敛回目标」——控制循环把这件事变成了默认行为。
-- mechanism: 调度与执行分家
-  problem: 选机器需要全局视野（哪台还有空、哪台更合适），拉容器需要本机权限与实时状态，两件事挤在一个组件里，规模一大就互相拖累。
-  choice: 调度器只做决定：给新 Pod 选一台节点并把决定写进状态；每台节点上的 kubelet 只做执行：盯着分给自己的清单，把容器拉起来并汇报健康。
-  tradeoff: 决定与执行之间多了一次状态传递，排障时要分清「没被调度上」和「调度上了但没跑起来」是两个不同环节的问题。
-  root: 这是分布式系统里反复出现的分工：集中决策换全局最优的大局观，本地执行换故障隔离与扩展性，两边用一份共享状态对接。
+  - mechanism: 只提交声明式的期望状态
+    problem: 如果运维靠一串脚本命令去逐台操作 20 台服务器，脚本跑到第 7 台断网、或者两个人同时动手，集群就会卡在谁也说不清的半残状态，事后更没法复原最初意图。
+    choice: 使用者只向集群提交一份「最终想要什么样」的 YAML 声明（比如 3 个副本、v1.2 镜像），作为唯一事实源存入集群；具体差几步动作由系统自己对比现状去凑。
+    tradeoff: 声明写错了（比如填错镜像名或写反资源参数），系统也会铁面无私地把错误状态贯彻到底；排障时不能只看单条命令报错，得顺着控制器事件链倒推。
+    root: 在随时会掉机器的分布式环境里，操作步骤是一次性的易碎品，最终目标才是恒定的锚点——只要锚点记死了，任何中间故障过后系统都能自己把路重走通。
+  - mechanism: 控制器死循环调谐对账
+    problem: 容器会崩溃、网卡会闪断、宿主机随时会重启，任何「部署完检查一次就收工」的机制都保不住线上状态——你刚验完转身，副本就少了一个。
+    choice: 给每类资源配一个专属控制器，在后台永不停歇地跑同一个三步死循环：读期望值、看实际值、动手抹平差额，把故障恢复变成系统的日常呼吸。
+    tradeoff: 集群永远处于「不断逼近目标」的最终一致过程里，秒级的短暂不一致是常态；多个控制器如果同时改同一批对象且规则冲突，还会出现来回拉锯。
+    root: 大规模集群里的可靠性不是「永远不死机」，而是「死了能在几十秒内自动收敛回原样」——控制循环把人工救火改造成了自动负反馈。
+  - mechanism: 全局调度选址与本机执行分家
+    problem: 给新容器挑机器需要掌握全集群 20 台节点的账本，而拉镜像、建容器又必须贴着单台宿主机内核干脏活，揉进一个进程里既脆又扩不大。
+    choice: 调度器只当参谋长——算完过滤与打分，把「该去 node-04」一行字写进状态就撒手；每台机器上的 kubelet 只当施工队长——认领自家清单把容器拉起来并按秒跑探针。
+    tradeoff: 决策和落地之间隔了一次异步状态交接，排障必须先拆清「卡在 Pending 没选出机器」还是「分到了机器但卡在镜像或探针起不来」。
+    root: 集中算账拿全局视野，本地代理换故障隔离与水平扩展，两者只靠一份共享清单对接——这是所有大规模集群调度系统的共同骨架。
 quiz:
-- q: Pod 与容器的关系，正确的说法是？
-  options:
-  - Pod 就是容器的另一个名字
-  - Pod 是调度单位，一组必须同机运行、共享网络与存储的容器装在一个 Pod 里
-  - 一个容器里可以装多个 Pod
-  - Pod 是一种特殊的镜像格式
-  answer: 1
-  explain: 调度器排的是 Pod 不是单个容器：同 Pod 的容器共享同一个 IP 与端口空间、可以共享存储卷，代价是它们必须落在同一台机器上、同生共死。
-- q: 你声明某服务要 3 个副本，夜里一个副本崩溃了，接下来会发生什么？
-  options:
-  - 等运维早上发现再手动拉起
-  - ReplicaSet 控制器发现实际只有 2 个，立刻补建一个新 Pod，调度器再给它选一台机器
-  - 整个服务自动重启一遍
-  - 崩溃的那个 Pod 会被原地修复
-  answer: 1
-  explain: 这就是控制循环在工作：控制器持续对比期望与实际，少了就补。补建的是新 Pod 而不是修旧的——Pod 被当作随时可替换的消耗品，这也是为什么状态不能存进 Pod 本地。
-- q: Pod 的 IP 每次重建都会变，调用方为什么还能稳定地找到这个服务？
-  options:
-  - Pod 重建时会继承旧 IP
-  - Service 提供固定 IP 与域名，靠标签选中背后的 Pod 并分摊请求，Pod 怎么换都不影响入口
-  - 调用方每次调用前先查一遍 Pod 列表
-  - 因为 Pod 其实很少重建
-  answer: 1
-  explain: Service 是副本组对外的固定门牌：它盯着带指定标签的 Pod 集合，谁在就把流量分给谁。副本的增减与重建，对调用方完全透明。
-- q: 调度器（kube-scheduler）与 kubelet 的分工是？
-  options:
-  - 调度器负责拉镜像，kubelet 负责选机器
-  - 调度器只做决定：给新 Pod 选一台节点；kubelet 只做执行：在本机把容器拉起来并汇报状态
-  - 两者是同一个组件的两个名字
-  - kubelet 负责整个集群的调度
-  answer: 1
-  explain: 集中决策、本机执行：调度器站在全局视角挑机器，kubelet 是每台节点上的代理，把分给本机的 Pod 清单变成真实运行的容器，并持续上报探针结果。
+  - q: 关于 Pod 与容器的关系，哪句描述准确？
+    options:
+      - Pod 只是 Kubernetes 给单个 Docker 容器换的新名字
+      - Pod 是最小调度单位，把一组必须同机运行、共享同一 IP 与存储卷的密切搭档装在一起
+      - 一个容器内部可以嵌套运行多个 Pod
+      - Pod 是一种专供集群使用的压缩镜像格式
+    answer: 1
+    explain: 调度器排班的最小颗粒是 Pod 而非单容器：同一个 Pod 里的主容器与边车容器共享网络命名空间（同一 IP 和端口空间）及存储卷，同落一台节点、同生共死。
+  - q: 你声明订单服务要保持 3 个副本，凌晨 4 号节点掉电带走 1 个副本，系统怎么处理？
+    options:
+      - 等值班工程师早上登录 4 号节点手动重启
+      - ReplicaSet 控制器发现实际只剩 2 个，立刻补建 1 个新 Pod，交由调度器挑一台存活节点拉起
+      - 把剩下 2 个正常副本也全部停掉重来一遍
+      - 等待 4 号节点自己通电恢复，期间只跑 2 个副本
+    answer: 1
+    explain: 控制循环一旦发现「实际 2 < 期望 3」就会新建替代 Pod 并重新调度到健康节点——Pod 是随时丢弃重建的消耗品，绝不在原地修补旧尸体，因此业务状态不能只放 Pod 本地。
+  - q: 订单 Pod 每次重建都会换新 IP，为什么上游支付服务还能用同一个地址调通它？
+    options:
+      - 新建的 Pod 会自动抢回上一个死掉 Pod 的旧 IP
+      - Service 提供恒定的虚拟 IP 与集群域名，按标签动态认领健康的后端 Pod 并转发请求
+      - 支付服务每次发请求前都要先全网广播问一遍谁还活着
+      - 因为线上生产环境的 Pod 一旦启动就绝不重建
+    answer: 1
+    explain: Service 是挡在副本组前面的固定门牌（如 order-svc），靠标签选择器实时维护就绪 Pod 名单做负载均衡，把底层副本的扩缩与换 IP 对上游彻底屏蔽掉。
+  - q: 调度器（kube-scheduler）与节点代理（kubelet）各自管哪一段？
+    options:
+      - 调度器负责去仓库拉镜像，kubelet 负责给全集群挑机器
+      - 调度器只按资源申请额给新 Pod 挑定节点；kubelet 在目标节点上驱动运行时起容器、跑探针并上报状态
+      - 两者是同一个后台进程在控制面与工作节点上的不同叫法
+      - kubelet 负责在多台机器之间搬运正在运行的容器内存
+    answer: 1
+    explain: 集中决策、本机执行：调度器看全局账本做过滤打分并写下 nodeName，目标机器上的 kubelet 认领任务拉起容器，再持续用存活与就绪探针向控制面交账。
 steps:
-- id: night-shift-problem
-  title: 第一步：场景——凌晨三点，挂掉的那个容器
-  tldr: 两百个容器、二十台机器，凌晨三点其中一个容器崩了。靠人处理，流程是被告警吵醒、登录、找机器、重启、验证——这一步先把「靠人排班」这条路走到黑，看它到底缺了什么。
-  body: |-
-    把场景摆具体。一个中等规模的系统：二十台机器，上面跑着两百个容器——几十个服务，每个服务三五个副本，再加上日志收集、监控探针这些配角。凌晨三点，其中一个订单服务的副本崩了。这时候如果一切靠人：值班的人被告警吵醒，爬起来登录机器，先要弄清挂的是哪个服务的哪个副本、在哪台机器上，然后手动把它重新拉起来，再确认服务恢复正常。一套流程走完，快则二十分钟，慢则一个小时，而这期间那个服务一直少一个副本在硬撑。
+  - id: night-shift-problem
+    title: 二十台机器两百个容器：手工排班死在频率与规模上
+    tldr: 容器上了集群规模后，机器掉电补副本、高峰扩容找空位、发版逐台换新全成了高频装箱题，靠人半夜登录救火根本追不上故障发生的速度。
+    body: |-
+      把这笔人肉运维账放到 20 台服务器（每台 8 核 16GB）、200 个容器的集群里算一遍：凌晨三点 4 号机器断电，上面跑着的 1 个订单副本和十几个其他容器瞬间失联。靠值班人员接电话爬起来、挨台机器查剩余内存、手动敲 `docker run` 拉起新副本再改上游转发配置，手速再快也要三四十分钟——这期间剩下的 2 个订单副本被迫硬扛 150% 的流量，随时可能跟着雪崩。
 
-    更要命的是，这还只是「挂了一个」的情况。真实世界的问题是一串：流量突然涨了，副本不够用，要往哪台机器上加？一台机器要下线维护，上面的十几个容器往哪儿搬？新版本上线，两百个容器按什么顺序换、换到一半发现有问题怎么退？每一件都是排班问题，而排班的频率与规模，早就超过了人能盯的上限。
+      掉电补人头还只是最简单的一题。白天大促流量翻倍要把订单副本从 3 扩到 8，哪几台机器还塞得下 `4GB` 内存？7 号机器下周换硬盘，上面 12 个容器怎么提前挪走？下午发 `v1.3` 新版，200 个容器按什么顺序换才不中断请求？正是被每周数十万容器的同类排班折磨了十多年，Google 才把内部集群管家 Borg 的经验重写并在 2014 年开源成 [[Kubernetes]]（希腊语「舵手」）。
+    derivation: original
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: user
+          id: oncall
+          label: 值班的人：被告警吵醒再手工处理
+        - lane: node
+          id: crashed
+          label: 崩掉的副本：服务少一条腿在硬撑
+          highlight: true
+      messages:
+        - id: m1
+          from: crashed
+          to: oncall
+          label: 从发现到恢复，快二十分钟慢一小时
+          active: true
+      registers:
+        - name: 规模
+          value: 二十台机器、两百个容器，排班频率超过人能盯的上限
+        - name: 问题清单
+          value: 挂了谁补、扩容往哪放、换版按什么顺序，全是排班问题
+    log:
+      - at: 场景
+        text: 靠人排班的瓶颈不在技术，在频率与规模
+  - id: four-jobs
+    title: 编排到底管哪四件事：放置、保数、连通、换版
+    tldr: 复杂的集群编排拆到底就四件活——[[调度器]]管放置、[[ReplicaSet]] 管保数、[[Service]] 管连通、[[Deployment]] 管换版。
+    body: |-
+      Kubernetes 表面上有几十种概念，落到我们的订单服务头上，它替人接过去的其实就四件活。第一件是「放置」：新起一个要求 `2 核 CPU、4GB 内存` 的订单副本，20 台机器里哪台余量够？而且 3 个订单副本最好摊在 3 台不同物理机上，别让一次断电把全军一锅端——这是一道24小时不停歇的装箱题。
 
-    所以需要一个不知疲倦的管家：它时刻知道每个服务应该是什么样，发现不对就自己动手纠正。[[Kubernetes]] 就是目前最主流的那个管家——它自称容器编排系统。这一课不急着学它的命令，先把它要接手的活看清楚。
-  derivation: original
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: user
-      id: oncall
-      label: 值班的人：被告警吵醒再手工处理
-    - lane: node
-      id: crashed
-      label: 崩掉的副本：服务少一条腿在硬撑
-      highlight: true
-    messages:
-    - id: m1
-      from: crashed
-      to: oncall
-      label: 从发现到恢复，快二十分钟慢一小时
-      active: true
-    registers:
-    - name: 规模
-      value: 二十台机器、两百个容器，排班频率超过人能盯的上限
-    - name: 问题清单
-      value: 挂了谁补、扩容往哪放、换版按什么顺序，全是排班问题
-  log:
-  - at: 场景
-    text: 靠人排班的瓶颈不在技术，在频率与规模
-- id: four-jobs
-  title: 第二步：编排到底在编排什么——四件事
-  tldr: 把管家要接手的活拆成四件：放置、保数、连通、换版。后面每个概念都只是这四件事里某一件的具体解法，先把清单立住，后面就不会迷路。
-  body: |-
-    第一件是放置。来了一个新容器，它该去哪台机器上跑？要考虑的因素很实际：哪台机器还剩得下它要的 CPU 与内存，它和谁不能挤在一起（比如同一服务的两个副本最好别放同一台，一宕机就全没），它和谁最好挨着（比如要频繁通信的两个服务）。这本质上是一个持续进行的装箱问题。
+      第二件是「保数」：说好订单服务常驻 3 个副本，崩成 2 个立刻补 1 个，误多出第 4 个就自动删掉。第三件是「连通」：副本天天扩缩重建、每次换一个新 [[IP]]，上游支付服务不能天天跟着改通讯录，必须有一个恒定不变的门牌挡在前面。第四件是「换版」：从 `v1.2` 升到 `v1.3` 时要起一个新、退一个旧，全程不掉请求，万一新版报错还能秒退回 `v1.2`。
 
-    第二件是保数。说好一个服务保持三个副本，就要一直是三个：挂了一个补一个，机器下线了在别处重建，多了就删掉。第三件是连通：副本天天在增减与重建，IP 地址换来换去，可调用方不能天天改配置——得有一个永远不变的入口，站在副本组前面。第四件是换版：新版本要替换旧版本，替换得平滑——不能停机、不能一次全换（万一新版本有问题就全军覆没），出了事还要能退回旧版。
+      先把四件活与四个主角对号入座：放置归[[调度器]]，保数归 [[ReplicaSet]]，连通归 [[Service]]，换版归 [[Deployment]]——后面七步就是挨个掀开这四台机器的盖子。
+    derivation: original
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: ctrl
+          id: manager
+          label: 编排系统：四件事一起扛
+        - lane: node
+          id: fleet
+          label: 机器与容器：被放置、被计数、被访问、被替换
+          highlight: true
+      messages:
+        - id: m1
+          from: manager
+          to: fleet
+          label: 放置、保数、连通、换版，四件活同时在转
+          active: true
+      registers:
+        - name: 分工预告
+          value: 放置归调度器，保数归控制器，连通归 Service，换版归 Deployment
+    log:
+      - at: 定义
+        text: 编排等于放置、保数、连通、换版四件事的合集
+  - id: pod
+    title: Pod 为什么包在容器外面：给同生共死的搭档共享网卡与磁盘
+    tldr: "[[Pod]] 是集群调度的最小原子单位，把主业务容器和边车辅助容器绑在同一台机器上，共享同一个 [[IP]]、端口空间与本地存储卷。"
+    body: |-
+      为什么 Kubernetes 不直接拿单个容器当排班单位，非要在外面再套一层 [[Pod]]？看订单服务的真实搭配就懂了：主容器跑着 `order-service` 监听 `8080` 端口，往 `/var/log/order` 写业务日志；旁边还要配一个小巧的日志采集容器，实时盯住同一个目录把日志发走。如果按单容器排班，调度器把主容器塞进 `node-01`、把采集器塞进 `node-09`，两边连同一块磁盘都摸不着，搭档当场散伙。
 
-    记住这四件事的分工：放置归调度器，保数归控制器，连通归 Service，换版归 Deployment。接下来一步拆一件，每件都先看不用它时的痛，再看它怎么解。
-  derivation: original
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: ctrl
-      id: manager
-      label: 编排系统：四件事一起扛
-    - lane: node
-      id: fleet
-      label: 机器与容器：被放置、被计数、被访问、被替换
-      highlight: true
-    messages:
-    - id: m1
-      from: manager
-      to: fleet
-      label: 放置、保数、连通、换版，四件活同时在转
-      active: true
-    registers:
-    - name: 分工预告
-      value: 放置归调度器，保数归控制器，连通归 Service，换版归 Deployment
-  log:
-  - at: 定义
-    text: 编排等于放置、保数、连通、换版四件事的合集
-- id: pod
-  title: 第三步：Pod——最小单位为什么不是容器
-  tldr: 调度器排班的最小单位不是容器，而是 Pod：一组必须待在同一台机器、共享网络与存储的容器。先看一个「两个容器必须同生共死」的场景，就明白为什么要多这一层。
-  body: |-
-    先看场景。一个 Web 服务容器，每写一行日志就希望有个搭档立刻把日志收集走、转发到日志系统。这个搭档离远了不行：它得读主容器写的同一个日志文件，还得和主容器共用网络身份——外面访问进来的是一个地址，进来之后由搭档里的另一个进程做点预处理也很常见。这类「必须贴在一起」的容器组合，如果按单个容器排班，调度器可能把它们拆到两台机器上，整个搭配当场散架。
+      Pod 就是专门绑住这对「连体搭档」的豆荚：调度器保证整个 Pod 一起落在同一台机器上，在底层让里面所有容器共用同一个网络[[命名空间]]与同一批挂载卷。于是主容器与辅助容器（常称边车，sidecar）拥有完全相同的 Pod IP（比如 `10.244.2.15`），彼此用 `127.0.0.1` 就能直通，代价是同 Pod 内的两个容器绝不能同时抢占 `8080` 端口。
 
-    [[Pod]] 就是为这种组合设的单位：一个 Pod 里装一组容器，调度器保证它们落在同一台机器上。它们共享同一个 IP 地址和同一套端口——所以同 Pod 的两个容器不能监听同一个端口，它们之间用本机地址就能互相访问；它们还能挂载同一批存储卷，共享文件。主容器加一个辅助容器是最常见的配方，辅助的那个有个专门的名字，叫边车（sidecar）容器，日志收集、流量代理、配置同步都是它常干的活。
+      记住 Pod 生来就是随时销毁重建的消耗品，由此定下两条铁律：绝不把需要持久化的数据只存在 Pod 本地目录里；绝不在上游代码里写死 `10.244.2.15` 这个随时作废的 Pod IP。
+    derivation: original
+    sources:
+      - ref: kubernetes-docs
+        locator: "Concepts: Workloads / Pods（Pod 的定义与共享网络、存储的语义）"
+        claim: Pod 是 Kubernetes 可创建与管理的最小部署单位，一组容器共享网络命名空间（同一 IP 与端口空间）与存储卷，必须同机运行。
+        status: verified
+        checkedBy: subagent
+        checkedAt: "2026-11-17"
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: sched
+          id: scheduler1
+          label: 调度器：以 Pod 为单位安排机器
+        - lane: node
+          id: pod1
+          label: 一个 Pod：主容器加边车容器，同机同 IP
+          highlight: true
+      messages:
+        - id: m1
+          from: scheduler1
+          to: pod1
+          label: 整个 Pod 一起落到一台机器，不拆开
+          active: true
+      registers:
+        - name: 共享
+          value: 同 Pod 内容器共享 IP 与端口空间，也能共享存储卷
+        - name: 纪律
+          value: Pod 随时会被重建，数据别只存本地，地址别写死
+    log:
+      - at: 单位
+        text: 排班排的是 Pod，同生共死的容器装进同一个 Pod
+  - id: deployment-replicaset
+    title: 双层保数：ReplicaSet 盯人头，Deployment 管版本演进
+    tldr: 手动删掉 3 个订单 [[Pod]] 里的一个，[[ReplicaSet]] 几秒内就会新建实例凑回 3 个；上层的 [[Deployment]] 则靠同时操纵新旧两个 ReplicaSet 来完成换版。
+    body: |-
+      在 Kubernetes 里上线订单服务，你不用登任何工作节点，只需写一份二十来行的 `deployment.yaml`（写明 `replicas: 3`、`image: order-service:v1.2`）提交给集群接口。3 个订单 Pod 在 3 台机器上跑稳后，哪怕你故意敲命令删掉其中一个，几秒钟内一个全新的 Pod 就会在健康节点上自动建好并顶上来，总数稳稳回到 3。
 
-    代价是 Pod 被设计成消耗品：它会被随时删掉重建，IP 会变，本地文件默认也不保留。所以有两条纪律要先记住：不要把需要长期保存的数据只存在 Pod 本地；不要把某个 Pod 的地址写死在别处——找服务要走下一步的 Service。
-  derivation: original
-  sources:
-  - ref: kubernetes-docs
-    locator: "Concepts: Workloads / Pods（Pod 的定义与共享网络、存储的语义）"
-    claim: Pod 是 Kubernetes 可创建与管理的最小部署单位，一组容器共享网络命名空间（同一 IP 与端口空间）与存储卷，必须同机运行。
-    status: verified
-    checkedBy: subagent
-    checkedAt: "2026-11-17"
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: sched
-      id: scheduler1
-      label: 调度器：以 Pod 为单位安排机器
-    - lane: node
-      id: pod1
-      label: 一个 Pod：主容器加边车容器，同机同 IP
-      highlight: true
-    messages:
-    - id: m1
-      from: scheduler1
-      to: pod1
-      label: 整个 Pod 一起落到一台机器，不拆开
-      active: true
-    registers:
-    - name: 共享
-      value: 同 Pod 内容器共享 IP 与端口空间，也能共享存储卷
-    - name: 纪律
-      value: Pod 随时会被重建，数据别只存本地，地址别写死
-  log:
-  - at: 单位
-    text: 排班排的是 Pod，同生共死的容器装进同一个 Pod
-- id: deployment-replicaset
-  title: 第四步：保数——Deployment 与 ReplicaSet
-  tldr: 你只需要声明「这个服务要 3 个副本」，剩下的数人头工作交给控制器：ReplicaSet 负责数着副本个数，Deployment 在它上面再管版本。这一步看杀掉一个 Pod 之后系统怎么自己补齐。
-  body: |-
-    还是动手实验最直观。假设你已经声明某服务要 3 个副本，三个 Pod 正在三台机器上跑着。现在你手动删掉其中一个——什么都不用做，几秒钟后，一个新的 Pod 会被建出来、被调度到某台机器上、启动完成，副本数回到 3。补副本的不是人，是控制器在不停地数人头：它发现实际数量比声明的少，就动手补齐。
+      背后干活的是两层上下级控制器。底层亲自数人头的是 [[ReplicaSet]]：它眼里只有标签和数字，一旦发现带 `app=order, version=v1.2` 的存活 Pod 掉成了 `2`，二话不说立刻新建第 `3` 个。但日常你从来不直接写 ReplicaSet，而是只跟它顶上的 [[Deployment]] 打交道——为什么要多隔这一层？因为等你下一步把镜像改成 `v1.3` 时，Deployment 会新开一个管 `v1.3` 的 ReplicaSet，一边让新的从 `0` 扩到 `3`，一边让旧的从 `3` 缩到 `0`。
 
-    这里有两层对象要分清。直接数人头的是 [[ReplicaSet]]，它的工作只有一件：保证带某种标签的 Pod 恰好有声明的那么多个。而你日常打交道的其实是它上层的 [[Deployment]]：你向 Deployment 声明的是「这个应用要 3 个副本、用这个版本的镜像」，它去创建一个 ReplicaSet 来落实数量。为什么中间要隔一层？因为换版本时 Deployment 会再建一个新的 ReplicaSet，让新旧两个 ReplicaSet 一个加、一个减，滚动替换就这么实现的——那是第九步的内容，这里先记住分工：Deployment 管「哪个版本、几个副本」，ReplicaSet 管「数着人头补齐」。
+      注意这套「坏了直接扔、当场建新的」打法有一个硬前提：服务必须是无状态的——用户的半截订单不能只揣在某个副本的进程内存里（像数据库这类重状态服务得换用专门的 `StatefulSet`）。
+    derivation: original
+    sources:
+      - ref: kubernetes-docs
+        locator: "Concepts: Workloads / Deployment 与 ReplicaSet（副本保障与版本管理的分工）"
+        claim: Deployment 声明期望的副本数与镜像版本并通过 ReplicaSet 落实；ReplicaSet 保证运行中的 Pod 数量与声明一致，Pod 被删后会自动补建。
+        status: verified
+        checkedBy: subagent
+        checkedAt: "2026-11-17"
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: user
+          id: declarer
+          label: 你：声明要 3 个副本、用这个版本
+        - lane: ctrl
+          id: rs
+          label: ReplicaSet：数人头，少了就补
+          highlight: true
+        - lane: node
+          id: pods3
+          label: 三个 Pod：删掉一个，几秒后补回一个
+      messages:
+        - id: m1
+          from: declarer
+          to: rs
+          label: 声明经 Deployment 落成副本目标
+        - id: m2
+          from: rs
+          to: pods3
+          label: 实际 2 个、期望 3 个，立刻补建一个
+          active: true
+      registers:
+        - name: 分工
+          value: Deployment 管版本与数量，ReplicaSet 只管数人头
+        - name: 前提
+          value: 这条路默认服务无状态，副本可以随时增减替换
+    log:
+      - at: 保数
+        text: 你声明数量，控制器数人头，差距由它补齐
+  - id: service
+    title: Service 固定门牌：Pod 换了几茬，调用方只认一个名字
+    tldr: "[[Service]] 分配恒定的集群虚拟 [[IP]] 与 [[DNS]] 域名，按标签实时认领健康的后端 [[Pod]] 分摊流量，让上游彻底无视底层副本的生灭。"
+    body: |-
+      订单服务的 3 个 Pod 此刻住在 `10.244.1.8`、`10.244.2.15` 和 `10.244.3.22`，一旦凌晨掉电重建或者大促扩到 8 个，这串地址立刻面目全非。如果让上游支付服务自己维护这份名单，每次扩缩容都得全网发通知改配置，根本追不上变化。
 
-    这套机制的前提是服务能随时多一个、少一个而不出事，也就是所谓无状态：请求处理到一半的状态不能只攒在某个副本的内存里。有状态的服务在 Kubernetes 里有专门的另一套对象，本课不展开，但你要知道 Deployment 这条路默认走的是无状态服务。
-  derivation: original
-  sources:
-  - ref: kubernetes-docs
-    locator: "Concepts: Workloads / Deployment 与 ReplicaSet（副本保障与版本管理的分工）"
-    claim: Deployment 声明期望的副本数与镜像版本并通过 ReplicaSet 落实；ReplicaSet 保证运行中的 Pod 数量与声明一致，Pod 被删后会自动补建。
-    status: verified
-    checkedBy: subagent
-    checkedAt: "2026-11-17"
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: user
-      id: declarer
-      label: 你：声明要 3 个副本、用这个版本
-    - lane: ctrl
-      id: rs
-      label: ReplicaSet：数人头，少了就补
-      highlight: true
-    - lane: node
-      id: pods3
-      label: 三个 Pod：删掉一个，几秒后补回一个
-    messages:
-    - id: m1
-      from: declarer
-      to: rs
-      label: 声明经 Deployment 落成副本目标
-    - id: m2
-      from: rs
-      to: pods3
-      label: 实际 2 个、期望 3 个，立刻补建一个
-      active: true
-    registers:
-    - name: 分工
-      value: Deployment 管版本与数量，ReplicaSet 只管数人头
-    - name: 前提
-      value: 这条路默认服务无状态，副本可以随时增减替换
-  log:
-  - at: 保数
-    text: 你声明数量，控制器数人头，差距由它补齐
-- id: service
-  title: 第五步：连通——Service 给副本组一个固定门牌
-  tldr: Pod 天天重建、IP 天天变，调用方要是记 IP，通讯录得天天重印。Service 站在副本组前面：一个不变的地址，靠标签认领背后的 Pod，再把请求分摊过去。
-  body: |-
-    先看不用它时的麻烦。订单服务要调用库存服务，库存服务有 3 个副本，IP 分别是三个地址。副本重建一次，IP 就变一次；扩容一次，地址就多一个。订单服务要维护一份天天变的地址清单，还要自己决定每次请求发给谁——每个调用方都要重复造这套轮子，而且清单永远追不上变化。
+      [[Service]] 给这群流动的副本立了一块铁打的门牌：你建一个名为 `order-svc`、标签选择器写着 `app=order` 的 Service，集群就会发给它一个永不改变的虚拟 IP 和内部 [[DNS]] 域名。支付服务代码里永远只写 `http://order-svc:8080`，集群自动维护背后所有带 `app=order` 且健康就绪的 Pod 名单，把请求均匀轮询分发过去。
 
-    [[Service]] 的解法是加一个固定入口：你给它起个名字，它就有一个稳定的 IP 与域名，集群内用名字就能访问到它。它靠标签认领背后的 Pod——创建时说好「把带 app=inventory 标签的 Pod 都算作我的人」，之后不管这批 Pod 怎么增减、重建、换 IP，Service 的名单自动跟着更新。请求打到 Service，它再按轮询之类的方式分给名单里的某个 Pod，顺手把负载均衡也做了。
+      但工程上别把「入口固定」当成「请求必成」：某个订单 Pod 刚断气的 1 到 2 秒窗口里，部分节点上的转发名单可能还没来得及把它摘掉，偶发一两笔请求撞上去照样报错——所以上游客户端的超时与配合[[幂等键]]的重试依然省不掉。
+    derivation: original
+    sources:
+      - ref: kubernetes-docs
+        locator: "Concepts: Services, Load Balancing and Networking / Service（标签选择器与固定访问入口）"
+        claim: Service 用标签选择器圈定一组 Pod，为其提供稳定的 IP 与 DNS 名称，并把请求分发到组内 Pod，屏蔽 Pod 的增减与 IP 变化。
+        status: verified
+        checkedBy: subagent
+        checkedAt: "2026-11-17"
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: user
+          id: caller
+          label: 调用方：只认 Service 的名字
+        - lane: ctrl
+          id: svc
+          label: Service：地址不变，名单按标签自动更新
+          highlight: true
+        - lane: node
+          id: backendpods
+          label: 副本组：增减与重建都在名单之外发生
+      messages:
+        - id: m1
+          from: caller
+          to: svc
+          label: 请求只打这个固定入口
+        - id: m2
+          from: svc
+          to: backendpods
+          label: 按名单把请求分给某个活着的副本
+          active: true
+      registers:
+        - name: 认领方式
+          value: 靠标签圈定 Pod 集合，名单随副本增减自动更新
+        - name: 提醒
+          value: 名单更新有几秒延迟，客户端重试仍然省不掉
+    log:
+      - at: 连通
+        text: 入口固定、名单自更新，调用方不用再追着 IP 跑
+  - id: scheduler
+    title: 调度器两步选机器：先按硬条件过滤，再按空闲与分散度打分
+    tldr: "[[调度器]]只看 Pod 声明的资源申请额（requests）而不看实时用量，走完「硬过滤 + 软打分」挑定节点写进状态，自己绝不插手拉起容器。"
+    body: |-
+      ReplicaSet 刚补建出来的那个订单 Pod 还悬在半空（`Pending` 状态），等着 `kube-scheduler`（[[调度器]]）给它在 20 台节点里挑个家。每个订单 Pod 清单里都写着保底资源申请 `requests: 2 核 CPU、4GB 内存`，调度器拿着这张申请单分两步算账：第一步「过滤」，挨台核对硬门槛——哪台节点未分配内存不足 `4GB`、或者挂着不接客的污点、或者违反「同服务副本尽量分机」的硬约束，当场淘汰（比如 20 台筛剩 6 台）；第二步「打分」，给剩下的 6 台算综合分——谁余量更宽裕、谁把 3 个订单副本摊在不同机架、谁本地已经缓存了 `order-service:v1.2` 镜像层，最后挑最高分的 `node-11`，把 `nodeName: node-11` 写回集群状态就收工。
 
-    代价要心里有数：多了一层转发，多了一点延迟与一处可能出故障的环节；而且 Service 的名单更新不是实时的——Pod 刚被删掉的几秒内，名单里可能还留着它，请求打过去会失败，所以客户端的重试仍然省不掉。把入口稳定下来，不等于把失败消灭掉。
-  derivation: original
-  sources:
-  - ref: kubernetes-docs
-    locator: "Concepts: Services, Load Balancing and Networking / Service（标签选择器与固定访问入口）"
-    claim: Service 用标签选择器圈定一组 Pod，为其提供稳定的 IP 与 DNS 名称，并把请求分发到组内 Pod，屏蔽 Pod 的增减与 IP 变化。
-    status: verified
-    checkedBy: subagent
-    checkedAt: "2026-11-17"
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: user
-      id: caller
-      label: 调用方：只认 Service 的名字
-    - lane: ctrl
-      id: svc
-      label: Service：地址不变，名单按标签自动更新
-      highlight: true
-    - lane: node
-      id: backendpods
-      label: 副本组：增减与重建都在名单之外发生
-    messages:
-    - id: m1
-      from: caller
-      to: svc
-      label: 请求只打这个固定入口
-    - id: m2
-      from: svc
-      to: backendpods
-      label: 按名单把请求分给某个活着的副本
-      active: true
-    registers:
-    - name: 认领方式
-      value: 靠标签圈定 Pod 集合，名单随副本增减自动更新
-    - name: 提醒
-      value: 名单更新有几秒延迟，客户端重试仍然省不掉
-  log:
-  - at: 连通
-    text: 入口固定、名单自更新，调用方不用再追着 IP 跑
-- id: scheduler
-  title: 第六步：放置——调度器怎么给 Pod 选机器
-  tldr: 新 Pod 出生时还没有家，调度器负责给它选一台节点：先按硬条件筛掉不合格的，再按软偏好打分挑最好的。这一步看它做决定时到底在算什么。
-  body: |-
-    先看它手里有什么信息。每个 Pod 在声明时都会写上自己的资源请求：比如需要 2 个核的 CPU、4GB 内存。集群里每台节点还剩多少，也是明账。调度器（kube-scheduler）的工作分两段。第一段叫过滤：逐台检查硬条件——剩下的资源够不够这个 Pod 申请的量、有没有它不能忍受的污点、有没有它指定必须避开或必须靠近的对象。不合格的直接出局。第二段叫打分：给剩下的合格节点逐项打分，比如哪台更空闲、把同服务的副本摊得更开、镜像已经拉过的节点启动更快，最后挑总分最高的那台，把「这个 Pod 归这台节点」的决定写进集群状态。
+      生产里最常踩的大坑就藏在这张账单上：调度器看的不是节点此刻实际空闲多少，而是账面上「还剩多少未承诺出去的 `requests`」。要是开发图安心把平时只用 `500MB` 的服务虚报成 `requests: 8GB`，一台 16GB 机器塞两个就账面满员，[[CPU]] 和内存实际闲得长草也塞不进第三个；反过来全填 `100MB`，一台机器涌进几十个 Pod，晚高峰一齐发力立刻互相挤爆触发 [[OOM]]。
 
-    这里有个特别常见的坑：调度器算账用的不是 Pod 实际用多少，而是它声明申请多少。申请写大了，节点明明空着也会被判定「放不下」；申请写小了，一台机器塞进太多 Pod，真忙起来互相抢资源。所以资源请求不是随便填的数，它是调度质量的地基——填得准不准，直接决定集群是浪费还是拥挤。
+      同时记清职责切分：调度器写完 `node-11` 就彻底撒手了。排查起不来的 Pod 时先看状态——一直卡在 `Pending` 是调度器没找着合格机器；已经分到了 `node-11` 却卡在 `ImagePullBackOff` 或反复重启，锅全在下一步的本机执行上。
+    derivation: original
+    sources:
+      - ref: kubernetes-docs
+        locator: "Concepts: Scheduling / kube-scheduler（过滤与打分两阶段）"
+        claim: kube-scheduler 为待调度的 Pod 选择节点：先按资源与约束过滤不合格节点，再对剩余节点打分排序，依据是 Pod 声明的资源请求而非实际用量。
+        status: verified
+        checkedBy: subagent
+        checkedAt: "2026-11-17"
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: sched
+          id: scheduler2
+          label: 调度器：先过滤，再打分，只做决定
+        - lane: node
+          id: nodes
+          label: 候选节点：有的资源不够，有的正合适
+          highlight: true
+      messages:
+        - id: m1
+          from: scheduler2
+          to: nodes
+          label: 按声明的资源请求算账，不看实际用量
+          active: true
+      registers:
+        - name: 两阶段
+          value: 过滤淘汰不合格节点，打分在合格者里挑最好
+        - name: 常见的坑
+          value: 资源请求写不准，集群不是浪费就是拥挤
+    log:
+      - at: 放置
+        text: 调度只做决定，依据是声明的资源请求
+  - id: kubelet
+    title: kubelet 驻守本机落地：拉容器、跑双探针、拼回全局状态
+    tldr: 每台工作节点常驻一个 [[kubelet]] 守护进程，负责驱动本机容器运行时拉起分配过来的 [[Pod]]，并周期执行存活与就绪两类探针向控制面交账。
+    body: |-
+      镜头切到刚被选中的 `node-11` 上：控制面组件全待在管理节点，真正驻扎在 20 台工作节点每台机器上干体力活的，是一个由宿主机直接托管的 Linux 守护进程——[[kubelet]]。它盯见 `node-11` 名下多出了这个订单 Pod 清单，立刻调用本机的 `containerd` 去拉缺失的镜像层、挂好共享目录、打通虚拟网卡，把主容器与边车容器一并拉起来。
 
-    还要注意调度器只做决定、不干活：它选完机器就撒手了，Pod 在那台机器上能不能真跑起来，是下一步 kubelet 的事。排障时先分清卡在哪一段：Pod 一直挂在等待状态，多半是没被调度上；已经被分配了机器却起不来，问题在本机执行环节。
-  derivation: original
-  sources:
-  - ref: kubernetes-docs
-    locator: "Concepts: Scheduling / kube-scheduler（过滤与打分两阶段）"
-    claim: kube-scheduler 为待调度的 Pod 选择节点：先按资源与约束过滤不合格节点，再对剩余节点打分排序，依据是 Pod 声明的资源请求而非实际用量。
-    status: verified
-    checkedBy: subagent
-    checkedAt: "2026-11-17"
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: sched
-      id: scheduler2
-      label: 调度器：先过滤，再打分，只做决定
-    - lane: node
-      id: nodes
-      label: 候选节点：有的资源不够，有的正合适
-      highlight: true
-    messages:
-    - id: m1
-      from: scheduler2
-      to: nodes
-      label: 按声明的资源请求算账，不看实际用量
-      active: true
-    registers:
-    - name: 两阶段
-      value: 过滤淘汰不合格节点，打分在合格者里挑最好
-    - name: 常见的坑
-      value: 资源请求写不准，集群不是浪费就是拥挤
-  log:
-  - at: 放置
-    text: 调度只做决定，依据是声明的资源请求
-- id: kubelet
-  title: 第七步：落地——kubelet 在每台机器上干什么
-  tldr: 决定做完了，谁来执行？每台节点上都住着一个 kubelet：它盯着分给本机的 Pod 清单，指挥容器运行时拉镜像、起容器，再把健康状况源源不断报回控制面。
-  body: |-
-    把镜头切到一台具体的节点上。[[kubelet]] 是装在每台工作节点上的代理程序，它的日常是：从控制面拿到「这台机器应该有这些 Pod」的清单，对照本机现状，缺哪个就动手补哪个。它指挥本机的容器运行时去拉镜像、按 Pod 的声明把容器一个个建出来、挂上存储、接好网络——上一课讲的那些容器操作，在这里由它逐项落实。
+      容器跑起来之后，kubelet 每隔几秒还要替你挨个敲门做两项体检，千万别把这两根探针搞混：第一根叫「存活探针」（`livenessProbe`），问的是「进程卡死没有？」——要是订单进程死锁连续 3 次不回话，kubelet 就杀掉重拉；第二根叫「就绪探针」（`readinessProbe`），问的是「热身完能接客了吗？」——刚启动前 10 秒连接池和本地缓存还没建好，就绪探针不通过，kubelet 绝不重启它，而是通知 `order-svc` 先别把真实用户流量切过来。
 
-    容器起来之后它的活还没完。Pod 里可以声明两类探针：一类问「活着吗」，答不上来就重启这个容器；一类问「能接客了吗」，没准备好之前，Service 的名单里不会把它算进去。kubelet 周期性地执行这些探针，并把每个 Pod 的状态、每个节点的资源余量持续汇报回控制面——控制面之所以「知道」集群的实际状态，靠的就是所有 kubelet 的汇报拼图。
+      控制面之所以对 20 台机器的冷暖了如指掌，全靠 20 个 kubelet 秒级上报的状态拼图。日常遇到「分到了机器却一直起不来」的 Pod，敲 `kubectl describe pod` 翻底下的事件表，那些镜像拉取失败或探针报错全出自本机 kubelet 之口。
+    derivation: original
+    sources:
+      - ref: kubernetes-docs
+        locator: "Concepts: Architecture / kubelet（节点代理的职责与探针）"
+        claim: kubelet 是每台节点上的代理，负责让分给本机的 Pod 真正运行：驱动容器运行时启动容器、执行存活与就绪探针、向控制面汇报状态。
+        status: verified
+        checkedBy: subagent
+        checkedAt: "2026-11-17"
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: ctrl
+          id: desired
+          label: 控制面：这台机器应有这些 Pod
+        - lane: node
+          id: kubelet1
+          label: kubelet：拉镜像、起容器、跑探针、报状态
+          highlight: true
+      messages:
+        - id: m1
+          from: desired
+          to: kubelet1
+          label: 清单下发到本机，缺哪个补哪个
+        - id: m2
+          from: kubelet1
+          to: desired
+          label: 健康与状态持续汇报回去
+          active: true
+      registers:
+        - name: 两类探针
+          value: 存活探针决定要不要重启，就绪探针决定要不要接流量
+    log:
+      - at: 执行
+        text: 决定归调度器，落地归每台机器上的 kubelet
+  - id: declarative-loop
+    title: 声明式控制循环：故障自愈不是魔法，是死循环一直在对账
+    tldr: 你只提交「期望状态」，控制面里的控制器群永不停歇地跑「读期望、比现状、补差额」的调谐循环，凌晨节点掉电后的跨机重建只是对账的自然结果。
+    body: |-
+      把前面所有零件串起来，重放凌晨三点 `node-04` 掉电那一幕：心跳一断，控制面先把 `node-04` 标成失联；ReplicaSet 下一轮对账立刻发现订单 Pod 从期望的 `3` 掉成了 `2`，当场新建 1 个替补 Pod；调度器筛完挑中 `node-11`；`node-11` 上的 kubelet 拉起容器、跑通就绪探针；`order-svc` 把新 IP 加进转发名单。全程两分钟不到，值班工程师一觉睡到天亮——所谓[[自愈]]，不过是一群控制器各自死循环对账的副产品。
 
-    排障时这一步的知识很实用：如果 Pod 被分配了机器却一直起不来，看 kubelet 的日志与事件，十有八九是镜像拉不下来、配置对不上或者探针一直不通过——这些都是本机执行环节的问题，跟调度器无关。
-  derivation: original
-  sources:
-  - ref: kubernetes-docs
-    locator: "Concepts: Architecture / kubelet（节点代理的职责与探针）"
-    claim: kubelet 是每台节点上的代理，负责让分给本机的 Pod 真正运行：驱动容器运行时启动容器、执行存活与就绪探针、向控制面汇报状态。
-    status: verified
-    checkedBy: subagent
-    checkedAt: "2026-11-17"
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: ctrl
-      id: desired
-      label: 控制面：这台机器应有这些 Pod
-    - lane: node
-      id: kubelet1
-      label: kubelet：拉镜像、起容器、跑探针、报状态
-      highlight: true
-    messages:
-    - id: m1
-      from: desired
-      to: kubelet1
-      label: 清单下发到本机，缺哪个补哪个
-    - id: m2
-      from: kubelet1
-      to: desired
-      label: 健康与状态持续汇报回去
-      active: true
-    registers:
-    - name: 两类探针
-      value: 存活探针决定要不要重启，就绪探针决定要不要接流量
-  log:
-  - at: 执行
-    text: 决定归调度器，落地归每台机器上的 kubelet
-- id: declarative-loop
-  title: 第八步：声明式与自愈——把前面几步串成一个模型
-  tldr: 现在把零件拼成整机：你只写期望状态，一圈圈控制器不停地对比期望与实际、动手补齐差距。节点宕机后应用自己搬家，就是这个模型最有代表性的一幕。
-  body: |-
-    先看一幕完整的自愈。一台节点突然宕机，它上面的五个 Pod 全部失联。控制面从 kubelet 汇报的中断察觉到这件事，先把这台节点标记为不可用；各个控制器随即发现：好几个服务的实际副本数都比期望少了。于是它们补建新的 Pod，调度器把新 Pod 放到还活着的节点上，那些节点的 kubelet 把容器拉起来，Service 的名单自动更新。全程没有人参与，几分钟后集群回到期望状态——只是少了一台机器的容量。
+      这套「只写目标、不写步骤」的路数就叫[[声明式]]。放到前端视角里一比就透：老派手工运维像早年写 jQuery，掉一个节点就自己调 `appendChild` 补一个 DOM，半路报错页面就残了；Kubernetes 则像 React 的 `UI = f(state)`——你在 YAML 里写下 `replicas: 3` 这份状态，底下的调谐循环（Reconciliation Loop）不停对比真实集群与目标状态的 Diff，差哪儿补哪儿。
 
-    这就是[[声明式]]与控制循环合起来的样子。你交出去的不是一串操作命令，而是一份「应该是什么样」的声明；系统内部有许多个控制器，每个都只盯一类对象，不停地循环三件事：读期望、读实际、动手缩小差距。[[自愈]]不是某个单独的功能，而是所有控制器一直在转的自然结果。
+      当然，声明式也有它的脾气：多了一层异步间接，而且控制器不辨是非——要是你在 YAML 里手滑把镜像标签写成了根本不存在的 `v1.99`，控制器也会忠心耿耿地反复尝试拉取报错，直到你把那份目标声明改回正确版本为止。
+    derivation: original
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: ctrl
+          id: controllers
+          label: 控制器群：各自盯一类对象的状态差距
+        - lane: node
+          id: deadnode
+          label: 宕机的节点：上面的 Pod 在别处重建
+          highlight: true
+      messages:
+        - id: m1
+          from: controllers
+          to: deadnode
+          label: 发现副本不够，补建、调度、拉起，一气呵成
+          active: true
+      registers:
+        - name: 循环三件事
+          value: 读期望、读实际、动手缩小差距，无限循环
+        - name: 自愈的本质
+          value: 不是某个功能，是所有控制器一直在转的结果
+    log:
+      - at: 模型
+        text: 声明期望、循环对齐，故障后自己收敛回目标
+  - id: rolling-update
+    title: 不停机滚动换版：新旧 ReplicaSet 此消彼长，回滚只是倒带
+    tldr: 升级镜像时 [[Deployment]] 新建一个 [[ReplicaSet]] 按步长扩新缩旧，靠最大超出与最大不可用兜住容量底线；[[回滚]]只需把旧 ReplicaSet 重新扩回。
+    body: |-
+      白天要把 3 副本订单服务从 `v1.2` 升到 `v1.3`，把第四步留下的双层伏笔揭开：你把 Deployment 里的镜像改成 `v1.3`，并设好两条护栏——最多超出 1 个副本（`maxSurge: 1`，总副本最多到 4）、最多不可用 0 个（`maxUnavailable: 0`，就绪副本绝不跌破 3）。Deployment 随即新建管 `v1.3` 的新 ReplicaSet 先扩出 `1` 个新 Pod；等它的就绪探针变绿、顶上成为第 4 个可用副本后，才让旧 `v1.2` 的 ReplicaSet 从 `3` 缩成 `2`。如此「进一退一」走完三轮，`v1.3` 满编 3 个、`v1.2` 归零，线上请求一条没掉。
 
-    与它相对的是命令式：你一步步命令系统做动作，做错了、做到一半断了，系统就停在中间状态，谁也不知道最终想要什么。声明式的代价是多了一层间接——你想让某件事立刻发生，得改声明再等循环转过来；排查「为什么会这样」也要顺着控制器的视角去理解。但在故障是常态的集群里，这笔交换是划算的：目标被明确记录下来，系统才有机会在任何故障之后自己走回来。
-  derivation: original
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: ctrl
-      id: controllers
-      label: 控制器群：各自盯一类对象的状态差距
-    - lane: node
-      id: deadnode
-      label: 宕机的节点：上面的 Pod 在别处重建
-      highlight: true
-    messages:
-    - id: m1
-      from: controllers
-      to: deadnode
-      label: 发现副本不够，补建、调度、拉起，一气呵成
-      active: true
-    registers:
-    - name: 循环三件事
-      value: 读期望、读实际、动手缩小差距，无限循环
-    - name: 自愈的本质
-      value: 不是某个功能，是所有控制器一直在转的结果
-  log:
-  - at: 模型
-    text: 声明期望、循环对齐，故障后自己收敛回目标
-- id: rolling-update
-  title: 第九步：换版——滚动更新的机制，与它的回滚
-  tldr: Deployment 换版本时，新旧两个 ReplicaSet 此消彼长：新副本一个个起来、验过，旧副本一个个退场，全程不停机。出问题时回滚，就是把这场交接反着走回去。
-  body: |-
-    把第四步留的尾巴接上。你改了 Deployment 里的镜像版本，系统不会把旧副本一口气全删掉重来。它会新建一个对应新版本的 ReplicaSet，先让它起一小批新 Pod；新 Pod 就绪之后，再让旧 ReplicaSet 缩掉一批旧 Pod。如此交替，直到旧副本清零、新副本补满。这期间两个版本同时在提供服务，总容量始终维持在可用线以上——这就是滚动更新。
+      两个护栏参数直接对应发版快慢与风险：若有一百个副本，把步长放大到每次替换 25%，几分钟就能换完，但新旧混跑震荡更大；设成进一退一最稳，只是拉长了交接窗口。
 
-    有两个参数在背后掌舵：最多允许多少个副本暂时超出期望（决定换版的速度），最多允许多少个副本暂时不可用（决定换版期间的容量底线）。把它们都设成保守值，换版慢但稳；放得松，换得快但风险窗口大。策略本身没有对错，只有与业务风险偏好的匹配。
+      这套双 ReplicaSet 结构还白送了秒级回滚：旧版 `v1.2` 的那个 ReplicaSet 缩成 `0` 后并没有删掉，而是留在历史记录里待命。万一 `v1.3` 上去报错，敲一行回滚命令，Deployment 只需把 `v1.2` 重新从 `0` 扩回 `3`、把 `v1.3` 缩回 `0`，根本不用重新编译旧代码。至于升级时能不能先只切 1% 真实流量试水，那是下一课发布策略要接的活。
+    derivation: original
+    sources:
+      - ref: kubernetes-docs
+        locator: "Concepts: Workloads / Deployment：Updating a Deployment 与 Rolling Back a Deployment"
+        claim: Deployment 更新时以滚动方式用新 ReplicaSet 逐步替换旧副本，受最大超出与最大不可用两个参数约束；回滚通过恢复旧 ReplicaSet 的副本数实现。
+        status: verified
+        checkedBy: subagent
+        checkedAt: "2026-11-17"
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: ctrl
+          id: deploy
+          label: Deployment：让新旧两批副本交替增减
+        - lane: node
+          id: mixpods
+          label: 副本群：新版逐个上岗，旧版逐个退场
+          highlight: true
+      messages:
+        - id: m1
+          from: deploy
+          to: mixpods
+          label: 总容量不跌破底线，交接全程不停机
+          active: true
+      registers:
+        - name: 两个参数
+          value: 最多超出几个、最多少几个可用，决定换版快慢与风险
+        - name: 回滚
+          value: 让旧版本的 ReplicaSet 重新扩回来，反向走一遍交接
+    log:
+      - at: 换版
+        text: 新旧交替增减，回滚与发布共用同一套机器
+  - id: costs
+    title: 雇管家的真实账单：认知门槛高、排障链路长、托管不包理解
+    tldr: "[[Kubernetes]] 自身就是一套重型分布式系统，几十种资源对象的认知成本与跨层网络排障链路都极重，云托管能省控制面苦力却省不掉使用者的模型理解。"
+    body: |-
+      请进这位全自动管家之前，得先把它的两张账单摆上桌面。第一张是团队认知账：光这一课出场的就有 Pod、ReplicaSet、Deployment、Service、调度器、kubelet 六个角色，真上生产还得补齐配置字典（ConfigMap）、密钥、存储卷、网络插件（CNI）与权限控制（[[RBAC]]）——一个熟悉业务的后端工程师，往往要摔打小半年才能独立查清集群怪病。
 
-    回滚是这个机制的另一面：Deployment 记着历次的版本记录，回滚就是让旧版本的 ReplicaSet 重新扩回来、新版本的缩回去，走一遍反向的交接。所以回滚不需要你「重新部署一遍旧代码」，它和发布共用同一套数人头机器。至于新版本该先放多少流量试水、看哪些指标决定去留——那是发布策略的账，下一课专门算；这一课把机制看清就够了。
-  derivation: original
-  sources:
-  - ref: kubernetes-docs
-    locator: "Concepts: Workloads / Deployment：Updating a Deployment 与 Rolling Back a Deployment"
-    claim: Deployment 更新时以滚动方式用新 ReplicaSet 逐步替换旧副本，受最大超出与最大不可用两个参数约束；回滚通过恢复旧 ReplicaSet 的副本数实现。
-    status: verified
-    checkedBy: subagent
-    checkedAt: "2026-11-17"
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: ctrl
-      id: deploy
-      label: Deployment：让新旧两批副本交替增减
-    - lane: node
-      id: mixpods
-      label: 副本群：新版逐个上岗，旧版逐个退场
-      highlight: true
-    messages:
-    - id: m1
-      from: deploy
-      to: mixpods
-      label: 总容量不跌破底线，交接全程不停机
-      active: true
-    registers:
-    - name: 两个参数
-      value: 最多超出几个、最多少几个可用，决定换版快慢与风险
-    - name: 回滚
-      value: 让旧版本的 ReplicaSet 重新扩回来，反向走一遍交接
-  log:
-  - at: 换版
-    text: 新旧交替增减，回滚与发布共用同一套机器
-- id: costs
-  title: 第十步：代价——Kubernetes 本身也要有人养
-  tldr: 管家不是免费的：Kubernetes 自己就是一套复杂系统，概念、组件、故障面都摆在那里。这一步把使用它的真实成本摆出来，免得把它当成不要钱的银弹。
-  body: |-
-    先数概念成本。从这一课你已经见过 Pod、Deployment、ReplicaSet、Service、调度器、kubelet，再往下还有配置管理、密钥、存储卷、网络策略、权限模型一大串对象等着学。一个新工程师从「会写业务代码」到「能独立排查集群问题」，中间隔着几个月的学习曲线——这不是谁笨，是这套系统的概念面确实大。
+      第二张是运维与排障链路账：控制面里的状态库 `etcd` 要做备份、TLS 证书到期要轮换、大版本每年要跟着升；一旦某笔订单请求超时，嫌疑犯从业务代码、就绪探针、Service 转发规则、跨机虚拟网络一直排到宿主机内核，比单机时代多绕四五道弯。哪怕买了阿里云 ACK、AWS EKS 这类云厂商托管版，人家也只是替你养好了控制面，你的 `requests` 填多少、探针怎么写、有状态数据怎么放，一个字都没法外包。
+    derivation: original
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: user
+          id: team
+          label: 团队：要学概念、要养控制面、要查长链路
+        - lane: ctrl
+          id: k8sitself
+          label: Kubernetes 本体：它自己也是一套大系统
+          highlight: true
+      messages:
+        - id: m1
+          from: team
+          to: k8sitself
+          label: 托管能包走控制面运维，包不走理解成本
+          active: true
+      registers:
+        - name: 两笔成本
+          value: 概念学习以月计，故障排查链路比单机长得多
+    log:
+      - at: 代价
+        text: 管家也要领工资，先算规模再决定雇不雇
+  - id: when-k8s
+    title: 收官判断线：四句编排口诀与上车前的规模三问
+    tldr: 几十个服务、十余台节点、高频发版且有专人兜底时上 K8s 才划算；三五个小服务用单机编排或托管容器服务就够。带走四句口诀与上车三问。
+    body: |-
+      先划清上车红线：当团队维护着二三十个以上微服务、散在十余台机器上、每天发布好几轮且有人专职看护基础设施时，Kubernetes 省下的人肉排班账远超它的维护费；反过来，三五个服务跑在两台云主机上、一周才发一次版，老老实实用 Docker Compose 或云上按量计费的无服务器容器（如 Cloud Run）就能拿走八成收益，别提前背上航母的包袱。同时破除一个迷思：上了 K8s 绝不等于自动高可用——要是服务把登录态写在本机内存、漏配就绪探针或者乱填 `requests`，K8s 只会让故障扩散得更整齐。
 
-    再数运维成本。控制面组件要升级、证书要轮换、版本要跟进；集群出故障时，排查链路比单机长得多：一个请求失败，可能出在应用、Service、网络插件、节点、控制面的任何一环。云厂商的托管服务（比如各家的 Kubernetes 托管版）能把控制面的运维包走，省掉最重的一块，但你的应用对象怎么设计、出了事怎么查，仍然是你自己的事——托管省的是力气，不是理解。
+      临走收好四句组件口诀：**「[[Pod]] 绑同机搭档，[[Deployment]] 调新旧副本，[[Service]] 焊死门牌，[[调度器]]选址交 [[kubelet]] 落地。」** 决定引入前先答完三问：① 机器和服务多到手工排班已经每周都在痛了吗？② 业务代码做到无状态、配齐存活与就绪双探针了吗？③ 半夜网络或调度卡壳时，团队里有人能顺着控制器事件链查到底吗？
 
-    所以正确的提问方式不是「要不要用最先进的」，而是「我的规模付这份成本划不划算」。下一课之前先把判断线画出来，放在最后一步：如果你的服务数量与机器规模还没让「靠人排班」真正痛起来，这份成本就还没到该付的时候。
-  derivation: original
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: user
-      id: team
-      label: 团队：要学概念、要养控制面、要查长链路
-    - lane: ctrl
-      id: k8sitself
-      label: Kubernetes 本体：它自己也是一套大系统
-      highlight: true
-    messages:
-    - id: m1
-      from: team
-      to: k8sitself
-      label: 托管能包走控制面运维，包不走理解成本
-      active: true
-    registers:
-    - name: 两笔成本
-      value: 概念学习以月计，故障排查链路比单机长得多
-  log:
-  - at: 代价
-    text: 管家也要领工资，先算规模再决定雇不雇
-- id: when-k8s
-  title: 第十一步：收束——什么时候该上，什么时候先等等
-  tldr: 收成一条判断线：服务与机器的规模、发布频率、团队的运维能力，三者有一条没到位，就先用更简单的方案。最后把整课的模型再压缩成一句话带走。
-  body: |-
-    先给判断线。符合下面这些画面时，Kubernetes 的成本开始算得过来：服务有几十个量级、散在十几台以上的机器上；每周发布很多次，手工排班与发布已经真实地痛；团队里有人能专职管平台。反过来，三个服务、两台机器、一周发一次版的系统，用单机容器编排工具（比如 Docker Compose）甚至云厂商的托管容器服务就够了——它们把放置与重启这些基础活也能干，只是没有这么强的自愈与扩展，把复杂度留到你真正需要的那天再付。
-
-    还要破一个迷思：上了 Kubernetes 不等于有了可靠性。它给的是机制——副本、自愈、滚动更新；用得对不对，取决于你的服务是不是真的无状态、探针配得对不对、资源请求填得准不准。机制是地板，不是天花板。
-
-    整课压缩成一句话：Kubernetes 把「运维一个集群」变成了「维护一份期望状态」——你声明，控制器对齐，调度器放置，kubelet 执行。下一课我们把镜头转向这份声明的上游：新版本的镜像是怎样被流水线造出来、验过、再送到集群手里的。
-  derivation: original
-  canvas:
-    kind: swimlane
-    actors:
-    - lane: user
-      id: judge
-      label: 做判断的人：规模、频率、人力三条线
-    - lane: node
-      id: simple
-      label: 更简单的方案：单机编排或云托管容器服务
-      highlight: true
-    messages:
-    - id: m1
-      from: judge
-      to: simple
-      label: 复杂度留到真正需要的那天再付
-      active: true
-    registers:
-    - name: 一句话模型
-      value: 你声明期望状态，系统用控制循环把它维持住
-  log:
-  - at: 收束
-    text: 编排解决集群排班，镜像从哪来交给下一课
+      集群里的排班闭环了，下一个问题顺理成章浮上来：刚才填进 YAML 的那个 `order-service:v1.3` 镜像，是怎么从程序员敲下 `git push` 一路过五关斩六将、再按 1% 到 100% 安全放给真实用户的？下一课拆解 CI/CD 与发布策略。
+    derivation: original
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: user
+          id: judge
+          label: 做判断的人：规模、频率、人力三条线
+        - lane: node
+          id: simple
+          label: 更简单的方案：单机编排或云托管容器服务
+          highlight: true
+      messages:
+        - id: m1
+          from: judge
+          to: simple
+          label: 复杂度留到真正需要的那天再付
+          active: true
+      registers:
+        - name: 一句话模型
+          value: 你声明期望状态，系统用控制循环把它维持住
+    log:
+      - at: 收束
+        text: 编排解决集群排班，镜像从哪来交给下一课

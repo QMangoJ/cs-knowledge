@@ -5,423 +5,449 @@ title: goroutine 与 channel：把并发做进语言
 order: 2
 visual: datastate
 logColumns:
-- key: at
-  label: 阶段
-- key: text
-  label: 发生了什么
+  - key: at
+    label: 阶段
+  - key: text
+    label: 发生了什么
 status: published
 license: CC-BY-NC-SA-4.0
 overview:
-- key: 一句话总结
-  value: goroutine 把执行流的固定成本从线程的 MB 级压到 2KB 起步，GMP 调度器再以 P 封顶并行度、用工作窃取分活；channel 把传值与同步合成一个动作，代价是每次阻塞都要有确定的对端或逃生口
-- key: 成本账
-  value: 线程栈固定 1–8MB、goroutine 栈 2KB 起步按需伸缩，一万个连接的栈内存从几十 GB 降到约 20MB
-- key: GMP
-  value: G 是任务、M 是线程、P 是带本地队列的逻辑处理器，个数等于 GOMAXPROCS；M 必须先持有 P 才能跑 G
-- key: channel 纪律
-  value: 无缓冲通道靠会合完成传值与同步；发送方负责 close；阻塞操作要配 select 与取消信号，防死锁与泄漏
-summary: 线程模型撑不住网络服务的连接数：一个线程光栈就要占 1–8MB，一万个连接就是几十 GB 内存。Go 的 goroutine 起步栈只有 2KB、按需长大，运行时再用 GMP 调度器把几十万个协程铺到与核数相同的几个线程上。channel 则把「传值」和「同步」合成一个动作，逼你用通信组织并发。本课把成本账、调度模型与最常见的两种死锁一次讲清。
-premise: 一万个连接同时在线：用线程接，每个连接几 MB 栈，内存先爆；用 goroutine 接，每个连接 2KB 起步，这才是常态写法。
-position: 这是 Go 学科的第二课，位于「并发：goroutine 与 channel」板块，紧接第一课的设计哲学：上一课说并发是 Go 的立身之本，本课拆开它的成本账与调度机制，并给出 channel 的使用边界与死锁图鉴。
+  - key: 一句话总结
+    value: "[[goroutine]] 靠 2KB 可伸缩连续[[栈]]与用户态 [[GMP]] 调度把并发执行流成本砍低千倍；[[channel]] 把传值与同步合二为一，前提是每个阻塞点都备好确定的对端或取消逃生口"
+  - key: 内存成本账
+    value: 操作系统线程固定预留 1–8MB 栈，一万连接需 10–80GB；goroutine 起步仅 2KB 按需扩容，一万连接只占约 20MB
+  - key: GMP 调度核心
+    value: G 为协程任务、M 为内核线程、P 为带 256 槽本地队列的逻辑处理器（默认等于 [[CPU]] 核数）；M 必须先拿到 P 才能跑 G，靠[[工作窃取]]与 P 交接吃满多核
+  - key: channel 生存铁律
+    value: 无缓冲通道靠双方到场会合完成传值与同步；永远由发送方负责 close；可能阻塞的收发必须配合 select 与 context.Done 防[[死锁]]和泄漏
+summary: "[[goroutine]] 用 2KB 起步的连续[[栈]]与用户态 [[GMP]] 调度器把几十万条并发任务铺到与核数相等的几个线程上，[[channel]] 再以「传值即同步」移交数据所有权；算清内存账、P 的并行封顶机制与通道泄漏死穴，才能驯服 Go 的高并发利器。"
+premise: 电商大促当晚，网关同时挂着一万条客户端长连接等下单、等支付回调：按「一连接一线程」来接，光预留栈空间就要吃掉几十 GB 内存；为什么换成 [[goroutine]] 起步只占约 20MB，而顺手写的 [[channel]] 一旦漏掉退出路径又会让成千上万个协程静默卡死在内存里？
+position: 本课位于 Go 语言学科核心板块「并发：goroutine 与 channel」，承接第一课「把并发做进语言」的设计立论。学完你能算清协程与内核线程的千倍内存账，拆透 GMP 调度与工作窃取的运转闭环，并避开线上最高发的通道死锁与协程泄漏大坑。
 level: 进阶
 minutes: 26
 prereq:
-- go/origins
+  - go/origins
 objectives:
-- 能算清 goroutine 与线程的成本差：栈大小、数量级、调度方
-- 能讲清 GMP 模型：P 为什么是关键、工作窃取怎么分活、阻塞时 P 怎么交接
-- 能解释「用通信来共享内存」与锁的区别，并说出 select 的用途
-- 能识别两种最常见的 channel 死锁与 goroutine 泄漏场景
-aiLink: 理解 GMP 的关键是抓住 P：它把「能同时跑几个 goroutine」与「有几个操作系统线程」解耦——线程可以远多于核数，真正限流的是 P。
+  - 算清 [[goroutine]] 与操作系统线程在初始[[栈]]内存、扩容方式与调度层级上的数量级差异
+  - 拆透 [[GMP]] 模型里 P 封顶并行度、[[工作窃取]]、阻塞系统调用 P 交接与 netpoller 托管的配合机制
+  - 讲清 [[CSP]]「用通信来共享内存」与互斥锁的适用边界，熟练运用 select 处理多路等待与超时
+  - 精准识别单协程自锁、漏关通道挂死、循环等待与 goroutine 泄漏四类现场并给出防御写法
+aiLink: 今天用 Go 编写的 [[LLM]] 推理网关与 Agent 并行工具调用编排器，动辄要同时维持上万路 SSE 流式连接并并发扇出检索请求：靠的正是 [[GMP]] 里 P 把海量等待协程与少量工作线程解耦，再借 select + context 随时掐断超时或用户取消的流。
 bridge:
-  prev: 上一课立下结论：Go 把并发做进语言，是为了让服务器用最自然的写法接住海量连接。本课兑现这个结论：先算一笔内存账，看看线程模型为什么在连接数面前先撑不住，再看运行时用什么模型把协程铺开。
-  next: 并发解决的是「同时做很多事」，下一课换到类型系统：Go 没有继承，靠的是接口的隐式实现与类型的组合嵌入——以及它那套最有争议的设计，把 error 当普通值一层层显式返回。
+  prev: 上一课立下了「把并发原语直接做进语言运行时」的总账，本课立刻掀开引擎盖兑现承诺：先算一万条连接下线程栈为什么先爆，再拆解运行时怎样靠连续栈、GMP 调度器与通道把高并发变成平铺直叙的日常代码。
+  next: 并发回答了「怎样同时干成千上万件事」，下一课转向大型工程怎样组织代码结构：在彻底删掉类继承与 try-catch 异常之后，Go 如何单靠隐式接口、结构体[[组合]]与显式 error 返回撑起整套类型系统。
 design:
-- mechanism: 用户态调度加可增长栈：goroutine 由 Go 运行时（而非操作系统内核）调度，栈从 2KB 起、运行时按需伸缩，于是「一个连接一个执行流」从奢侈变成默认。
-  problem: 操作系统线程的栈固定占 1–8MB 且调度要进内核：连接数一上万，光栈内存就是几十 GB，线程池与异步回调只能绕，代码形状被迫扭曲。
-  choice: 把调度权从操作系统收回运行时：GMP 模型以 P 封顶并行度、本地队列就近取任务、工作窃取分匀负载，goroutine 的创建与切换全程不进内核。
-  tradeoff: 运行时自己接管调度，代价是多出一整套 GMP 调度器与抢占机制要维护，且 goroutine 栈的伸缩靠运行时拷贝栈实现，极端深递归时有额外开销。
-  root: 网络服务的时间大多花在等待上：等待的任务应该按「逻辑任务」计价而不是按「内核线程」计价，Go 把计价单位从 MB 级压到 KB 级，并发模型才与业务形态对齐。
-- mechanism: channel 把传值与同步合成一个动作：无缓冲通道的发送与接收必须双方到场才完成，数据交接的瞬间天然建立了先后关系，不必再单独加锁保护这次交接。
-  problem: 共享内存加锁的并发里，数据与锁是两件东西：忘了加锁、加错锁、锁的顺序不一致，都会留下只在高并发下才现形的竞态与死锁。
-  choice: 把通道定为首选的协作方式，让数据以「交接」代替「共享」：所有权随值一起转移，任一时刻只有持有者能动这份数据，流水线式的任务分工由此成为默认形状。
-  tradeoff: 用 channel 组织并发不是免费的：它适合流水线式的任务分工；遇到「多个协程读写同一份状态」硬套 channel 反而绕远，Go 因此同时保留了互斥锁——哲学归哲学，顺手优先。
-  root: CSP 的核心判断是：并发的难点不在计算而在协调；把协调做成语言里的一等公民（传值即同步），竞态的产生面就从「所有共享变量」收窄到「通道的使用方式」。
+  - mechanism: 用户态 GMP 调度与 2KB 可伸缩连续栈
+    problem: 操作系统内核线程固定预留 1–8MB 栈且切换需进出内核，连接数一破万光栈内存就飙上几十 GB，逼得业务代码碎成难懂的异步回调。
+    choice: 把调度权收归 Go 运行时：[[goroutine]] 栈从 2KB 起步按需整段搬家扩容，[[GMP]] 以 P 锁死真并行度、靠本地队列与[[工作窃取]]在用户态无感切换。
+    tradeoff: Go 运行时必须自己背负一整套复杂调度器、抢占信号与 netpoller 实现；极端深递归触发频繁栈扩容拷贝时也会付出额外运行时开销。
+    root: 网络服务绝大部分时间花在等 [[I/O]] 而非算 [[CPU]]：等待中的任务理应按 KB 级逻辑状态计价，而不该按 MB 级内核执行实体计价。
+  - mechanism: 无缓冲通道会合语义与所有权移交（CSP）
+    problem: 传统共享内存加锁模型里，业务数据与锁全凭程序员自觉配对；漏锁、锁粒度失当或加锁顺序不一，都会埋下只在高压峰值才引爆的竞态与[[死锁]]。
+    choice: 把 [[channel]] 做成语言一等公民，无缓冲收发必须双方当面会合，让数据所有权顺着流水线交接，任一时刻仅有一个协程触碰数据。
+    tradeoff: 通道并非银弹——未配对的阻塞发送极易酿成静默的 goroutine 泄漏；且面对高频原地读写的计数器或缓存表，硬套通道反而不如 sync.Mutex 直接高效。
+    root: 并发最难的从来不是「同时跑」，而是「安全交接」；把传值与同步捏成同一个原子动作，竞态风险面就从漫天散落的共享变量收窄到了几条清晰的通信管道上。
 quiz:
-- q: 一万个并发连接，用操作系统线程接与用 goroutine 接，内存差主要来自？
-  options:
-  - 线程的栈固定占 1–8MB，goroutine 栈 2KB 起步按需长大
-  - goroutine 不需要栈
-  - 线程要额外占用显存
-  - goroutine 把数据存在磁盘上
-  answer: 0
-  explain: 账算在栈上：一万个线程光栈就是 10–80GB 量级，一万个 goroutine 起步只要约 20MB；再加上调度不进内核，数量级完全不同。
-- q: GMP 模型里，决定「同一时刻最多能真并行跑几个 goroutine」的组件是？
-  options:
-  - G（goroutine 本身）的数量
-  - M（操作系统线程）的数量
-  - P（逻辑处理器），个数等于 GOMAXPROCS，默认等于 CPU 核数
-  - 全局运行队列的长度
-  answer: 2
-  explain: M 必须先持有 P 才能执行 G；线程可以因为阻塞而多开，但没有 P 就跑不了用户代码，所以并行度由 P 的个数封顶。
-- q: 无缓冲 channel 的一次发送，什么时候完成？
-  options:
-  - 数据写进通道的缓冲区时
-  - 有另一个 goroutine 在对端接收、数据交接完成时
-  - 调用发送语句后立刻完成
-  - 垃圾回收运行时
-  answer: 1
-  explain: 无缓冲通道是 rendezvous（会合）语义：发送与接收双方到场才成交，这一步同时完成了传值与同步。
-- q: 程序里一半 goroutine 永久阻塞在 channel 上、另一半还在正常跑，会发生什么？
-  options:
-  - 运行时立刻报「all goroutines are asleep」并退出
-  - 什么都不报：运行时只检测全局死锁，局部卡死表现为 goroutine 泄漏，任务静默丢失
-  - GC 会自动回收阻塞的 goroutine
-  - 调度器会强制唤醒它们
-  answer: 1
-  explain: 这是最阴险的一种：进程看起来活着，卡住的任务永远不完成。写 channel 代码时必须为每个发送安排确定的接收方或退出路径（如配合 context 取消）。
+  - q: 同样承接一万条空闲等待的长连接，用操作系统线程与用 [[goroutine]] 相比，几十 GB 与几十 MB 的内存差距主要出在哪里？
+    options:
+      - 操作系统线程栈固定预留 1–8MB，而 goroutine 连续[[栈]]从 2KB 起步、按实际深度动态伸缩
+      - goroutine 执行函数完全不需要调用栈
+      - 操作系统线程必须额外占用显卡显存
+      - goroutine 会把暂时不用的局部变量自动换出到磁盘文件
+    answer: 0
+    explain: 核心账本就在栈空间上：一万个固定 1–8MB 的线程栈直接吃掉 10–80GB，而一万个 2KB 起步的协程栈合计仅约 20MB，叠加用户态调度才撑起单机十万级并发。
+  - q: 在 [[GMP]] 调度模型中，真正决定「同一微秒最多有几个用户态 [[goroutine]] 在多核上同时并行执行」的是？
+    options:
+      - 当前已创建的 G（goroutine）总数
+      - 进程当前拉起的 M（操作系统内核线程）总数
+      - P（逻辑处理器）的个数，由 GOMAXPROCS 控制，默认等于逻辑 [[CPU]] 核数
+      - 全局运行队列的槽位上限
+    answer: 2
+    explain: 铁律是「M 必须持有 P 才能跑 G」：阻塞系统调用虽会让 M 的数量超过核数，但没握着 P 的 M 跑不了用户协程，因此真并行度严格由 P 的数量封顶。
+  - q: 向一条无缓冲 [[channel]]（make(chan int)）执行发送语句 ch <- v，什么时候才算真正执行完成？
+    options:
+      - 数据拷贝进通道内部环形缓冲区的那一刻
+      - 恰好有另一个 goroutine 在对端接收、双方当面把数据交接完毕的那一刻
+      - 发送语句刚一调用就立即返回，由后台运行时异步投递
+      - 下一次垃圾回收（[[GC]]）扫描完该通道时
+    answer: 1
+    explain: 无缓冲通道没有任何内部暂存槽，遵循会合（rendezvous）语义：发送方与接收方必须同时到场完成值交接，传值完成的瞬间同步也一并达成。
+  - q: 线上服务里有一批业务 [[goroutine]] 永久卡死在无人接收的 [[channel]] 发送上，但 HTTP 主监听协程仍在正常运转，此时会发生什么？
+    options:
+      - Go 运行时立刻打印 「all goroutines are asleep - deadlock!」 并退出整个进程
+      - 运行时不报任何错误：全局[[死锁]]检测只管「全员睡死」，局部卡死会化作 goroutine 泄漏悄悄吞噬内存
+      - "[[GC]] 发现该通道无人再读后会自动强行销毁卡住的 goroutine"
+      - "[[GMP]] 调度器会在超时 1 分钟后自动强制唤醒阻塞协程并返回错误"
+    answer: 1
+    explain: 这是生产环境最隐蔽的陷阱：只要进程里还有一个协程在跑，全局死锁检测就不会触发；卡住的协程连同栈与堆引用永久驻留，必须靠有缓冲结果槽或 select 配合 context.Done 防御。
 steps:
-- id: ten-thousand-connections
-  title: 第一步：先算账——一万个连接，线程模型为什么先爆
-  tldr: 电商大促时网关挂着一万个长连接：用线程接，光栈内存就要几十 GB；问题不在 CPU，在每个执行流的固定成本。
-  body: |-
-    先看一个业务场景示意：电商大促当晚，网关上挂着一万个客户端连接，大部分时间它们在等——等用户下单、等支付回调、等库存服务返回。假设按最直白的模型写：一连接配一个操作系统线程，线程阻塞在读操作上等数据。账这样算：一个线程的[[栈]]是固定预留的，通常 1–8MB（视平台与运行时而定）；一万个线程，光栈就是 10–80GB——还没算线程控制块与内核调度开销，内存先爆了。真实系统于是被迫绕路：线程池限流加请求排队，或者写异步回调把逻辑切成碎片，代码形状被成本逼得很难看。
+  - id: ten-thousand-connections
+    title: 一万条长连接算内存账：线程栈先爆，协程只占约 20MB
+    tldr: 操作系统线程固定预留 1–8MB 栈，一万条空闲等待的长连接光栈就要吃掉 10–80GB；[[goroutine]] 起步栈仅 2KB，一万个才占约 20MB，把单连接固定成本砍低约一千倍。
+    body: |-
+      电商大促当晚，接入网关上同时挂着一万条客户端连接，绝大部分时间它们什么都不算，只是静静等着——等用户点下单、等支付渠道回调、等库存服务回包。如果按最符合直觉的「一条连接配一个操作系统线程」来写，不用等 [[CPU]] 跑满，内存就先炸了：操作系统给每个线程固定预留的[[栈]]通常高达 1–8MB，一万个线程光栈空间就要吞掉 10–80GB，这还没算内核线程控制块与频繁陷入内核切换上下文的开销。传统后端为了活命，要么用线程池限流排队，要么把好端端的顺序逻辑切碎成满屏异步回调。
 
-    换 Go 的账：一个 [[goroutine]] 起步栈只有 2KB，一万个约 20MB；就算涨到几十万个连接，栈内存也在 GB 以内。数量级差了约一千倍，于是「一个连接一个 goroutine、同步写法从头写到尾」成了默认姿势。本课后面讲的三件事——栈为什么能这么小、调度器怎么铺开、channel 怎么组织协作——都是为兑现这笔账。
-  derivation: original
-  sources:
-  - ref: go-faq
-    locator: "FAQ: Why goroutines instead of threads"
-    claim: FAQ 说明 goroutine 的栈按需伸缩、起步极小，使单个进程可以同时跑成千上万个 goroutine，而线程的固定大栈与内核调度成本撑不住这个量级。
-    status: verified
-    checkedBy: subagent-research
-    checkedAt: "2026-11-17"
-  canvas:
-    kind: datastate
-    caption: 一万个连接的栈内存账（起步值，业务场景示意）
-    structure: array
-    rows:
-    - label: 1 万个执行流的栈
-      cells:
-      - v: "10–80 GB"
-        sub: 每线程 1–8MB
-      - v: 约 20 MB
-        sub: 2KB 起按需长
-        mark: active
-      - v: 约千倍
-        sub: 决定写法上限
-        mark: active
-  log:
-  - at: 账一
-    text: 线程贵在固定成本：栈与内核调度
-  - at: 账二
-    text: goroutine 把固定成本压到 KB 级
-- id: tiny-growing-stack
-  title: 第二步：2KB 的栈为什么够用——不够就长大
-  tldr: goroutine 的栈不是固定配给，而是运行时盯着用量伸缩：平时小、深调用时整段搬走扩容。
-  body: |-
-    线程栈为什么那么大？因为操作系统给线程的栈一旦定下就不能动，程序员只能按最坏情况预留——某个深调用链真用到了，栈不够就是崩溃，于是宁可多给。goroutine 的栈换了个管理方式：起步只给 2KB（这个起步值是 Go 1.4 引入连续栈后的数字），运行时在函数调用前检查剩余空间，不够时就分配一段更大的新栈、把旧栈内容整段拷过去、再更新所有指向栈的指针——这套机制叫连续栈（contiguous stack）。用得深就长大，任务结束栈还回去，平均占用贴着实际用量走。
+      换成 Go 来算同一笔账，数字瞬间降了三个数量级：一个 [[goroutine]] 起步栈只有 2KB，一万个协程加起来不过 20MB 左右；哪怕在线连接飙到几十万条，总栈内存依然稳稳压在 1GB 以内。
 
-    对写代码的人来说，这件事完全透明：你不需要给 goroutine 设栈大小，也不用担心默认太小。代价在运行时那边：栈拷贝要花时间、指针要逐个修正，这是 Go 运行时复杂度的一部分。可以记成一句话：goroutine 便宜，一半靠调度在用户态（下一步讲），一半靠栈不再按最坏情况预留。
-  derivation: original
-  sources:
-  - ref: go-faq
-    locator: "FAQ: How do goroutines work / stack size"
-    claim: goroutine 栈起步 2KB 并由运行时动态伸缩（连续栈），这是单个进程能承载海量 goroutine 的内存基础。
-    status: verified
-    checkedBy: subagent-research
-    checkedAt: "2026-11-17"
-  canvas:
-    kind: datastate
-    caption: 两种栈：按最坏情况预留，还是按实际用量伸缩
-    structure: array
-    rows:
-    - label: 栈的管理方式
-      cells:
-      - v: 固定预留
-        sub: 定死只能多给
-      - v: "2KB 起步"
-        sub: 不够整段扩容
-        mark: active
-      - v: 无感
-        sub: 不设不管
-        mark: active
-  log:
-  - at: 机制
-    text: 连续栈：检查、扩容、拷贝、修指针，全在运行时
-- id: gmp-model
-  title: 第三步：调度器 GMP——抓住 P 就抓住了一大半
-  tldr: G 是任务、M 是线程、P 是「开工许可」：线程必须先拿到 P 才能跑任务，并行度由 P 的个数封顶。
-  body: |-
-    几十万个 goroutine 最终要落到几个 CPU 核上跑，中间这层就是 Go 运行时的调度器，模型叫 [[GMP]]。三个字母各管一件事：G 是 goroutine，也就是待跑的任务；M 是操作系统线程，是真正在 CPU 上干活的工人；P 是逻辑处理器，可以理解为一个工位——它带着一条本地运行队列（run queue），存着等着在这个工位上跑的 G。关键规则只有一条：M 必须先拿到一个 P，才能从 P 的队列里取 G 来执行；没有 P 的 M 只能等着或去干杂活。
+      执行流的固定成本便宜了约一千倍，写代码的姿势就彻底翻篇了：工程师不再需要精打细算省着用线程，直接「每来一条连接开一个 goroutine，从头到尾按同步顺序往下写」成了最地道的默认写法。至于 2KB 的小栈怎么防溢出、几十万协程怎么落到几个核上跑，正是运行时在底下替你扛下的活。
+    derivation: original
+    sources:
+      - ref: go-faq
+        locator: "FAQ: Why goroutines instead of threads"
+        claim: FAQ 说明 goroutine 的栈按需伸缩、起步极小，使单个进程可以同时跑成千上万个 goroutine，而线程的固定大栈与内核调度成本撑不住这个量级。
+        status: verified
+        checkedBy: subagent-research
+        checkedAt: "2026-11-17"
+    canvas:
+      kind: datastate
+      caption: 一万个连接的栈内存账（起步值，业务场景示意）
+      structure: array
+      rows:
+        - label: 1 万个执行流的栈
+          cells:
+            - v: "10–80 GB"
+              sub: 每线程 1–8MB
+            - v: 约 20 MB
+              sub: 2KB 起按需长
+              mark: active
+            - v: 约千倍
+              sub: 决定写法上限
+              mark: active
+    log:
+      - at: 账一
+        text: 线程贵在固定成本：栈与内核调度
+      - at: 账二
+        text: goroutine 把固定成本压到 KB 级
+  - id: tiny-growing-stack
+    title: 2KB 起步不够就搬家：连续栈让内存贴着实际用量走
+    tldr: 操作系统线程栈定死后不能挪动，只能按最坏深度预留；[[goroutine]] 采用可伸缩连续[[栈]]，函数入口检查空间不足时自动分配大栈、整段拷贝并修正指针。
+    body: |-
+      操作系统线程的[[栈]]为什么非要预留好几 MB？因为线程栈在虚拟地址空间里一旦划定就很难原地扩容，万一遇上一条深层调用链把栈撑穿就是直接崩溃，内核与运行时只能宁多勿少、按最坏情况提前圈地。绝大多数只等网络回包的浅层任务，白白占着几 MB 却只用了几 KB。
 
-    P 的个数由 GOMAXPROCS 决定，默认等于 CPU 核数。这意味着：同一时刻真正并行执行的 goroutine 最多就是核数个，其余都在队列里排队——goroutine 可以开几十万个，但「同时在跑」被 P 封了顶。本地队列的容量在调度器设计里定为 256：一个 P 的队列满了，新 G 会溢到一条全局队列里，空闲的 P 没活时先去全局队列拿。这样设计的原因很实际：大多数 G 只跟少数几个 G 协作，把它们留在本地队列，缓存命中率更高、跨核搬运更少。
-  derivation: original
-  sources:
-  - ref: go-sched-design
-    locator: "Scalable Go Scheduler Design Doc: G/P/M 与本地队列"
-    claim: 设计文档定义了 GMP 模型：P 的个数即并行度，P 带本地运行队列（容量 256），溢出与兜底走全局队列，M 必须持有 P 才能执行用户代码。
-    status: verified
-    checkedBy: subagent-research
-    checkedAt: "2026-11-17"
-  canvas:
-    kind: datastate
-    caption: GMP 三件套各自的角色（8 核机器示意）
-    structure: array
-    rows:
-    - label: 谁是谁
-      cells:
-      - v: 任务
-        sub: 可开几十万个
-      - v: 工人
-        sub: 线程按需增减
-      - v: 工位×8
-        sub: 决定并行上限
-        mark: active
-      - v: M 先拿 P
-        sub: 没 P 跑不了
-  log:
-  - at: 要点
-    text: 并行度看 P，不看 G 也不看 M 的数量
-- id: work-stealing-blocking
-  title: 第四步：活怎么分匀——工作窃取与阻塞交接
-  tldr: 某个 P 的队列空了，就去别的 P 那里偷一半任务；某个 M 卡在系统调用上，它手里的 P 会转交给别的线程继续跑。
-  body: |-
-    队列是分布式的，活就可能分不匀：一个 P 忙死、一个 P 闲着。Go 的办法是[[工作窃取]]：空闲的 P 不傻等，它随机挑一个忙碌的 P，从对方队列尾部一次偷走大约一半的 G 回来跑。偷一半而不是偷一个，是为了减少窃取的往返次数——拿一次就够自己忙一阵。全局队列则是最后的兜底：本地队列溢出的 G 与被唤醒的老 G 先落在那里，P 们定期去捞。
+      [[goroutine]] 换了一套按需配给的活法（Go 1.4 起定型为「连续栈」机制）：刚创建时运行时只批给它 2KB 栈空间；编译器在每个函数开头自动插了一小段栈余量检查指令，一旦发现当前栈快见底了，运行时立刻在堆上申请一块两倍大的新栈，把旧栈里的数据整段拷贝过去，再顺手把所有指向旧栈地址的指针逐一修正到新地址，任务跑完后再把空间收回来。
 
-    另一个关键场景是阻塞：goroutine 执行文件读写这类会卡住线程的系统调用时，M 被操作系统挂起；这时它手里的 P 不能跟着闲置——运行时把 P 连同它的队列转交给另一个空闲或新建的 M，队列里的 G 继续有人跑。网络 I/O 还要更进一步：goroutine 等网络数据时，M 不阻塞，等待交给一个网络轮询器（netpoller，底层是 epoll 这类机制），数据到了再把 G 放回队列。这两招合起来，保证了「某个任务在等」不会浪费一个工位。
-  derivation: original
-  sources:
-  - ref: go-sched-design
-    locator: "Scalable Go Scheduler Design Doc: work stealing 与 P handoff"
-    claim: 设计文档规定空 P 从其他 P 的队列窃取约一半任务；G 进入阻塞系统调用时，M 释放 P 给其他 M 使用，网络等待则由 netpoller 统一托管。
-    status: verified
-    checkedBy: subagent-research
-    checkedAt: "2026-11-17"
-  canvas:
-    kind: datastate
-    caption: 两种失衡与对应的调度动作
-    structure: array
-    rows:
-    - label: 分活规则
-      cells:
-      - v: 偷一半
-        sub: 从别处尾部取
-        mark: active
-      - v: P 转交
-        sub: 队列换线程跑
-        mark: active
-      - v: 交 netpoller
-        sub: 线程不陪等
-        mark: active
-  log:
-  - at: 目标
-    text: 等待不占工位，空闲不看忙碌
-- id: channel-rendezvous
-  title: 第五步：channel——传值的那一瞬，同步也完成了
-  tldr: 无缓冲 channel 是一次会合：发送方与接收方都到场，数据才交手；交手完成之前，双方都在原地等。
-  body: |-
-    机制先看最小例子。下面这段代码里，main 向一个无缓冲 [[channel]] 发一个数字，再从它收回来打印——这行不通：发送动作会一直等接收方出现，可接收方正是发送方自己后面的代码，永远轮不到执行，程序直接死锁（第八步细讲）。这个「坑」恰好说明了 channel 的语义：无缓冲通道没有暂存区，发送完成的条件是「另一个 goroutine 此刻正在接收」，数据从发送方的手里直接交到接收方手里，这次交接同时向双方保证了对方已经到达某个执行点——传值与同步是同一个动作。
+      对写业务代码的人来说，这套「不够就搬家」全程无感——既不用调栈大小参数，也不必担心 2KB 兜不住深层调用。代价自然记在 Go 运行时账上：扩容瞬间要付出内存拷贝与指针修正的开销。用这点偶发的搬家成本，换掉成千上万空闲连接按最坏情况傻占的几十 GB 内存，这笔买卖稳赚不赔。
+    derivation: original
+    sources:
+      - ref: go-faq
+        locator: "FAQ: How do goroutines work / stack size"
+        claim: goroutine 栈起步 2KB 并由运行时动态伸缩（连续栈），这是单个进程能承载海量 goroutine 的内存基础。
+        status: verified
+        checkedBy: subagent-research
+        checkedAt: "2026-11-17"
+    canvas:
+      kind: datastate
+      caption: 两种栈：按最坏情况预留，还是按实际用量伸缩
+      structure: array
+      rows:
+        - label: 栈的管理方式
+          cells:
+            - v: 固定预留
+              sub: 定死只能多给
+            - v: "2KB 起步"
+              sub: 不够整段扩容
+              mark: active
+            - v: 无感
+              sub: 不设不管
+              mark: active
+    log:
+      - at: 机制
+        text: 连续栈：检查、扩容、拷贝、修指针，全在运行时
+  - id: gmp-model
+    title: "[[GMP]] 调度模型：线程必须先拿 P，并行度由 P 封顶"
+    tldr: Go 运行时通过 G（协程任务）、M（内核线程）、P（带 256 槽本地队列的逻辑处理器）三层解耦调度；M 必须持有 P 才能跑 G，真并行上限由等于 GOMAXPROCS 的 P 数量锁死。
+    body: |-
+      几十万个 [[goroutine]] 终归要落到寥寥几颗 [[CPU]] 核心上执行，负责在用户态居中调度的就是 Go `runtime` 包里的 [[GMP]] 模型（底层对应 `g`、`m`、`p` 三个核心结构体）：
+      - **G（Goroutine）**：装着待跑函数、当前[[栈]]与寄存器现场的一份逻辑任务，开几十万个也不稀奇。
+      - **M（Machine）**：真正的操作系统内核线程，负责上 CPU 干苦力的工人。
+      - **P（Processor）**：逻辑处理器，好比车间里的「持证工位」，身上挂着一条容量为 256 的本地运行队列（local run queue）。铁律只有一条：**M 必须先绑上一个 P，才有资格从 P 的队列里取 G 执行**；没抢到 P 的 M 只能休眠待命或去跑系统调用。
 
-    带缓冲的 channel 则相当于在通道中间加了一个小仓库：make(chan T, 100) 表示仓库能存 100 个值，仓库没满时发送方放下就走，空了时接收方才等。它适合削峰，但也会把「对方处理不过来」的信号推迟——缓冲不是越大越好。下面例子把发送挪进一个新 goroutine，才是这段代码的正常形态。
-  derivation: original
-  sources:
-  - ref: go-effective
-    locator: "Effective Go: Channels"
-    claim: Effective Go 说明无缓冲通道的发送与接收会互相阻塞直到对端到场，交接即同步；带缓冲通道则在缓冲未满时不阻塞发送方。
-    status: verified
-    checkedBy: subagent-research
-    checkedAt: "2026-11-17"
-  code:
-    lang: go
-    code: |-
-      ch := make(chan int)   // 无缓冲通道
-      go func() { ch <- 42 }() // 发送方：另一个 goroutine
-      v := <-ch              // 接收：两边到场，42 交手完成
-  canvas:
-    kind: datastate
-    caption: 无缓冲与带缓冲：仓库的有无，决定发送方等不等
-    structure: array
-    rows:
-    - label: 两种通道
-      cells:
-      - v: 必须会合
-        sub: 等接收到场
-        mark: active
-      - v: 先放仓库
-        sub: 没满放下就走
-      - v: 传值即同步
-        sub: 交接即先后
-        mark: active
-  log:
-  - at: 语义
-    text: channel 不是队列的同义词：无缓冲时它根本没有队列
-- id: csp-share-by-communicating
-  title: 第六步：CSP 与那句口号——用通信来共享内存
-  tldr: 「不要通过共享内存来通信，要通过通信来共享内存」：数据的所有权跟着通道走，谁收到谁负责，锁就没活干了。
-  body: |-
-    channel 的思想来源是 [[CSP]]：Tony Hoare 在 1978 年提出的并发模型，主张独立的进程之间不共享内存、只通过通道传消息。Go 把这套模型做成了语言设施，并留下一句官方口号，出自 Effective Go：「Do not communicate by sharing memory; instead, share memory by communicating.」翻译过来：不要靠共享内存来通信，要靠通信来共享内存。
+      P 的总个数由 `GOMAXPROCS` 决定，默认等于机器的逻辑 CPU 核数。这就把两件事彻底解耦了：哪怕程序里开了五十万个 G、因为系统调用多拉起了上百个线程 M，**同一微秒真正在 CPU 上并行跑用户代码的 M 永远不超过 P 的个数**。
 
-    这句话落到写代码上是一个具体的组织方式：把数据当成在流水线上流动的工件——一个 goroutine 处理完，通过 channel 把结果交给下一个，自己不再碰它。所有权随交接转移，任何时刻一份数据只有一个 goroutine 在动，竞态从源头消失大半。举个工单系统的业务场景示意：新工单进来后要经过「分类、派单、通知」三步，与其让三个模块共享一张工单表各自加锁读写，不如让工单对象在 channel 里依次流过三个处理 goroutine——每步处理完往下传，整条线天然串行、安全。要注意边界：如果几个 goroutine 就是要频繁读写同一份共享状态（比如一个计数器），硬套 channel 反而别扭，Go 同时提供了 sync.Mutex——口号指方向，不是禁令。
-  derivation: original
-  sources:
-  - ref: go-effective
-    locator: "Effective Go: Share memory by communicating"
-    claim: 该节给出原句并解释：让数据的所有权通过通道转移、任一时刻只有一个 goroutine 持有，是 Go 推荐的并发组织方式；同时说明锁依然存在且适用。
-    status: verified
-    checkedBy: subagent-research
-    checkedAt: "2026-11-17"
-  canvas:
-    kind: datastate
-    caption: 两种组织并发的方式：共享数据加锁，还是让数据流动（工单流水线为业务场景示意）
-    structure: array
-    rows:
-    - label: 组织方式对比
-      cells:
-      - v: 数据不动人动
-        sub: 锁错就竞态
-      - v: 数据流动
-        sub: 所有权随交接
-        mark: active
-      - v: 计数器类状态
-        sub: Mutex 更顺手
-  log:
-  - at: 出处
-    text: CSP（Hoare, 1978）→ Go 的语言级实现
-- id: select-multiplex
-  title: 第七步：select——同时等好几个 channel
-  tldr: 一个 goroutine 经常要同时等几路消息：select 让它在多个 channel 里谁先到先处理哪路，还能顺手加超时。
-  body: |-
-    场景：一个聚合服务要同时问库存、价格、优惠三个下游，答复谁先回来先用谁，超过 200 毫秒没等齐就先返回已有部分。用普通接收语句只能死等某一路；Go 的 select 语句专门干这个：它把多个 channel 的发送与接收写成几个 case，哪个先就绪就执行哪个，多个同时就绪时随机挑一个（避免某一路被饿死）。配上 time.After 返回的定时 channel，「等结果或者等超时」就是再加一个 case 的事；加上 default 分支，则变成「有就收、没有立刻走」的非阻塞模式。
+      为什么要给每个 P 配一条独立的 256 槽本地队列，再备一条全局队列兜底？答案是为了省锁与亲和缓存：如果所有线程都去抢同一条全局队列，光排队抢锁就能把多核性能磨平；让新派生的 G 优先塞进当前 P 的本地队列（满了才溢去全局队列），不仅取任务几乎不用加锁，互相配合的协程还能留在同一颗核的高速缓存里热乎着跑完。
+    derivation: original
+    sources:
+      - ref: go-sched-design
+        locator: "Scalable Go Scheduler Design Doc: G/P/M 与本地队列"
+        claim: 设计文档定义了 GMP 模型：P 的个数即并行度，P 带本地运行队列（容量 256），溢出与兜底走全局队列，M 必须持有 P 才能执行用户代码。
+        status: verified
+        checkedBy: subagent-research
+        checkedAt: "2026-11-17"
+    canvas:
+      kind: datastate
+      caption: GMP 三件套各自的角色（8 核机器示意）
+      structure: array
+      rows:
+        - label: 谁是谁
+          cells:
+            - v: 任务
+              sub: 可开几十万个
+            - v: 工人
+              sub: 线程按需增减
+            - v: 工位×8
+              sub: 决定并行上限
+              mark: active
+            - v: M 先拿 P
+              sub: 没 P 跑不了
+    log:
+      - at: 要点
+        text: 并行度看 P，不看 G 也不看 M 的数量
+  - id: work-stealing-blocking
+    title: "[[工作窃取]]与阻塞交接：闲工位去偷活，卡住线程先交权"
+    tldr: 本地队列空了的 P 会从其他忙碌 P 队列尾部一次偷走约一半任务；遇阻塞系统调用时 M 会把 P 转交给其他线程，网络 [[I/O]] 则交给 netpoller 轮询，绝不白占工位。
+    body: |-
+      任务分进各个 P 的本地队列后，难免忙闲不均：1 号 P 积压了两百个协程，2 号 P 手里的活却早干完了。Go[[调度器]]靠[[工作窃取]]（work stealing）自动找平：空闲的 P 除了定期瞄一眼全局队列，还会随机挑一个忙碌的 P，从对方队列尾部**一把偷走大约一半的 G** 塞进自己兜里。之所以一次偷一半而非偷一个，是为了摊薄跨队列偷取的同步开销，偷一趟就够自己低头忙活好一阵。
 
-    select 是 Go 并发代码里出现率最高的语句之一，因为真实服务的等待几乎总是多路的：业务结果、上游取消信号（context 的 Done 通道本质上也是一个 channel）、定时器，都要在同一个等待点汇合。写的时候注意一个坑：select 在循环里用时，如果某个 case 对应的 channel 被关闭，它会永远就绪、疯狂空转——关闭的通道要从 select 里摘掉或直接 return。
-  derivation: original
-  sources:
-  - ref: go-spec
-    locator: "The Go Programming Language Specification: Select statements"
-    claim: 规范定义 select 在多个就绪的通信操作中随机选一执行；配合定时通道可实现超时，default 分支使其非阻塞。
-    status: verified
-    checkedBy: subagent-research
-    checkedAt: "2026-11-17"
-  code:
-    lang: go
-    code: |-
-      select {
-      case v := <-resultCh:   // 结果先到
-          use(v)
-      case <-time.After(200 * time.Millisecond): // 超时先到
-          usePartial()
-      }
-  canvas:
-    kind: datastate
-    caption: select 的等待点：多路输入汇合到一个 goroutine
-    structure: array
-    rows:
-    - label: select 的 case
-      cells:
-      - v: 先到先处理
-        sub: 多就绪随机挑
-        mark: active
-      - v: 200ms 超时
-        sub: time.After
-      - v: 有就收没有走
-        sub: 非阻塞模式
-  log:
-  - at: 坑
-    text: 已关闭的通道在 select 里永远就绪，循环里要防空转
-- id: deadlock-self-wait
-  title: 第八步：死锁图鉴一——自己等自己，与永远等不到的 close
-  tldr: 两种最常见的卡死：无缓冲通道在单 goroutine 里自发自收；消费者等一个永远不会被关闭的通道。
-  body: |-
-    第一种就是在第五步埋的雷：main 里直接向无缓冲 channel 发送——发送要等接收方，可唯一的 goroutine 正卡在发送上，后面的接收语句永远执行不到。这种情况下所有 goroutine 都睡死了，运行时会直接报错退出：fatal error: all goroutines are asleep - deadlock!。它好歹会喊一声。
+      更精彩的配合发生在「卡壳」瞬间。假如某个 G 调用了磁盘文件读写这类真正会阻塞内核线程的系统调用，跑它的线程 M 会被操作系统直接挂起；如果 M 死攥着手里的 P 不撒手，这台工位连同队列里排队的上百个 G 就得跟着陪葬。运行时的做法叫 **P 交接（handoff）**：一旦检测到 M 卡进阻塞系统调用，立刻把 P 从它手里摘下来，转交给另一个休眠中或新拉起的线程 M 继续消费本地队列。
 
-    第二种更常见也更安静：生产者写完数据忘了 close(channel)，消费者用 for range 循环收——range 只有在通道被关闭时才结束，于是消费者永远挂在那里等下一条。如果程序里还有别的 goroutine 在跑，运行时不报死锁，进程看起来一切正常，只是这条流水线再也不出活。规矩因此很明确：谁创建、谁发送，谁负责 close；接收方永远不要去关通道（关一个还有人发的通道会引发 panic）。带 range 的消费端，生命线就系在发送方的那个 close 上。
-  derivation: original
-  sources:
-  - ref: go-spec
-    locator: "The Go Programming Language Specification: Send statements / Close"
-    claim: 规范定义发送在无缓冲通道上阻塞至接收方就绪、close 由发送方负责、向已关闭通道发送会 panic；运行时对全局死锁给出 fatal error。
-    status: verified
-    checkedBy: subagent-research
-    checkedAt: "2026-11-17"
-  canvas:
-    kind: datastate
-    caption: 两种卡死的差别：一个当场报错，一个无声无息
-    structure: array
-    rows:
-    - label: 死锁图鉴 · 上
-      cells:
-      - v: 当场 fatal
-        sub: 全睡死才触发
-      - v: 静默挂死
-        sub: 永远等下一条
-      - v: 发送方关
-        sub: 接收方不关
-        mark: active
-  log:
-  - at: 原则
-    text: 每个 channel 都要能回答「谁关、何时关」
-- id: deadlock-cycle-leak
-  title: 第九步：死锁图鉴二——循环等待与 goroutine 泄漏
-  tldr: 两个 goroutine 互相等对方先收，就构成循环等待；而「发不出去的发送」堆积起来，就是最常见的内存泄漏来源。
-  body: |-
-    循环等待是死锁的教科书形状：goroutine A 要先把结果发给 B 才肯收 B 的输入，B 那边写的也是同样的顺序——两边都卡在发送上，谁也不先接收。只要有第三个 goroutine 还在跑，运行时同样不会报错：A 与 B 就此从系统里「消失」，它们负责的请求永远得不到回复。排查这类问题靠的是运行时提供的 goroutine 堆栈转储：卡住的 goroutine 会成片地停在 chan send / chan receive 的代码行上，顺着行号对图就能找到环。
+      要是碰上最常见的网络 [[I/O]] 等待（等客户端发包、等下游接口返回），连线程切换都省了：Go 内置了基于操作系统 [[epoll]] 等多路复用机制的**网络轮询器（`netpoller`）**。协程读不到网卡数据时，只把这个 G 单独挂到 `netpoller` 名下等通知，底下的 M 连同手里的 P 当场抽身去跑队列里的下一个 G；等网卡数据到了，`netpoller` 再把刚才那个 G 重新塞回运行队列。一偷、一交、一托管，八颗核从头到尾满负荷运转。
+    derivation: original
+    sources:
+      - ref: go-sched-design
+        locator: "Scalable Go Scheduler Design Doc: work stealing 与 P handoff"
+        claim: 设计文档规定空 P 从其他 P 的队列窃取约一半任务；G 进入阻塞系统调用时，M 释放 P 给其他 M 使用，网络等待则由 netpoller 统一托管。
+        status: verified
+        checkedBy: subagent-research
+        checkedAt: "2026-11-17"
+    canvas:
+      kind: datastate
+      caption: 两种失衡与对应的调度动作
+      structure: array
+      rows:
+        - label: 分活规则
+          cells:
+            - v: 偷一半
+              sub: 从别处尾部取
+              mark: active
+            - v: P 转交
+              sub: 队列换线程跑
+              mark: active
+            - v: 交 netpoller
+              sub: 线程不陪等
+              mark: active
+    log:
+      - at: 目标
+        text: 等待不占工位，空闲不看忙碌
+  - id: channel-rendezvous
+    title: 无缓冲 [[channel]] 靠会合传值：数据交手那一刻同步已完成
+    tldr: 无缓冲 [[channel]] 没有暂存区，发送与接收必须两个协程同时到场才能当面交接（会合语义）；有缓冲通道则内置固定容量环形队列，未满时发送方放下就走。
+    body: |-
+      协程跑起来了，彼此之间怎么安全递数据？看下方三行最小代码：`main` 协程先用 `make(chan int)` 建一条无缓冲 [[channel]]，另起一个子协程往里发 `42`，自己在外头收。如果去掉 `go func()` 直接在 `main` 里先发后收，程序当场就会卡死——因为无缓冲通道里连一个格子的暂存区都没有，发送语句 `ch <- 42` 完成的前提是**此刻正好有另一个协程守在对端执行 `<-ch`**。先到的一方必须原地挂起等后到的一方，双方碰面把值直接从发送方栈拷进接收方栈，才双双放行。这种「一手交钱、一手交货」的设计叫**会合（rendezvous）语义**：值传过去的那一瞬间，天然确立了严格的先后同步关系。
 
-    由此引出一个更日常的概念：goroutine 泄漏。它就是局部死锁的累积版——每次请求都新开一个 goroutine 去等一个永远不会来的接收方，单次看只是丢了一个任务，跑上一个月，几万个卡死的 goroutine 带着它们的栈与持有的资源一起堆在内存里。防御写法是固定的：每个可能阻塞的发送，都要给它一条逃生通道——放进 select，同时监听一个取消信号（比如 context.Done），上游不要了，这个 goroutine 就能自己退出。下一课换个话题讲类型系统，但这条纪律会跟着所有 Go 并发代码走下去。
-  derivation: adapted
-  sources:
-  - ref: go-effective
-    locator: "Effective Go: Channels / goroutine 生命周期管理"
-    claim: 官方文档强调 goroutine 的退出要由程序结构保证：阻塞的发送接收必须配合关闭或取消信号，否则 goroutine 将永久驻留。
-    status: verified
-    checkedBy: subagent-research
-    checkedAt: "2026-11-17"
-  canvas:
-    kind: datastate
-    caption: 循环等待与泄漏：同一个病的两种病程
-    structure: array
-    rows:
-    - label: 死锁图鉴 · 下
-      cells:
-      - v: 互相卡发送
-        sub: 成对停在发送
-      - v: 越积越多
-        sub: 每次丢一个
-      - v: select+取消
-        sub: 阻塞要有逃生口
-        mark: active
-  log:
-  - at: 纪律
-    text: 没有确定接收方的发送，不要裸着写
-- id: when-not-goroutine
-  title: 第十步：边界——不是所有事都值得开一个 goroutine
-  tldr: goroutine 便宜不等于免费：调度、栈与协调都有价；顺序能写清的逻辑，别为了并发而并发。
-  body: |-
-    最后划边界。第一笔账是调度本身：每个 goroutine 都要被调度器排队、切换，栈要伸缩管理，任务粒度太细时，这些开销会超过任务本身——把一个几行代码的循环拆成一万个 goroutine 分片跑，很可能比单 goroutine 还慢。第二笔账是协调成本：一旦并发，就要回答数据谁持有、出错谁收尾、结果是按完成顺序还是原始顺序——这些问题顺序代码根本不存在。第三笔账是可读性：Go 社区有句常被引用的话，大意是不要为了用并发而并发；先写顺序版本，测出瓶颈确实在等待或并行度上，再把那一段改成 goroutine 加 channel。
+      如果改成 `make(chan int, 100)`，运行时底层的通道结构（`hchan`）里就会多出一段容量为 100 的环形数组缓冲区，外加发送等待队列和接收等待队列：只要缓冲区没塞满，发送方把值扔进环形槽位扭头就走；只有缓冲区满了发送才阻塞，彻底空了接收才阻塞。
 
-    本课收束成三句：成本上，goroutine 把执行流的固定开销从 MB 级压到 KB 级，这是它敢当默认写法的底气；机制上，GMP 用 P 封顶并行度、用工作窃取分匀活、用交接与 netpoller 让等待不占工位；纪律上，channel 的每一次阻塞都要有确定的对端或逃生口，否则死锁与泄漏只是时间问题。
-  derivation: adapted
-  sources:
-  - ref: go-sched-design
-    locator: "Scalable Go Scheduler Design Doc: 设计目标与开销讨论"
-    claim: 设计文档的目标是让调度开销足够低以支持细粒度并发，但调度与栈管理仍是真实成本，任务粒度过细时得不偿失。
-    status: verified
-    checkedBy: subagent-research
-    checkedAt: "2026-11-17"
-  canvas:
-    kind: datastate
-    caption: 开 goroutine 之前要过的三道账
-    structure: array
-    rows:
-    - label: 边界检查
-      cells:
-      - v: 太细不划算
-        sub: 开销盖过任务
-      - v: 先想清
-        sub: 所有权与收尾
-      - v: 先顺序后并发
-        sub: 测出瓶颈再改
-        mark: active
-  log:
-  - at: 收束
-    text: 便宜的是创建，贵的是协调——按需并发
+      选无缓冲还是带缓冲，看的不是心情而是语义：无缓冲提供最强的同步担保——发出去就代表对方肯定接到了；带缓冲适合吸收短时流量毛刺，但如果上下游长期速度倒挂，再大的缓冲迟早也会填满，还容易掩盖下游已经快被压垮的背压信号。
+    derivation: original
+    sources:
+      - ref: go-effective
+        locator: "Effective Go: Channels"
+        claim: Effective Go 说明无缓冲通道的发送与接收会互相阻塞直到对端到场，交接即同步；带缓冲通道则在缓冲未满时不阻塞发送方。
+        status: verified
+        checkedBy: subagent-research
+        checkedAt: "2026-11-17"
+    code:
+      lang: go
+      code: |-
+        ch := make(chan int)   // 无缓冲通道
+        go func() { ch <- 42 }() // 发送方：另一个 goroutine
+        v := <-ch              // 接收：两边到场，42 交手完成
+    canvas:
+      kind: datastate
+      caption: 无缓冲与带缓冲：仓库的有无，决定发送方等不等
+      structure: array
+      rows:
+        - label: 两种通道
+          cells:
+            - v: 必须会合
+              sub: 等接收到场
+              mark: active
+            - v: 先放仓库
+              sub: 没满放下就走
+            - v: 传值即同步
+              sub: 交接即先后
+              mark: active
+    log:
+      - at: 语义
+        text: channel 不是队列的同义词：无缓冲时它根本没有队列
+  - id: csp-share-by-communicating
+    title: "[[CSP]] 流水线思维：让数据所有权顺着通道往下交接"
+    tldr: 源自 1978 年 Hoare [[CSP]] 模型的 Go 核心格言主张「通过通信来共享内存」：把数据装进 [[channel]] 在工序间流转所有权，任一时刻仅单协程读写；但原地高频改状态仍该直接用 sync.Mutex。
+    body: |-
+      [[channel]] 的理论祖师爷是图灵奖得主 Tony Hoare 在 1978 年提出的 [[CSP]]（通信顺序进程）模型：并发实体之间不直接翻看彼此的内存，只靠显式通道收发消息。Effective Go 把这套哲学浓缩成了整门语言最出名的一句格言：**「Do not communicate by sharing memory; instead, share memory by communicating.」**（不要通过共享内存来通信，而要通过通信来共享内存。）
+
+      怎么把这句格言落成代码？想象一条售后工单流水线，新工单进来要依次经过「智能分类 → 坐席派单 → 消息通知」三道工序。传统共享内存写法是把工单对象摆在公共内存里，三个线程轮流抢锁上去改字段，谁漏加一把锁就是线上数据竞态；CSP 写法则是拉起三组协程并用两条 channel 串起来——分类协程填完标签把工单塞进通道，从此洗手不碰；派单协程接过来填好负责人再往下一棒传。**数据的所有权顺着通道移交，任何时刻全世界只有一个协程握着这张工单**，数据竞争从结构上就不复存在。
+
+      不过千万别把格言念成教条：通道擅长的是「流水线交接、任务编排与取消广播」；如果十几个协程只是要高频累加同一个内存计数器、或者读写同一张本地内存缓存表，硬套一条 channel 居中倒手反而既啰嗦又慢。Go 标准库大大方方留着 `sync.Mutex` 互斥锁——流动交接用 channel，原地护状态用锁，哪把顺手拿哪把。
+    derivation: original
+    sources:
+      - ref: go-effective
+        locator: "Effective Go: Share memory by communicating"
+        claim: 该节给出原句并解释：让数据的所有权通过通道转移、任一时刻只有一个 goroutine 持有，是 Go 推荐的并发组织方式；同时说明锁依然存在且适用。
+        status: verified
+        checkedBy: subagent-research
+        checkedAt: "2026-11-17"
+    canvas:
+      kind: datastate
+      caption: 两种组织并发的方式：共享数据加锁，还是让数据流动（工单流水线为业务场景示意）
+      structure: array
+      rows:
+        - label: 组织方式对比
+          cells:
+            - v: 数据不动人动
+              sub: 锁错就竞态
+            - v: 数据流动
+              sub: 所有权随交接
+              mark: active
+            - v: 计数器类状态
+              sub: Mutex 更顺手
+    log:
+      - at: 出处
+        text: CSP（Hoare, 1978）→ Go 的语言级实现
+  - id: select-multiplex
+    title: select 多路监听：谁先就绪先办谁，顺手挂上超时闸门
+    tldr: "select 让单个协程同时守候多条 [[channel]] 的收发、定时器与取消信号，多路同时就绪时伪随机挑一防饥饿；循环监听时须警惕已关闭通道永远就绪引发的空转。"
+    body: |-
+      大促商品详情页的聚合接口要同时并发查库存、算到手价、拉优惠券三路下游，谁先回包先组装谁，超过 200 毫秒还没回齐就果断降级返回已有结果。如果只靠普通接收语句 `<-ch`，协程一旦堵在慢吞吞的优惠券通道上，另外两路早就回来的结果也得跟着干等。Go 专门准备了 `select` 多路复用语句（写过前端的同学可以把它类比成语言内置、还能同时管发送和接收的增强版 `Promise.race`）：把多条 [[channel]] 操作并排写成多个 `case`，哪一路先就绪就立刻走哪一路；如果好几路碰巧同时就绪，运行时会掷骰子**伪随机挑一个**执行，防止排在前面的分支把后面的饿死。
+
+      真实生产代码里，`select` 几乎是所有阻塞点的标准插座：一条 `case` 等业务结果通道，一条 `case` 挂上 `time.After(200 * time.Millisecond)` 定时通道兜底超时，再挂一条 `case <-ctx.Done()` 监听上游请求取消（就像前端的 `AbortController` 信号）；如果连一毫秒都不想等，补个 `default` 分支就能瞬间变成「有货就拿、没货扭头就走」的非阻塞试探。
+
+      在 `for` 循环里套 `select` 时务必防住一个经典暗坑：**一条已经 `close` 的通道在接收操作上永远算「已就绪」**（每次读立刻返回零值和 `ok == false`）。如果某个分支对应的通道关掉了，你既没退出循环也没把该通道变量置为 `nil`（`nil` 通道在 `select` 里永远不就绪），循环就会每秒几百万次疯狂命中这个分支，瞬间把整颗 [[CPU]] 核烧到 100%。
+    derivation: original
+    sources:
+      - ref: go-spec
+        locator: "The Go Programming Language Specification: Select statements"
+        claim: 规范定义 select 在多个就绪的通信操作中随机选一执行；配合定时通道可实现超时，default 分支使其非阻塞。
+        status: verified
+        checkedBy: subagent-research
+        checkedAt: "2026-11-17"
+    code:
+      lang: go
+      code: |-
+        select {
+        case v := <-resultCh:   // 结果先到
+            use(v)
+        case <-time.After(200 * time.Millisecond): // 超时先到
+            usePartial()
+        }
+    canvas:
+      kind: datastate
+      caption: select 的等待点：多路输入汇合到一个 goroutine
+      structure: array
+      rows:
+        - label: select 的 case
+          cells:
+            - v: 先到先处理
+              sub: 多就绪随机挑
+              mark: active
+            - v: 200ms 超时
+              sub: time.After
+            - v: 有就收没有走
+              sub: 非阻塞模式
+    log:
+      - at: 坑
+        text: 已关闭的通道在 select 里永远就绪，循环里要防空转
+  - id: deadlock-self-wait
+    title: 卡死现场一：单协程自发自收当场崩，漏写 close 静默挂死
+    tldr: 全进程所有协程一起堵死会触发 「all goroutines are asleep - deadlock!」 报错退出；但生产者忘调 close 让 for range 消费者干等只会局部静默挂死，因此通道必须由发送方明确负责关闭。
+    body: |-
+      用 [[channel]] 最容易踩中的第一颗雷叫「自己等自己」：在单个 `main` 协程里不加 `go` 就直接往无缓冲通道发数据，发送动作死等接收方到场，可接收代码偏偏写在下一行，永远轮不到执行。此时整个进程里连一个活着的协程都不剩，Go 运行时的全局[[死锁]]检测器还能替你兜一把底，当场打印 `fatal error: all goroutines are asleep - deadlock!` 并终止进程——虽然崩了，好歹死得明明白白。
+
+      真正阴险的是第二种：**生产者发完最后一条数据拍拍屁股走了，忘了调用 `close(ch)`**，而下游消费者正用 `for v := range ch` 循环取数据。`for range` 只有在通道被显式关闭且排空后才会跳出循环；少写那句 `close`，消费者协程就会天荒地老地僵在原地等下一条消息。更要命的是，线上服务往往还有心跳、监控或其他接口协程在正常跑，全局死锁检测器看还有活人就一声不吭——进程看似健康存活，唯独这条消费流水线彻底停摆。
+
+      所以每次新建通道时就要把生死契约立好：**永远由发送方负责 `close` 通道，接收方绝对不要越俎代庖去关通道**。因为接收方根本不知道对面是不是还有人正准备往里发，一旦向已关闭的通道执行发送，Go 运行时会当场抛出 `panic` 崩掉协程。
+    derivation: original
+    sources:
+      - ref: go-spec
+        locator: "The Go Programming Language Specification: Send statements / Close"
+        claim: 规范定义发送在无缓冲通道上阻塞至接收方就绪、close 由发送方负责、向已关闭通道发送会 panic；运行时对全局死锁给出 fatal error。
+        status: verified
+        checkedBy: subagent-research
+        checkedAt: "2026-11-17"
+    canvas:
+      kind: datastate
+      caption: 两种卡死的差别：一个当场报错，一个无声无息
+      structure: array
+      rows:
+        - label: 死锁图鉴 · 上
+          cells:
+            - v: 当场 fatal
+              sub: 全睡死才触发
+            - v: 静默挂死
+              sub: 永远等下一条
+            - v: 发送方关
+              sub: 接收方不关
+              mark: active
+    log:
+      - at: 原则
+        text: 每个 channel 都要能回答「谁关、何时关」
+  - id: deadlock-cycle-leak
+    title: 卡死现场二：互等发送成环，日积月累熬成协程泄漏
+    tldr: 两个协程都抢着先向对方无缓冲通道发数据再接收就会构成循环等待；这类局部阻塞日积月累不退出便是「goroutine 泄漏」，必须给阻塞收发配上 select 与 context.Done 逃生门。
+    body: |-
+      两个协程打配合时还会撞上教科书式的循环[[死锁]]：协程 A 写的是「先把我的结果发给 B，再去收 B 的回执」，协程 B 写的也是「先把我的数据发给 A，再去收 A 的结果」。两条无缓冲通道碰在一起，两边同时卡死在发送语句上，谁也腾不出手去执行下一行的接收。只要进程里还有别的协程在跑，运行时照样不报错；抓这种线上幽灵靠的是导出 `pprof` 协程堆栈快照——你会看到成百上千个协程整整齐齐僵死在 `chan send` 或 `chan receive` 的同一行代码上。
+
+      把这种局部卡死乘以时间，就是后端最头疼的 **goroutine 泄漏**。最典型的事故写法是：主协程开了一个子协程去查慢下游并往无缓冲 `resultCh` 发结果，主协程自己在 `select` 里等了 200 毫秒超时就直接返回给前端了；几秒后慢下游终于回了包，子协程执行 `resultCh <- res`，却发现接货的主协程早就下班走了！于是这个子协程连同它的 2KB [[栈]]和引用的堆内存永久钉死在进程里。每秒漏十个，跑上一周就是几百万个僵尸协程把内存生生撑爆（OOM）。
+
+      根治协程泄漏的工程铁律只有两条：要么给这类单次结果通道设 `1` 个缓冲槽（`make(chan Result, 1)`），让迟到的子协程放下结果就能体面退出；要么把所有可能阻塞的发送都包进 `select`，并排监听 `<-ctx.Done()` 取消信号，一旦上游放弃等待就立刻跟着收工撤退。
+    derivation: adapted
+    sources:
+      - ref: go-effective
+        locator: "Effective Go: Channels / goroutine 生命周期管理"
+        claim: 官方文档强调 goroutine 的退出要由程序结构保证：阻塞的发送接收必须配合关闭或取消信号，否则 goroutine 将永久驻留。
+        status: verified
+        checkedBy: subagent-research
+        checkedAt: "2026-11-17"
+    canvas:
+      kind: datastate
+      caption: 循环等待与泄漏：同一个病的两种病程
+      structure: array
+      rows:
+        - label: 死锁图鉴 · 下
+          cells:
+            - v: 互相卡发送
+              sub: 成对停在发送
+            - v: 越积越多
+              sub: 每次丢一个
+            - v: select+取消
+              sub: 阻塞要有逃生口
+              mark: active
+    log:
+      - at: 纪律
+        text: 没有确定接收方的发送，不要裸着写
+  - id: when-not-goroutine
+    title: 并非万物皆该开协程：算清粒度、协调与可读性三笔账
+    tldr: "[[goroutine]] 便宜在创建与栈内存，不便宜在跨协程协调；计算粒度过细会反被调度开销拖慢，工程上应先写清晰的顺序代码，测出真实等待或并行瓶颈后再引入并发。"
+    body: |-
+      刚尝到 `go` 关键字甜头的新手最容易犯「并发滥用症」——看见一个遍历一万个元素的数组求和循环，也忍不住拆成一万个 [[goroutine]] 去跑。结果一压测反而比单协程慢好几倍：虽然协程比线程轻得多，但入队、调度切换、连续[[栈]]检查和通道收发全是真金白银的指令开销；当单次计算本身只需要几十纳秒时，调度的包装费早就贵过了货物本身。
+
+      比机器开销更贵的是人的心智账单：顺序代码天然没有竞态、没有乱序、出错直接往外 `return`；一旦拆成多协程并发，你就必须逐一回答「共享变量谁有资格改」「第 3 个协程报错了怎么通知另外 9 个停手」「返回给前端的列表还要不要保住原来的顺序」。这些问题漏答任何一个，埋下的都是只有半夜流量高峰才复现的偶发 Bug。
+
+      在提交任何一段带有 `go func()` 或 [[channel]] 的代码前，养成自查三问的肌肉记忆：
+      1. **这处真有等待或重计算瓶颈吗？** 顺序代码够快就绝不瞎拆并发。
+      2. **启动的每个协程清楚自己什么时候退出吗？** 盯紧对端走了以后它会不会永远卡在通道收发上。
+      3. **这条通道由谁负责 `close`、取消信号怎么传进去？** 发送方关通道、长耗时必带 `context.Context`，守住这两条底线就能避开九成线上并发事故。
+    derivation: adapted
+    sources:
+      - ref: go-sched-design
+        locator: "Scalable Go Scheduler Design Doc: 设计目标与开销讨论"
+        claim: 设计文档的目标是让调度开销足够低以支持细粒度并发，但调度与栈管理仍是真实成本，任务粒度过细时得不偿失。
+        status: verified
+        checkedBy: subagent-research
+        checkedAt: "2026-11-17"
+    canvas:
+      kind: datastate
+      caption: 开 goroutine 之前要过的三道账
+      structure: array
+      rows:
+        - label: 边界检查
+          cells:
+            - v: 太细不划算
+              sub: 开销盖过任务
+            - v: 先想清
+              sub: 所有权与收尾
+            - v: 先顺序后并发
+              sub: 测出瓶颈再改
+              mark: active
+    log:
+      - at: 收束
+        text: 便宜的是创建，贵的是协调——按需并发
