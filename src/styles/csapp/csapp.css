@@ -110,6 +110,8 @@
 --surface:#f1efea;--card-bg:#f1efea;--qcard-bg:#f1efea;--fill:#e2dfd8;--fill-2:#e5e2dc;--fill-hover:#dad6ce;
 --sb-bg:rgba(241,239,234,.6);--top-bg:rgba(232,230,224,.82);--panel-bg:rgba(241,239,234,.55);--panel-bd:rgba(241,239,234,.85);--rail-bg:rgba(241,239,234,.75);
 --ink:#2f2c27;--ink2:#55514a;--mut:#67635b;--dim:#67635b;
+/* Long-form reading text (Daniel 2026-11-18: chapter body was on --ink2, ~6.3:1). */
+--body:#262420;
 --line:rgba(50,42,28,.12);--line2:rgba(50,42,28,.17);--card-bd:transparent;
 --acc:#3a62b8;--acc-text:#2f57ad;--acc-s:rgba(58,98,184,.09);--acc-m:rgba(58,98,184,.16);--acc-soft-solid:#9aaed8;
 --acc-grad:linear-gradient(90deg,#9aaed8,#3a62b8);--btn:linear-gradient(180deg,#3f68bf,#335bb0);--btn-edge:#284a8f;--on-btn:#f1efea;
@@ -130,6 +132,7 @@
 --surface:#0f1012;--card-bg:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.015));--qcard-bg:linear-gradient(180deg,#131418,#0d0e10);--fill:rgba(255,255,255,.04);--fill-2:rgba(255,255,255,.03);--fill-hover:rgba(255,255,255,.08);
 --sb-bg:rgba(10,11,13,.82);--top-bg:rgba(8,9,10,.72);--panel-bg:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.012));--panel-bd:rgba(255,255,255,.08);--rail-bg:rgba(255,255,255,.025);
 --ink:#e3e5e8;--ink2:#9da1aa;--mut:#7b8089;--dim:#7b8089;
+--body:#d3d6dc;
 --line:rgba(255,255,255,.08);--line2:rgba(255,255,255,.12);--card-bd:rgba(255,255,255,.08);
 --acc:#6d6ff7;--acc-text:#a5a7ff;--acc-s:rgba(99,102,241,.14);--acc-m:rgba(99,102,241,.24);--acc-soft-solid:#8b8dff;
 --acc-grad:linear-gradient(90deg,#8b5cf6,#6366f1 50%,#3b82f6);--btn:linear-gradient(180deg,#6d5ef5,#5048e0);--btn-edge:#2f2a99;--on-btn:#ffffff;
@@ -281,7 +284,7 @@
 .csapp-root .ch-num::before{content:"CHAPTER\00a0"}
 .csapp-root .ch-hero .kicker{margin-top:18px;font-size:13px;color:var(--mut);font-weight:500}
 .csapp-root .ch-hero h1{font-size:48px;font-weight:700;letter-spacing:-.04em;line-height:1.15;margin-top:4px}
-.csapp-root .oneliner{font-size:17px;line-height:1.8;margin-top:24px;color:var(--ink2);padding:20px 24px;border-radius:var(--r);background:var(--card-bg);box-shadow:var(--sh2),inset 0 0 0 1px var(--card-bd)}
+.csapp-root .oneliner{font-size:17px;line-height:1.8;margin-top:24px;color:var(--body);padding:20px 24px;border-radius:var(--r);background:var(--card-bg);box-shadow:var(--sh2),inset 0 0 0 1px var(--card-bd)}
 :root[data-theme="dark"] .csapp-root .oneliner{box-shadow:inset 3px 0 0 #7c6cff,inset 0 0 0 1px var(--card-bd)}
 .csapp-root .ol-k{display:block;font-size:12px;font-weight:600;color:var(--acc-text);margin-bottom:4px}
 .csapp-root .sec{margin-top:64px}
@@ -289,10 +292,10 @@
 .csapp-root .sec-no{font:500 12px var(--mono);color:var(--dim)}
 :root[data-theme="dark"] .csapp-root .sec-no{color:var(--acc-text)}
 .csapp-root .sec h3{font-size:19px;font-weight:600;margin:36px 0 10px;letter-spacing:-.015em}
-.csapp-root .sec p{font-size:16px;line-height:1.8;color:var(--ink2);margin-bottom:14px}
+.csapp-root .sec p{font-size:16px;line-height:1.8;color:var(--body);margin-bottom:14px}
 .csapp-root .intro{color:var(--ink)!important}
 .csapp-root .mainline{display:flex;flex-direction:column;gap:8px}
-.csapp-root .mainline li{padding:14px 18px;font-size:16px;line-height:1.75;background:var(--card-bg);border-radius:var(--r-md);box-shadow:var(--sh1),inset 0 0 0 1px var(--card-bd);color:var(--ink2)}
+.csapp-root .mainline li{padding:14px 18px;font-size:16px;line-height:1.75;background:var(--card-bg);border-radius:var(--r-md);box-shadow:var(--sh1),inset 0 0 0 1px var(--card-bd);color:var(--body)}
 .csapp-root .ml-i{width:24px;height:24px;border-radius:50%;background:var(--acc-s);color:var(--acc-text);font:600 12px/24px var(--mono);text-align:center}
 .csapp-root .mainline li:last-child{background:linear-gradient(135deg,var(--surface),var(--acc-s))}
 .csapp-root .mainline li:last-child .ml-i{background:var(--btn);color:var(--on-btn)}
@@ -331,7 +334,7 @@
 .csapp-root .callout-front .co-label{background:var(--fill);color:var(--ink2)}.csapp-root .callout-front .co-ico{background:var(--ink2)}
 :root[data-theme="dark"] .csapp-root .callout-front .co-ico{background:#3b82f6;box-shadow:0 0 10px #3b82f6}
 .csapp-root .fe{display:flex;flex-direction:column}
-.csapp-root .fe li{padding:14px 0 14px 18px;font-size:15.5px;line-height:1.8;color:var(--ink2);border-bottom:1px solid var(--line);position:relative}.csapp-root .fe li:last-child{border:0}
+.csapp-root .fe li{padding:14px 0 14px 18px;font-size:15.5px;line-height:1.8;color:var(--body);border-bottom:1px solid var(--line);position:relative}.csapp-root .fe li:last-child{border:0}
 .csapp-root .fe li::before{content:"";position:absolute;left:0;top:25px;width:6px;height:6px;border-radius:50%;background:var(--acc);box-shadow:var(--glow)}
 .csapp-root .fe b{color:var(--ink);font-weight:600;display:block}
 .csapp-root .hint{font-size:13px!important;color:var(--mut)!important}
@@ -384,14 +387,14 @@
 .csapp-root .qc-q{font-size:18px;font-weight:600;line-height:1.7;margin-top:14px;letter-spacing:-.01em;color:var(--ink)}
 .csapp-root .think{margin-top:18px;padding:16px 18px;border-radius:var(--r-md);background:var(--fill-2);border:1px dashed var(--line2)}
 .csapp-root .think-k{font-size:12px;font-weight:600;color:var(--acc-text)}
-.csapp-root .think p{font-size:14.5px;color:var(--ink2)}
+.csapp-root .think p{font-size:14.5px;color:var(--body)}
 .csapp-root .reveal{align-self:flex-start;padding:10px 18px}
 .csapp-root .qcard.is-revealed .think{background:none;border:0;padding:12px 0 0;border-top:1px solid var(--line);border-radius:0;margin-top:16px}
 .csapp-root .qcard.is-revealed .think p{font-size:13.5px;color:var(--mut)}
 .csapp-root .answer{margin-top:14px;padding:20px 22px;border-radius:var(--r);background:var(--fill-2);border:1px solid var(--line)}
 :root[data-theme="light"] .csapp-root .answer{background:linear-gradient(180deg,#f7f9ff,#fbfcff);border-color:rgba(42,102,240,.08)}
 :root[data-theme="dark"] .csapp-root .answer{background:rgba(0,0,0,.35)}
-.csapp-root .answer>p{font-size:15.5px;line-height:1.8;color:var(--ink2)}
+.csapp-root .answer>p{font-size:15.5px;line-height:1.8;color:var(--body)}
 .csapp-root .amd-k{font-size:12px;font-weight:600;color:var(--mut);margin-bottom:10px}
 .csapp-root .fx{font-family:var(--sans);color:var(--ink)}
 .csapp-root .fx i{font-family:"Inter",serif;font-style:italic;font-weight:500}
@@ -473,7 +476,7 @@
 }
 
 /* Content helpers (markdown + diagrams) */
-.csapp-root .prose{font-size:16px;line-height:1.8;color:var(--ink2)}
+.csapp-root .prose{font-size:16px;line-height:1.8;color:var(--body)}
 .csapp-root .prose h3{font-size:19px;font-weight:600;color:var(--ink);margin:28px 0 12px}
 .csapp-root .prose p{margin:0 0 14px}
 .csapp-root .prose ul,.csapp-root .prose ol{margin:0 0 14px;padding-left:1.3em;list-style:disc}
@@ -485,7 +488,7 @@
 .csapp-root .chips{display:flex;flex-wrap:wrap;gap:10px}
 .csapp-root .chip{display:inline-block;padding:8px 12px;border-radius:999px;background:var(--fill);color:var(--ink2);font-size:13.5px;border:1px solid var(--line)}
 .csapp-root .chip:hover{background:var(--acc-s);color:var(--acc-text);border-color:var(--acc-m)}
-.csapp-root .refs{padding-left:1.2em;list-style:disc;color:var(--ink2);line-height:1.7}
+.csapp-root .refs{padding-left:1.2em;list-style:disc;color:var(--body);line-height:1.7}
 .csapp-root .pipe{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0 28px}
 .csapp-root .pipe-step{display:flex;align-items:stretch;gap:8px}
 .csapp-root .pipe-card{flex:1;padding:14px;border-radius:12px;background:var(--surface);box-shadow:var(--sh1),inset 0 0 0 1px var(--card-bd)}
@@ -537,7 +540,7 @@
 .csapp-root .reveal{margin-top:8px}
 .csapp-root .answer{margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
 .csapp-root .ans-label{font-size:12.5px;color:var(--mut);margin-bottom:8px}
-.csapp-root .ans-body{font-size:15.5px;line-height:1.8;color:var(--ink2)}
+.csapp-root .ans-body{font-size:15.5px;line-height:1.8;color:var(--body)}
 .csapp-root .grade{margin-top:20px}
 .csapp-root .grade button{padding:10px 14px;border-radius:12px;background:var(--grade-bg);box-shadow:inset 0 0 0 1px var(--grade-edge),0 3px 0 var(--grade-edge)}
 .csapp-root .grade button:active{transform:translateY(3px);box-shadow:inset 0 0 0 1px var(--grade-edge)}
