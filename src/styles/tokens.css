@@ -24,14 +24,15 @@
  *    pastel fills made dark-theme node labels (near-white) illegible. */
 :root{
   /* Unified with the CSAPP design (G「柔和高级」): neutral surfaces, one blue accent. */
-  /* Theme tune 2026-11-18 (Daniel: light too glaring): warm paper bg, panel
-     slightly lighter but never pure white, deep-grey ink, softer accent. */
-  --bg:#f3f1eb; --panel:#faf8f3;
-  --ink-strong:#2a2825; --ink:#37342f; --ink-soft:#4d4943; --ink-muted:#6b665e;
-  --line:#a9a294; --line-mid:#e1dcd2; --line-soft:#ebe7df;
-  --accent:#2d58b8; --active:#3a66c4; --on-active:#faf8f3; --ok:#17704f; --warn:#845d0c; --info:#1a7079; --kernel:#6650c2; --neutral:#8a857c;
+  /* Theme tune r2 2026-11-18 (Daniel): light was too glaring — visibly
+     darker grey-paper bg, card never near-white, body ink lifted so body
+     contrast sits ~8–8.7:1 instead of ~14:1; all text ≥4.5:1 on bg+panel. */
+  --bg:#e8e6e0; --panel:#f1efea;
+  --ink-strong:#2f2c27; --ink:#45423c; --ink-soft:#55514a; --ink-muted:#67635b;
+  --line:#9a9488; --line-mid:#d3cfc6; --line-soft:#dedad2;
+  --accent:#2f57ad; --active:#3a62b8; --on-active:#f1efea; --ok:#1a6a4b; --warn:#7a560b; --info:#1b6871; --kernel:#5f4bb5; --neutral:#858077;
   --code-bg:#1f1e1c; --code-ink:#e4e0d6; --code-cap:#9c968b; --code-prompt:#7a756c;
-  --done-fill:#e6efe6; --done-line:#4a8a62; --pivot-fill:#f8eedd; --pivot-line:#b57414;
+  --done-fill:#dce8dd; --done-line:#4a8a62; --pivot-fill:#f1e6d2; --pivot-line:#b07214;
   --font-mono:"JetBrains Mono","Iosevka",ui-monospace,SFMono-Regular,Menlo,monospace;
   --font-cjk:"PingFang SC","Hiragino Sans GB","Microsoft YaHei UI","Noto Sans SC","Source Han Sans SC",sans-serif;
   --fs-xs:11px; --fs-sm:12px; --fs-md:13.5px; --fs-lg:15px; --fs-xl:20px; --lh:1.6;
@@ -43,31 +44,29 @@
   color-scheme: light;
 }
 :root[data-theme="dark"]{
-  /* Unified with the CSAPP design (H「精致深色」): warm deep grey, soft violet-blue accent. */
-  /* Theme tune 2026-11-18 (Daniel: dark tiring): warm deep grey instead of
-     near-black, off-white ink (body ~10.9:1, not 13.8:1), desaturated accents,
-     quieter hairlines. */
-  --bg:#1d1c1a; --panel:#252421;
-  --ink-strong:#e4dfd5; --ink:#d3cec4; --ink-soft:#b0aa9f; --ink-muted:#968f85;
-  --line:#5a564e; --line-mid:#35332f; --line-soft:#2c2b28;
-  --accent:#a3a8e0; --active:#8f95d6; --on-active:#1d1c1a; --ok:#72c4a2; --warn:#d9b260; --info:#67b5bf; --kernel:#b9a6dd; --neutral:#857f75;
-  --code-bg:#161513; --code-ink:#d9d5e6; --code-cap:#9c968b; --code-prompt:#857f75;
-  --done-fill:#203a2e; --done-line:#72c4a2; --pivot-fill:#3b3120; --pivot-line:#d9a855;
+  /* Unified with the CSAPP design (H「精致深色」): near-black, violet-blue accent.
+     Theme tune r2 2026-11-18: hues unchanged, text contrast lowered
+     (body 13.8:1 → ~10.9:1, headings 18.7:1 → 15.8:1). */
+  --bg:#08090a; --panel:#111214;
+  --ink-strong:#e3e5e8; --ink:#bcc0c8; --ink-soft:#9da1aa; --ink-muted:#7b8089;
+  --line:#5d6170; --line-mid:#26282d; --line-soft:#1a1b1f;
+  --accent:#a5a7ff; --active:#8b8dff; --on-active:#08090a; --ok:#34d399; --warn:#fbbf24; --info:#22b8c8; --kernel:#c4a1ff; --neutral:#7c818b;
+  --code-bg:#050506; --code-ink:#d9dcff; --code-cap:#9a9fab; --code-prompt:#7c818b;
+  --done-fill:#123528; --done-line:#34d399; --pivot-fill:#3a2b07; --pivot-line:#f0b23e;
   color-scheme: dark;
 }
 /* No-JS fallback only — keep in sync with the [data-theme="dark"] block. */
 @media (prefers-color-scheme: dark){
   :root:not([data-theme]){
-  /* Unified with the CSAPP design (H「精致深色」): warm deep grey, soft violet-blue accent. */
-  /* Theme tune 2026-11-18 (Daniel: dark tiring): warm deep grey instead of
-     near-black, off-white ink (body ~10.9:1, not 13.8:1), desaturated accents,
-     quieter hairlines. */
-  --bg:#1d1c1a; --panel:#252421;
-  --ink-strong:#e4dfd5; --ink:#d3cec4; --ink-soft:#b0aa9f; --ink-muted:#968f85;
-  --line:#5a564e; --line-mid:#35332f; --line-soft:#2c2b28;
-  --accent:#a3a8e0; --active:#8f95d6; --on-active:#1d1c1a; --ok:#72c4a2; --warn:#d9b260; --info:#67b5bf; --kernel:#b9a6dd; --neutral:#857f75;
-  --code-bg:#161513; --code-ink:#d9d5e6; --code-cap:#9c968b; --code-prompt:#857f75;
-  --done-fill:#203a2e; --done-line:#72c4a2; --pivot-fill:#3b3120; --pivot-line:#d9a855;
+  /* Unified with the CSAPP design (H「精致深色」): near-black, violet-blue accent.
+     Theme tune r2 2026-11-18: hues unchanged, text contrast lowered
+     (body 13.8:1 → ~10.9:1, headings 18.7:1 → 15.8:1). */
+  --bg:#08090a; --panel:#111214;
+  --ink-strong:#e3e5e8; --ink:#bcc0c8; --ink-soft:#9da1aa; --ink-muted:#7b8089;
+  --line:#5d6170; --line-mid:#26282d; --line-soft:#1a1b1f;
+  --accent:#a5a7ff; --active:#8b8dff; --on-active:#08090a; --ok:#34d399; --warn:#fbbf24; --info:#22b8c8; --kernel:#c4a1ff; --neutral:#7c818b;
+  --code-bg:#050506; --code-ink:#d9dcff; --code-cap:#9a9fab; --code-prompt:#7c818b;
+  --done-fill:#123528; --done-line:#34d399; --pivot-fill:#3a2b07; --pivot-line:#f0b23e;
   color-scheme: dark;
   }
 }
