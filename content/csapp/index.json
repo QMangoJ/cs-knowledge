@@ -1,0 +1,143 @@
+{
+  "chapters": [
+    {
+      "id": 1,
+      "title": "计算机系统漫游",
+      "subtitle": "把整条路先走一遍"
+    },
+    {
+      "id": 2,
+      "title": "信息的表示和处理",
+      "subtitle": "比特怎么变成整数与浮点"
+    },
+    {
+      "id": 3,
+      "title": "程序的机器级表示",
+      "subtitle": "C 落到汇编之后"
+    },
+    {
+      "id": 4,
+      "title": "处理器体系结构",
+      "subtitle": "一条指令在 CPU 里的旅程"
+    },
+    {
+      "id": 5,
+      "title": "优化程序性能",
+      "subtitle": "让代码顺着机器跑"
+    },
+    {
+      "id": 6,
+      "title": "存储器层次结构",
+      "subtitle": "缓存、局部性与数据搬运"
+    },
+    {
+      "id": 7,
+      "title": "链接",
+      "subtitle": "碎片如何拼成可执行文件"
+    },
+    {
+      "id": 8,
+      "title": "异常控制流",
+      "subtitle": "中断、进程与信号"
+    },
+    {
+      "id": 9,
+      "title": "虚拟内存",
+      "subtitle": "每个进程一张地址空间"
+    },
+    {
+      "id": 10,
+      "title": "系统级 I/O",
+      "subtitle": "文件描述符与读写"
+    },
+    {
+      "id": 11,
+      "title": "网络编程",
+      "subtitle": "套接字与客户端–服务器"
+    },
+    {
+      "id": 12,
+      "title": "并发编程",
+      "subtitle": "线程、同步与竞争"
+    }
+  ],
+  "stages": [
+    {
+      "id": "I",
+      "title": "写下来",
+      "blurb": "源码只是比特",
+      "chapters": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": "II",
+      "title": "翻译",
+      "blurb": "变成机器码",
+      "chapters": [
+        3,
+        7
+      ]
+    },
+    {
+      "id": "III",
+      "title": "执行",
+      "blurb": "CPU 与存储",
+      "chapters": [
+        4,
+        5,
+        6
+      ]
+    },
+    {
+      "id": "IV",
+      "title": "托管",
+      "blurb": "操作系统接手",
+      "chapters": [
+        8,
+        9
+      ]
+    },
+    {
+      "id": "V",
+      "title": "对外",
+      "blurb": "I/O、网络、并发",
+      "chapters": [
+        10,
+        11,
+        12
+      ]
+    }
+  ],
+  "sections": [
+    {
+      "id": "mainline",
+      "title": "本章主线"
+    },
+    {
+      "id": "concepts",
+      "title": "核心概念"
+    },
+    {
+      "id": "backend",
+      "title": "后端 / 全栈视角"
+    },
+    {
+      "id": "frontend",
+      "title": "和前端的关系"
+    },
+    {
+      "id": "interview",
+      "title": "面试常考点"
+    },
+    {
+      "id": "quiz",
+      "title": "自测 8 题"
+    },
+    {
+      "id": "refs",
+      "title": "对应小节"
+    }
+  ]
+}

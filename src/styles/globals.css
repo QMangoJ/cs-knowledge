@@ -527,3 +527,11 @@ details.ref-sol summary{cursor:pointer;font-weight:700}
 .gloss-pop-x:hover{color:var(--ink-strong)}
 .gloss-pop-full{margin:var(--sp-2) 0 0;color:var(--ink);font-family:var(--font-mono);font-size:var(--fs-sm)}
 .gloss-pop-explain{margin:var(--sp-2) 0 0;color:var(--ink)}
+
+/* CSAPP entry on home journey map */
+.journey-extra{margin-top:18px;padding-top:16px;border-top:1px dashed var(--line-mid)}
+.journey-csapp{display:block;padding:14px 16px;border-radius:12px;background:var(--panel);border:1px solid var(--line-mid);transition:border-color var(--dur-fast) var(--ease),box-shadow var(--dur-fast) var(--ease)}
+.journey-csapp:hover{border-color:var(--accent);box-shadow:var(--shadow-1)}
+.journey-csapp b{display:inline-block;margin-right:8px;color:var(--accent)}
+.journey-csapp .journey-title{font-weight:600}
+.journey-csapp p{margin:.35em 0 0;color:var(--ink-muted);font-size:14px;line-height:1.55}

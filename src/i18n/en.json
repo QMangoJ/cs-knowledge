@@ -305,5 +305,12 @@
   "labPipeNotePre": "A · marks a stall: the instruction is stuck in IF/ID waiting for the previous result.",
   "labPipeNoteIdeal": "The ideal case: one instruction enters per cycle, so n instructions take n+4 cycles — but that ignores data dependencies and would compute wrong results.",
   "labPipeNoteFwd": "Forwarding sends the EX/MEM result straight into the next instruction's EX; only the slot right after a load still stalls.",
-  "labPipeNoteStall": "Without forwarding, an instruction has to wait until the previous one reaches WB and writes back to the register file."
+  "labPipeNoteStall": "Without forwarding, an instruction has to wait until the previous one reaches WB and writes back to the register file.",
+  "csapp": "CSAPP",
+  "csappCardTitle": "The life of a program · CSAPP",
+  "csappCardSummary": "12 chapters of systems notes with flip-card quizzes.",
+  "csappCardMeta": "12 chapters · quizzes",
+  "csappNavTitle": "CSAPP notes",
+  "csappJourneyTitle": "Systems panorama notes",
+  "csappJourneyText": "Expand “the life of a program” into 12 readable, testable chapters."
 }

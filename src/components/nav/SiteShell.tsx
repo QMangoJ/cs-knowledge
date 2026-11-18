@@ -22,6 +22,7 @@ const isCurrent = (pathname: string, href: string) => {
  *  always rendered expanded regardless of this set. */
 const OPEN_SUBJECTS_KEY = "cs-nav-open-subjects";
 const CODING_SUBJECT_ID = "coding";
+const CSAPP_SUBJECT_ID = "csapp";
 
 /** App shell: header + two-level course menu (学科 → 课程) + main + footer.
  *  Desktop: fixed in-flow sidebar. Narrow viewports: the same list becomes an
@@ -49,6 +50,7 @@ export function SiteShell({ lang, nav, children }: { lang: Lang; nav: NavSubject
   const s = stringsFor(lang);
   const homeHref = prefixPath(lang, "/");
   const codingHref = prefixPath(lang, "/coding/");
+  const csappHref = prefixPath(lang, "/csapp/");
   const pathname = usePathname() ?? "/";
   const [open, setOpen] = useState(false);
   /** Expanded subjects per the user's stored preference; null until
@@ -77,6 +79,7 @@ export function SiteShell({ lang, nav, children }: { lang: Lang; nav: NavSubject
   }, []);
   const currentSubjectId =
     nav.find((s) => s.topics.some((x) => isCurrent(pathname, x.href)))?.id ??
+    (isCurrent(pathname, csappHref) ? CSAPP_SUBJECT_ID : null) ??
     (isCurrent(pathname, codingHref) ? CODING_SUBJECT_ID : null);
   const isSubjectOpen = (id: string) =>
     id === currentSubjectId || (storedOpen?.includes(id) ?? false);
@@ -136,6 +139,9 @@ export function SiteShell({ lang, nav, children }: { lang: Lang; nav: NavSubject
     <nav className="sidenav-list" aria-label={s.navLabel}>
       <Link href={homeHref} prefetch={false} className={norm(pathname) === norm(homeHref) ? "sn-home current" : "sn-home"} aria-current={norm(pathname) === norm(homeHref) ? "page" : undefined}>{s.home}</Link>
       {nav.map((sub) => subjectBlock(prefix, sub.id, sub.name, sub.topics))}
+      {subjectBlock(prefix, CSAPP_SUBJECT_ID, s.csapp, [
+        { id: "csapp-home", title: s.csappNavTitle, href: csappHref },
+      ])}
       {subjectBlock(prefix, CODING_SUBJECT_ID, s.coding, [
         { id: "coding-practice", title: s.codingNavTitle, href: codingHref },
       ])}

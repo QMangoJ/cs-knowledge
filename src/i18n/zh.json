@@ -305,5 +305,12 @@
   "labPipeNotePre": "· 表示停顿：指令卡在 IF/ID 等前一条的结果。",
   "labPipeNoteIdeal": "理想情况：每拍进一条，n 条指令要 n+4 拍；但这忽略了数据依赖，结果会算错。",
   "labPipeNoteFwd": "转发把 EX/MEM 的结果直接送到下一条的 EX，只剩 load 之后的 1 拍。",
-  "labPipeNoteStall": "没有转发时要等到前一条 WB 写回寄存器堆。"
+  "labPipeNoteStall": "没有转发时要等到前一条 WB 写回寄存器堆。",
+  "csapp": "CSAPP",
+  "csappCardTitle": "一个程序的一生 · CSAPP",
+  "csappCardSummary": "12 章系统笔记：比特、机器、存储、进程、网络与并发，带翻卡自测。",
+  "csappCardMeta": "12 章 · 自测",
+  "csappNavTitle": "CSAPP 笔记",
+  "csappJourneyTitle": "系统全景笔记",
+  "csappJourneyText": "把「一个程序的一生」展开成 12 章可读可测的笔记，和左边各科互相印证。"
 }
