@@ -12,7 +12,7 @@ export function Spotlight() {
     const fine = window.matchMedia("(hover:hover) and (pointer:fine)");
     const onMove = (e: MouseEvent) => {
       if (reduce.matches || !fine.matches) return;
-      if (root.getAttribute("data-theme") !== "dark") return;
+      if (document.documentElement.getAttribute("data-theme") !== "dark") return;
       const t = e.target as HTMLElement | null;
       const spot = t?.closest?.(".spot") as HTMLElement | null;
       if (!spot) return;

@@ -7,6 +7,8 @@ import { prefixPath } from "@/i18n";
 import type { CsappIndex } from "@/lib/csapp/types";
 import { chapterProgress } from "@/lib/csapp/progress";
 
+/** Prototype map: chapter 1 is the full-route tour row, the rest sit in the
+ *  five stages. Hover syncs with the sidebar via csapp-map-* / csapp-sb-* events. */
 export function ProgramMap({ index }: { index: CsappIndex }) {
   const { lang } = useLang();
   const base = prefixPath(lang, "/csapp");
@@ -30,46 +32,37 @@ export function ProgramMap({ index }: { index: CsappIndex }) {
     };
   }, []);
 
-  const titleOf = (id: number) => index.chapters.find((c) => c.id === id)?.title ?? "";
+  const ch = (id: number) => index.chapters.find((c) => c.id === id);
+  const enter = (id: number) => { setHover(id); document.dispatchEvent(new CustomEvent("csapp-map-hover", { detail: id })); };
+  const leave = () => { setHover(null); document.dispatchEvent(new Event("csapp-map-leave")); };
+  const tour = ch(1);
+  const p1 = prog[1] ?? 0;
 
   return (
-    <div className="map card spot">
-      <div className="map-head">
-        <h2>一个程序的一生</h2>
-        <p className="muted">从比特到并发：悬停节点会同步左侧目录</p>
-      </div>
+    <section className="map">
+      {tour && (
+        <Link href={`${base}/1/`} className={`map-tour spot${hover === 1 ? " is-hover" : ""}`} data-ch={1}
+          onMouseEnter={() => enter(1)} onMouseLeave={leave} onFocus={() => enter(1)} onBlur={leave}>
+          <span className="node-no">01</span>
+          <span className="mt-name">{tour.title}</span>
+          <span className="mt-tag">全程导览 · {tour.subtitle}</span>
+          {p1 > 0 && <span className="mt-prog">{p1}%</span>}
+        </Link>
+      )}
       <div className="map-stages">
         {index.stages.map((st) => (
-          <div key={st.id} className="map-stage">
-            <div className="map-stage-h">
-              <span className="map-roman">{st.id}</span>
-              <div>
-                <b>{st.title}</b>
-                <span>{st.blurb}</span>
-              </div>
-            </div>
-            <div className="map-nodes">
-              {st.chapters.map((id) => {
+          <div key={st.id} className="stage" data-stage={st.id}>
+            <div className="stage-head"><span className="stage-no">{st.id}</span><b>{st.title}</b><small>{st.blurb}</small></div>
+            <div className="stage-nodes">
+              {st.chapters.filter((id) => id !== 1).map((id) => {
                 const p = prog[id] ?? 0;
-                const isHover = hover === id;
                 return (
-                  <Link
-                    key={id}
-                    href={`${base}/${id}/`}
-                    className={`node spot${isHover ? " is-hover" : ""}${p > 0 ? " is-started" : ""}`}
-                    data-ch={id}
-                    onMouseEnter={() => {
-                      setHover(id);
-                      document.dispatchEvent(new CustomEvent("csapp-map-hover", { detail: id }));
-                    }}
-                    onMouseLeave={() => {
-                      setHover(null);
-                      document.dispatchEvent(new Event("csapp-map-leave"));
-                    }}
-                  >
-                    <span className="node-num">{String(id).padStart(2, "0")}</span>
-                    <span className="node-title">{titleOf(id)}</span>
-                    {p > 0 && <span className="node-pct">{p}%</span>}
+                  <Link key={id} href={`${base}/${id}/`} data-ch={id}
+                    className={`spot node${hover === id ? " is-hover" : ""}${p > 0 ? " is-started" : ""}`}
+                    onMouseEnter={() => enter(id)} onMouseLeave={leave} onFocus={() => enter(id)} onBlur={leave}>
+                    <span className="node-no">{String(id).padStart(2, "0")}</span>
+                    <span className="node-name">{ch(id)?.title}</span>
+                    <span className="node-tag">{ch(id)?.subtitle}</span>
                   </Link>
                 );
               })}
@@ -77,6 +70,6 @@ export function ProgramMap({ index }: { index: CsappIndex }) {
           </div>
         ))}
       </div>
-    </div>
+    </section>
   );
 }

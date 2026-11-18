@@ -4,6 +4,7 @@ import { loadContent, pageTopics, topicForLang } from "@/lib/content";
 import { stepPath } from "@/lib/paths";
 import { SiteShell, type NavSubject } from "@/components/nav/SiteShell";
 import { UsageTracker } from "@/components/UsageTracker";
+import { THEME_INIT } from "@/lib/themeInit";
 
 /** Shared root layout for both language trees (app/(zh) and app/(en)/en).
  *  Each route group has its own thin layout.tsx exporting this component
@@ -26,12 +27,8 @@ export function rootMetadata(lang: Lang): Metadata {
   };
 }
 
-/* Runs before first paint: resolves the theme (stored choice → system
- * preference) and stamps it on <html data-theme> plus the theme-color meta,
- * so the page never flashes the wrong theme. The token blocks keyed on
- * [data-theme] in tokens.css do the rest. Keep THEME_KEY in sync with
- * src/components/nav/ThemeToggle.tsx. */
-const THEME_INIT = `(function(){try{var t=localStorage.getItem("cs-theme");if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}var d=document.documentElement;d.dataset.theme=t;d.style.colorScheme=t;var m=document.querySelector('meta[name="theme-color"]');if(!m){m=document.createElement("meta");m.setAttribute("name","theme-color");document.head.appendChild(m);}m.setAttribute("content",t==="dark"?"#0b1020":"#fcfdfe");}catch(e){}})();`;
+/* Pre-paint theme script: see src/lib/theme.ts (single source for home,
+ * CSAPP and lessons). */
 
 /* Chinese tree only: a reader who chose English and later lands on the site
  * root from outside is offered the English home page. Only "/" redirects —
