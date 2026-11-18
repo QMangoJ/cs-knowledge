@@ -151,19 +151,16 @@
 }
 
 @container (max-width:1119px){
-  /* Space use at the bottom (Daniel, 2026-11-17): globals gives .player2 a
-     96px bottom padding — clearance for the fixed step bar from the old
-     page-scroll design. In this shell the main column is fixed-height with
-     internal scroll (.site-main:has(> .player2) never scrolls), so the 96px
-     is dead space that strands the rail's two blocks (学习目标 / 与 AI 工程的
-     连接) mid-screen with a blank band under them. Drop it to a small
-     breathing gap and let the rail hug the grid's bottom edge: the content
-     column flex-grows, the slack lands inside the scroll area under the
-     intro, and the blocks sit just above the fixed bar. On steps whose
-     content is taller than the screen nothing changes — the blocks simply
-     follow the content inside the same fixed-height column. */
-  .uiv2.player2{padding-bottom:14px}
-  .uiv2 .p-rail{margin-top:auto}
+  /* Natural page scroll (Daniel via 设计师, 2026-11-18): the fixed-height
+     shell + nested overflow clipped overview kv mid-line and stacked the
+     rail foldouts (学习目标 / 与 AI 工程的连接) over the body, with the
+     step nav covering the rest. Drop the height trap; site-main scrolls
+     (globals @media max-width:1199px); sticky/fixed step nav keeps
+     prev/next reachable with a solid background. */
+  .uiv2.player2{height:auto;min-height:100%;padding:0 12px calc(88px + env(safe-area-inset-bottom, 0px))}
+  .uiv2 .app-screen{flex:none;min-height:0}
+  .uiv2 .p-grid{overflow:visible;flex:none;min-height:0;height:auto}
+  .uiv2 .p-rail{margin-top:16px;max-height:none;overflow:visible;flex:none}
   /* Top compression (Daniel, 2026-11-17): on phones the top stack — crumb,
      step row, segments, step chips — pushed the stage card a third of the
      way down the screen. Same elements, tighter packing: row gaps 18px to
@@ -179,10 +176,22 @@
   .uiv2 .step-chips .chip{padding:3px 10px}
   /* menus first (step chips = the sub-menu's mobile form), then the content
      area, then the rail's extras — same stacking idea as the current player */
-  .uiv2 .p-content{order:3;flex:1 1 auto;min-height:0}
+  .uiv2 .p-content{order:3;flex:none;min-height:0;overflow:visible}
+  .uiv2 .p-content-scroll{overflow:visible;flex:none;min-height:0}
   .uiv2 .p-content-main{flex-direction:column}
   .uiv2 .p-content .p-visual{width:100%}
   .uiv2 .p-content .p-details{flex:none;overflow:visible}
-  .uiv2 .p-content .stage-body{max-height:none;overflow:visible}
+  .uiv2 .p-content .stage-body{max-height:none;min-height:0;overflow:visible}
   .uiv2 .p-content-scroll .p-logbar{max-height:none}
+  .uiv2 .p-logbar{max-height:none}
+  /* Step nav: fixed with solid background so body never shows through.
+     player2 padding-bottom clears the bar; nav is out of flow so the rail
+     foldouts follow the kv directly instead of sitting under a sticky bar. */
+  .uiv2 .p-content-nav{
+    position:fixed;left:0;right:0;bottom:0;z-index:10;margin-top:0;
+    background:var(--panel);border-top:1px solid var(--line-mid);
+    padding:8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
+    justify-content:center;
+  }
 }
+
