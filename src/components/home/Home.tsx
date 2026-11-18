@@ -45,6 +45,13 @@ export function Home({ topics, subjects, journey }: { topics: HomeTopic[]; subje
             </li>
           ))}
         </ol>
+        <div className="journey-extra">
+          <Link href={prefixPath(lang, "/csapp/")} className="journey-csapp">
+            <b>{t.csapp}</b>
+            <span className="journey-title">{t.csappJourneyTitle}</span>
+            <p>{t.csappJourneyText}</p>
+          </Link>
+        </div>
       </section>
 
       <section className="route card">
@@ -106,6 +113,17 @@ export function Home({ topics, subjects, journey }: { topics: HomeTopic[]; subje
           </section>
         );
       })}
+
+      <section className="subject" id="subject-csapp">
+        <h2>{t.csapp}</h2>
+        <ul className="cards">
+          <li className="topic-card"><Link href={prefixPath(lang, "/csapp/")}>
+            <h3>{t.csappCardTitle}</h3>
+            <p className="card-summary">{t.csappCardSummary}</p>
+            <div className="card-foot"><p className="card-meta"><span>{t.csappCardMeta}</span></p></div>
+          </Link></li>
+        </ul>
+      </section>
 
       <section className="subject">
         <h2>{t.coding}</h2>
