@@ -163,8 +163,42 @@ const STEP_MS = 2000;
 
 type PlayState = "idle" | "playing" | "paused" | "done";
 
+/* 本 lab 的界面文案只在这里用，就近放在组件内（zh/en 两套）：
+ * 全站 i18n 的字符串块已接近打包分片阈值，把这 11 条也放进去会让每个
+ * 步骤页的首屏 JS 被分片开销顶过预算（budget.json）。课文内容同理，
+ * CODE 与 STAGES 也都在本文件内。 */
+const UI = {
+  zh: {
+    flowTitle: "一圈循环的七步",
+    play: "▶ 播放一遍",
+    pause: "⏸ 暂停",
+    resume: "▶ 继续播放",
+    replay: "↻ 再播一遍",
+    codeHead: "agent.ts — 用 Claude Agent SDK 跑一个会读代码、存笔记的 agent",
+    loopNote: "粗线是回环：第 6 步做完，带着新上下文回到第 2 步再问一轮——这个往返就是 harness 的心跳。模型在第 3 步选择直接回答时，走右侧灰线到第 7 步退出循环。",
+    detailLines: "对应代码：{lines}",
+    stepOf: "第 {n} 步",
+    flowAria: "Agent harness 一圈循环的流程图：共七步，第 3 步是决策点，第 6 步有回环箭头回到第 2 步",
+    stageAria: "第 {n} 步：{title}",
+  },
+  en: {
+    flowTitle: "The seven steps of one loop",
+    play: "▶ Play it through",
+    pause: "⏸ Pause",
+    resume: "▶ Resume",
+    replay: "↻ Play again",
+    codeHead: "agent.ts — an agent that reads code and saves notes, built on the Claude Agent SDK",
+    loopNote: "The thick line is the loop back: after step 6, the harness returns to step 2 with the new context and asks again — that round trip is the heartbeat of a harness. When the model chooses to answer directly at step 3, it follows the grey line on the right to step 7 and exits the loop.",
+    detailLines: "Code: {lines}",
+    stepOf: "Step {n}",
+    flowAria: "Flowchart of one agent-harness loop: seven steps, step 3 is the decision point, and an arrow loops back from step 6 to step 2",
+    stageAria: "Step {n}: {title}",
+  },
+} as const;
+
 export default function AgentHarness() {
-  const { s } = useLang();
+  const { lang } = useLang();
+  const u = lang === "en" ? UI.en : UI.zh;
   const [current, setCurrent] = useState(0);
   const [playingIdx, setPlayingIdx] = useState(-1);
   const [loopFlash, setLoopFlash] = useState(false);
@@ -260,10 +294,10 @@ export default function AgentHarness() {
 
   const jumpTo = (idx: number) => { stopPlay(); selectStage(idx, true); };
 
-  const playLabel = playState === "playing" ? s.labHarnessPause
-    : playState === "paused" ? s.labHarnessResume
-    : playState === "done" ? s.labHarnessReplay
-    : s.labHarnessPlay;
+  const playLabel = playState === "playing" ? u.pause
+    : playState === "paused" ? u.resume
+    : playState === "done" ? u.replay
+    : u.play;
 
   const stage = STAGES[current]!;
 
@@ -271,7 +305,7 @@ export default function AgentHarness() {
     className: "harness-fnode" + (idx === current ? " active" : "") + (idx === playingIdx ? " playing" : ""),
     tabIndex: 0,
     role: "button" as const,
-    "aria-label": fmt(s.labHarnessStageAria, { n: idx + 1, title: STAGES[idx]!.title }),
+    "aria-label": fmt(u.stageAria, { n: idx + 1, title: STAGES[idx]!.title }),
     onClick: () => jumpTo(idx),
     onKeyDown: (e: ReactKeyboardEvent) => {
       if (e.key === "Enter" || e.key === " ") { e.preventDefault(); jumpTo(idx); }
@@ -282,7 +316,7 @@ export default function AgentHarness() {
     <div className="harness-lab">
       <div className="harness-layout">
         <section className="harness-code-panel" aria-label="示例代码">
-          <div className="harness-code-head"><span className="harness-dot" />{s.labHarnessCodeHead}</div>
+          <div className="harness-code-head"><span className="harness-dot" />{u.codeHead}</div>
           <div className="harness-code">
             {CODE_LINES.map((line, i) => (
               <div
@@ -298,9 +332,9 @@ export default function AgentHarness() {
         </section>
 
         <aside className="harness-flow-panel" aria-label="循环流程图">
-          <h3 className="harness-flow-title">{s.labHarnessFlowTitle}</h3>
+          <h3 className="harness-flow-title">{u.flowTitle}</h3>
           <button type="button" className="harness-play" onClick={onPlayClick}>{playLabel}</button>
-          <svg className="harness-svg" viewBox="0 0 360 544" role="img" aria-label={s.labHarnessFlowAria}>
+          <svg className="harness-svg" viewBox="0 0 360 544" role="img" aria-label={u.flowAria}>
             <defs>
               <marker id="hMkGrey" viewBox="0 0 10 10" refX={8.5} refY={5} markerWidth={7} markerHeight={7} orient="auto-start-reverse">
                 <path d="M0 0L10 5L0 10z" style={{ fill: "var(--neutral)" }} />
@@ -346,7 +380,7 @@ export default function AgentHarness() {
               );
             })}
           </svg>
-          <p className="harness-loop-note">{s.labHarnessLoopNote}</p>
+          <p className="harness-loop-note">{u.loopNote}</p>
         </aside>
       </div>
 
@@ -364,10 +398,10 @@ export default function AgentHarness() {
           ))}
         </div>
         <h3 className="harness-detail-title">
-          <span className="stepno">{fmt(s.labHarnessStepOf, { n: current + 1 })}</span> · {stage.title}
+          <span className="stepno">{fmt(u.stepOf, { n: current + 1 })}</span> · {stage.title}
         </h3>
         <p className="harness-detail-text">{stage.text}</p>
-        <p className="harness-detail-lines">{fmt(s.labHarnessDetailLines, { lines: rangesText(stage.ranges) })}</p>
+        <p className="harness-detail-lines">{fmt(u.detailLines, { lines: rangesText(stage.ranges) })}</p>
       </div>
     </div>
   );
