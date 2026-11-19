@@ -382,3 +382,8 @@
   title: "Malkov & Yashunin: Efficient and robust approximate nearest neighbor search using HNSW graphs"
   url: https://arxiv.org/abs/1603.09320
   license: "见原文"
+# Agent Harness 实操课新增来源（2026-11-20）
+- id: claude-agent-sdk-docs
+  title: "Anthropic: Claude Agent SDK 官方文档（Overview / Agent loop / Permissions）"
+  url: https://code.claude.com/docs/en/agent-sdk/overview
+  license: "见原文"

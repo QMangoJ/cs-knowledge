@@ -39,7 +39,11 @@ export function ReaderV2({ topic, initialStep, nextTopic, nav, readerNav }: {
   const total = topic.steps.length;
   const { index, goTo, next, prev } = usePlayer(topic.subject, topic.slug, total, initialStep, lang);
   const step = topic.steps[index]!;
-  const hasVisual = !!step.canvas;
+  // A lab that declares params.wide (e.g. the agent-harness code+flowchart view)
+  // takes the full content width in the single-column layout instead of the
+  // side visual column; the Canvas itself still renders in the stage body.
+  const wideLab = step.canvas?.kind === "lab" && step.canvas.params?.wide === true;
+  const hasVisual = !!step.canvas && !wideLab;
   const rows = topic.steps.slice(0, index + 1).flatMap((s, si) => s.log.map((r, ri) => ({ r, key: `${si}-${ri}`, fresh: si === index })));
   const caption = step.canvas && step.canvas.kind !== "swimlane" ? step.canvas.caption : undefined;
   const subjectName = t.subjects[topic.subject];

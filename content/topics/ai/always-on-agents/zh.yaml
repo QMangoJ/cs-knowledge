@@ -1,7 +1,7 @@
 id: ai/always-on-agents
 subject: ai
 slug: always-on-agents
-order: 6
+order: 7
 status: published
 license: CC-BY-4.0
 title: 常驻 Agent 的外围架构：收件箱、计时器、记忆、权限与发件箱

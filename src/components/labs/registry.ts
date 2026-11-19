@@ -18,4 +18,5 @@ export const LABS: Record<string, Loader> = {
   "dijkstra-lab": () => import("./DijkstraLab"),
   "heap-lab": () => import("./HeapLab"),
   "cache-sim": () => import("./CacheSim"),
+  "agent-harness": () => import("./AgentHarness"),
 };

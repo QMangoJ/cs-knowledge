@@ -205,7 +205,7 @@ subjects:
     topics: [ai/inference-kv-cache]
   - name: 从模型到 agent：Harness
     blurb: 模型只会读一段、吐一段：包在外面的 harness 跑循环、替它执行工具、管住上下文与权限，一次次调用才串成一个能干活的 agent。
-    topics: [ai/agent-harness]
+    topics: [ai/agent-harness, ai/agent-harness-interactive]
   - name: 从模型到常驻系统：Agent 的外围架构
     blurb: 模型只负责一次推理：让它无人值守地长期在岗，要靠收件箱、计时器、记忆、权限与发件箱这套事件驱动的外围。
     topics: [ai/always-on-agents]
