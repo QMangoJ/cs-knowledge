@@ -220,6 +220,39 @@
   title: "Building always-on agents, William Hu, Anthropic（Claude Platform 最佳实践指南，2026-11-13 发布）"
   url: https://claude.com/resources/articles/building-always-on-agents
   license: "见原文"
+# Agent Harness 课新增来源（2026-11-19，repo eng 逐页打开核对）
+- id: claude-code-how-it-works
+  title: "How Claude Code works（Claude Code 官方文档：agent 循环、工具、上下文窗口、检查点与权限模式）"
+  url: https://code.claude.com/docs/en/how-claude-code-works
+  license: "见原文"
+- id: claude-code-permissions
+  title: "Configure permissions（Claude Code 官方文档：分级权限与规则保存位置）"
+  url: https://code.claude.com/docs/en/permissions
+  license: "见原文"
+- id: claude-tool-use-overview
+  title: "Tool use with Claude（Claude API 文档：tool_use / tool_result 往返与 stop_reason）"
+  url: https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview
+  license: "见原文"
+- id: anthropic-building-effective-agents
+  title: "Building effective agents, Erik Schluntz & Barry Zhang, Anthropic（2024-12-19）"
+  url: https://www.anthropic.com/engineering/building-effective-agents
+  license: "见原文"
+- id: anthropic-swe-bench-sonnet
+  title: "Raising the bar on SWE-bench Verified with Claude 3.5 Sonnet, Erik Schluntz, Anthropic（2025-01-06）"
+  url: https://www.anthropic.com/engineering/swe-bench-sonnet
+  license: "见原文"
+- id: anthropic-context-engineering
+  title: "Effective context engineering for AI agents, Anthropic Applied AI team（2025-09-29）"
+  url: https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+  license: "见原文"
+- id: anthropic-long-running-harness
+  title: "Effective harnesses for long-running agents, Justin Young, Anthropic（2025-11-26）"
+  url: https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents
+  license: "见原文"
+- id: openai-harness-engineering
+  title: "Harness engineering: leveraging Codex in an agent-first world, Ryan Lopopolo, OpenAI（2026-02-11）"
+  url: https://openai.com/index/harness-engineering/
+  license: "见原文"
 # 分布式进阶课新增来源（2026-11-15，Muse 逐页打开核对）
 - id: kafka-delivery-semantics
   title: "Apache Kafka 设计文档：消息投递语义（Kafka Message Delivery Guarantees，docs.confluent.io 上的 Kafka 设计文档：三档投递语义、幂等生产者、消费者位移提交）"

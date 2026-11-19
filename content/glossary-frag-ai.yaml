@@ -8,3 +8,12 @@
 - term: 教师强制
   full: Teacher Forcing（教师强制）
   explain: 训练语言模型时直接把标准答案的前文喂给模型，让每个位置可以同时计算的办法；真正生成时没有答案可喂，只能逐词往外产出。
+- term: harness
+  full: agent harness（agent 外围程序，也叫脚手架）
+  explain: 包在模型外面的那层程序，负责跑 agent 循环、替模型执行工具、管理每一轮放进上下文的内容和权限；Claude Code、Codex CLI 都是这样的程序。
+- term: 上下文窗口
+  full: Context Window（上下文窗口）
+  explain: 模型一次调用能读进的全部 token 上限；系统提示、工具定义、对话历史和工具结果都要挤在里面，每一轮都要重新发送。
+- term: MCP
+  full: Model Context Protocol（模型上下文协议）
+  explain: Anthropic 提出的开放协议，让 agent 用统一的方式接入第三方工具和数据源，类似给工具定了一个通用插口。
