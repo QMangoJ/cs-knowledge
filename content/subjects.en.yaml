@@ -147,6 +147,8 @@ subjects:
     blurb: "Parameters, gradients, optimiser state, activations — four kinds of tenants live in GPU memory; then count the compute per token and see why training is expensive."
   - name: "The ledger of inference"
     blurb: "Generating word by word is slow for a reason: read the whole prompt first, then emit one token at a time; the KV cache, continuous batching, and speculative decoding are all ways of balancing bandwidth against memory."
+  - name: "From model to agent: the harness"
+    blurb: "A model only reads text and writes text: the harness around it runs the loop, executes tools on its behalf, and manages context and permissions, stitching single calls into an agent that gets work done."
   - name: "From model to always-on system: the architecture around an agent"
     blurb: "The model only answers one inference at a time: to keep it on duty unattended takes an event-driven shell — inbox, timers, memory, permissions, and an outbox."
 journey:

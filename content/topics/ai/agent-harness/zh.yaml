@@ -1,0 +1,640 @@
+id: ai/agent-harness
+subject: ai
+slug: agent-harness
+order: 5
+status: published
+license: CC-BY-4.0
+title: Agent Harness：把只会吐字的模型装进循环、工具与权限
+summary: 模型只会读一段文本、再吐一段文本；Claude Code、Codex CLI 这类编程 [[agent]] 能读文件、跑测试、改代码，靠的是包在模型外面的那层程序——[[harness]]：它跑循环、替模型执行工具、决定每一轮往[[上下文窗口]]里装什么、窗口快满时怎样压缩，并按风险分级拦下危险动作。同一个模型换一套 harness，成绩可以差得很远。
+premise: 以你在一个 React 仓库里对编程 agent 说一句「把挂掉的测试修好」为样本：走完这句话触发的 7 次模型调用、6 次工具执行和 2 次权限确认，分清哪些是模型在想、哪些是 harness 在做。
+position: 本课是人工智能科「从模型到 agent：Harness」一段的唯一一课，排在推理一课之后、常驻 Agent 一课之前：推理一课讲单次调用的成本，本课讲怎样把一次次调用串成一个有人在场时能干活的 agent，常驻 Agent 一课再在它外面围上收件箱与计时器，让它无人值守。学完你能画出 agent 循环的一次往返、算出一轮任务的上下文账，并说清同一个模型在不同 harness 里表现为什么不同。
+bridge:
+  prev: 上一课的主角是单次调用：prefill 整段读题、decode 逐词吐字、KV 缓存省掉重算。可你用的 Claude Code 一句话能连跑几十步，读文件、跑测试、改代码，这些不是一次调用能做完的。本课看模型外面那层程序怎样把很多次调用串成循环，以及为什么每一轮都要把 prefill 的钱重新付一遍。
+  next: harness 默认你一直坐在屏幕前：你发一句话它才开始循环，要批准时弹窗等你点。下一课把你从现场拿走——没人发消息时谁来唤醒它、跨天的事记在哪、没人点同意时危险动作怎么办，这些要在 harness 外面再围一圈事件驱动的架构。
+overview:
+  - key: 一句话总结
+    value: agent = 模型 + harness：模型每一轮只负责读完整段输入、决定下一步；拼上下文、执行工具、拦截危险动作、压缩历史、撤销改动，全是 harness 的活
+  - key: 循环
+    value: 模型返回 tool_use 后就停下，harness 执行工具、把结果作为 tool_result 发回，再调一次模型；停在模型不再要工具、撞上迭代上限或你按下 Esc
+  - key: 工具
+    value: 名字、描述加 input_schema 就是模型能看到的全部接口；工具少而清楚、参数设计成不容易填错，比在提示里反复叮嘱管用
+  - key: 上下文
+    value: 模型不记得上一轮，每次调用都把系统提示、工具定义和全部历史重新发一遍；少量说明预装，其余用 grep、读文件按需取
+  - key: 压缩与记忆
+    value: 窗口快满就让模型写摘要、开新窗口接着干；长期规则写进 CLAUDE.md，进度写进文件和 git；大量探索交给子 agent，只收摘要
+  - key: 权限
+    value: 只读操作直接放行，跑命令、改文件要确认，确认可以存成规则；本地文件改动可用快照回退，部署、改数据库这类远程动作只能事先挡住
+  - key: Harness engineering
+    value: agent 出错时先问缺了什么能力：知识以文件形式进仓库，架构规则写成 lint，报错信息直接告诉 agent 怎么改
+visual: swimlane
+lanes:
+  - id: user
+    label: 你：下任务、在要确认时点头
+  - id: harness
+    label: Harness：循环、工具执行、上下文与权限
+  - id: model
+    label: 模型：读整段输入，决定下一步
+  - id: env
+    label: 环境：终端、文件、git
+logColumns:
+  - key: phase
+    label: 当前环节
+  - key: event
+    label: 发生了什么
+level: 进阶
+minutes: 30
+prereq:
+  - ai/inference-kv-cache
+  - os/syscall
+objectives:
+  - 说清模型与 harness 的分工，并解释同一个模型为什么在不同 harness 里成绩不同
+  - 画出一次工具调用的往返（tool_use → 执行 → tool_result），并列出循环的三种停止条件
+  - 手算一轮任务的上下文账：每次调用的输入、累计输入 token，以及为什么重复前缀能靠提示缓存省钱
+  - 区分压缩、写文件和子 agent 三种应对窗口上限的办法，并说出各自丢掉的是什么
+  - 按「能不能撤销」解释权限分级，并数出一次任务里哪些工具调用需要确认
+aiLink: 同样调用一个大模型，编辑器里的单行补全只能给你下一行，agent 模式却能跑测试、改好几个文件：能力上的差别，来自外面那层程序给了它什么工具、装进多少上下文、放了多大权限。
+design:
+  - mechanism: 为什么循环与工具执行放在 harness 里，而不是让模型自己去做
+    problem: 模型一次调用只产出文本。读文件、跑测试需要副作用和机器访问权限，而且要在多轮之间来回：执行哪条命令、结果怎样回到下一轮、命令失败或挂死谁来处理、哪些动作必须先问人，这些都不是一次推理能承担的。
+    choice: 模型只输出结构化的调用请求（tool_use）然后停下；harness 在你的机器上做权限判断、执行工具、把结果包成 tool_result 拼回下一轮输入。循环、停止条件、超时与错误处理全写在 harness 这一侧的普通代码里。
+    tradeoff: 每走一步都多一次完整的模型调用，历史越长每轮越贵；工具设计、上下文管理、停止条件的好坏直接决定成绩，同一个模型在不同 harness 里的表现可以差得很远，评测分数也必须连同 harness 一起看。
+    root: 根子是决策与执行分离：模型像一个只返回指令的纯函数，副作用集中交给宿主执行。V8 不自带 I/O、能力由浏览器或 Node 提供，用户程序只能发系统调用、由内核决定执不执行，都是同一个结构。
+  - mechanism: 为什么上下文要按需取、快满就压缩，而不是把能放的都放进去
+    problem: 模型不记得上一轮，每次调用都要把整段历史重新发一遍：窗口越满，每一轮的 prefill 越贵；token 一多，模型从中准确回忆信息的能力也会下降。把整个仓库或一份巨大的规则文件预先塞进去，既烧钱又把真正的任务挤到角落。
+    choice: 只预装少量说明（CLAUDE.md、工具清单），其余保留文件路径这类轻量指针，用 grep、读文件在需要时加载；快满时让模型写摘要换新窗口，长期规则写进文件，大量探索交给有独立窗口的子 agent。
+    tradeoff: 按需读取比预先加载慢，模型还可能用错工具、走进死胡同浪费上下文；摘要会丢细节，早期的指令可能在压缩后消失；子 agent 的探索要另外付费，主 agent 只看得到摘要。
+    root: 根子是信噪比：窗口是按 token 计价、又会被注意力摊薄的稀缺资源，设计问题不是能装多少，而是哪些 token 值得每一轮都付全价。前端控制首屏包体积、只加载当前路由用得到的代码，是同一个取舍。
+  - mechanism: 为什么权限按能不能撤销分级，而不是一律询问或一律放行
+    problem: agent 握着你终端的全部能力：一律询问，几十步的任务要点几十次确认，人很快会不看内容直接点同意；一律放行，一条删库或部署命令就可能造成退不回来的损失。
+    choice: 只读操作直接放行；执行命令、改文件、访问网络要确认，确认可以按仓库和命令存成规则；改文件前先拍快照，能回退的放宽，回退不了的远程动作靠权限模式和规则事先挡住；另有模式可选：只出方案不改文件，或由分类器代替人审查。
+    tradeoff: 规则和模式本身要维护，存得太宽等于没设防，存得太窄又回到频繁打扰；分类器会误拦或漏拦；快照只覆盖本地文件，远程副作用仍然要靠人判断。
+    root: 根子是最小权限加可逆性：能力按需授予，代价按能否撤销定价。数据库事务能回滚所以可以放心试，已经发出去的外部请求收不回来所以要先审——agent 的权限分级只是把这条老规矩搬到了工具调用上。
+quiz:
+  - q: '模型的响应以 stop_reason: "tool_use" 结束、并带着一个调用 npm test 的 tool_use 块，接下来发生什么？'
+    options:
+      - 模型已经在服务器上跑完了 npm test，结果就在这次响应里
+      - 这次响应作废，harness 会重新请求一次直到模型给出文字答案
+      - harness 读取这个块、做权限判断后在本地执行命令，把输出包成 tool_result 连同历史再发一次请求
+      - 需要用户把命令复制到终端手动运行，再把结果粘贴回去
+    answer: 2
+    explain: tool_use 只是一个请求，模型发出后就停了。真正执行、判断要不要先问你、把结果作为 tool_result 拼回下一轮输入，都是 harness 的工作；这一个来回就是 agent 循环的一步。
+  - q: 假设系统提示加工具定义共 10k token，每次工具调用及其结果平均让历史增加 3k。修测试共 7 次模型调用，第 7 次调用的输入大约是多少？
+    options:
+      - 28k：10k + 6×3k，前 6 次的调用和结果都要重新发送
+      - 13k：每次只需发送系统提示和最新一次的结果
+      - 3k：模型记得之前的内容，只需发新结果
+      - 133k：第 7 次要把前面所有调用的输入全部重发
+    answer: 0
+    explain: 模型不记得上一轮，每次调用都带上全部历史：第 7 次是 10k + 6×3k = 28k。133k 是 7 次调用的输入累计（70k + 63k），不是某一次的大小；重复发送的前缀正是提示缓存能省钱的地方。
+  - q: Anthropic 做 SWE-bench agent 时发现，agent 离开仓库根目录后，模型使用相对路径的工具时会出错。他们最后怎么解决？
+    options:
+      - 在系统提示里反复强调要注意当前目录
+      - 换了一个更大的模型
+      - 禁止 agent 执行 cd 命令
+      - 把工具改成必须传绝对路径，之后模型用得毫无差错
+    answer: 3
+    explain: 这是防呆（poka-yoke）：改参数设计，让错误的调用写不出来，而不是靠提示叮嘱。原文还提到，他们花在优化工具上的时间比花在整体提示上的还多。
+  - q: 主 agent 需要查清某个 mock 在哪些地方被改过，预计要读约 40k token 的文件与搜索结果。交给子 agent 的主要收益是什么？
+    options:
+      - 子 agent 读文件不花钱
+      - 探索过程留在子 agent 自己的窗口里，主窗口只多一段约 1,000–2,000 token 的摘要
+      - 子 agent 可以直接修改主 agent 的上下文，替它删掉旧内容
+      - 子 agent 能看到主 agent 看不到的文件
+    answer: 1
+    explain: 子 agent 在独立窗口里探索，只把浓缩后的结论交回，主窗口省下了大头。代价是那 40k 仍然要付费，而且主 agent 只看得到摘要，摘要漏掉的细节就真的漏了。
+steps:
+  - id: model-vs-harness
+    title: 模型只会吐字，干活的是外面那层 [[harness]]
+    tldr: 模型收到一段文本、返回一段文本，本身不会读文件也不会跑命令。Claude Code 文档把包在模型外面、提供工具并管理模型所见上下文的那层程序叫作 agentic harness：agent = 模型 + harness。
+    body: |-
+      先把分工摆出来。你对编程 agent 说「把挂掉的测试修好」，真正发生的是：一段程序把你的话、项目说明和可用工具清单拼成一整段输入发给模型；模型回的是文本，其中可能夹着一个结构化的请求——「我要调用某个工具，参数是这些」；那段程序照着去执行，把结果拼进下一次输入。Claude Code 官方文档的说法是：agent 循环由会推理的模型和能动手的工具两部分驱动，Claude Code 就是模型外面那一层，负责提供工具、管理模型看到的上下文，这一层就叫 agentic harness。
+
+      前端里有个现成的同构：V8。V8 只会执行 JavaScript，本身不会发网络请求、不会读文件，连定时器都没有；fetch 和 setTimeout 是浏览器给的，fs 是 Node 给的。同一个 V8 装进 Chrome 能操作 DOM，装进 Node 能读写磁盘，能做什么完全由宿主决定。模型就是那台引擎，harness 是宿主：工具对应宿主 API，agent 循环对应事件循环，权限确认对应浏览器那句「允许此网站使用摄像头吗」。后面每一步都回到这张对照表。
+
+      它以什么形式存在？就是一个普通程序。Claude Code、Codex CLI 是装在你电脑上的命令行工具，Cursor 的 agent 跑在编辑器里，OpenHands 是开源项目；也可以是一个库，Anthropic 把 Claude Agent SDK 称作通用的 agent harness，你在自己的代码里调用它。它的配置以文件形式放在仓库里：CLAUDE.md 或 AGENTS.md 写项目说明，.claude/settings.json 写权限规则。harness 原义是马具，软件里早有 test harness（驱动测试的框架）的说法；OpenAI 在 2026 年 2 月发表的文章直接以 Harness engineering 为题，讲怎样给 agent 搭环境。顺带一提，同名的 Harness 公司做的是 CI/CD 平台，和本课无关。
+
+      为什么要单独学它？因为你看到的很多「模型成绩」，测的其实是这一整套。Anthropic 在 SWE-bench 那篇文章里写明：这个基准评的不是孤立的模型，而是模型加外围脚手架组成的整个 agent；脚手架负责生成提示、解析模型输出去执行动作、管理循环，即使底层模型相同，分数也会因脚手架不同而差得很远。所以看到「某模型在某榜单上拿了多少分」，先问一句：用的是哪套 harness。
+    derivation: original
+    sources:
+      - ref: claude-code-how-it-works
+        locator: The agentic loop 一节
+        claim: agent 循环由会推理的模型与能行动的工具驱动；Claude Code 是模型外面提供工具并管理模型所见上下文的那一层，这一层就是 agentic harness 一词所指
+        status: verified
+        checkedBy: repo eng 核查
+        checkedAt: 2026-11-19
+      - ref: anthropic-swe-bench-sonnet
+        locator: 开头对 SWE-bench 的说明
+        claim: SWE-bench 评的是模型加外围脚手架组成的整个 agent；脚手架负责生成提示、解析输出执行动作、管理交互循环，即使底层模型相同，表现也会因脚手架不同而显著变化
+        status: verified
+        checkedBy: repo eng 核查
+        checkedAt: 2026-11-19
+      - ref: anthropic-long-running-harness
+        locator: The long-running agent problem 一节
+        claim: Claude Agent SDK 被描述为强大的通用 agent harness，具备压缩等上下文管理能力
+        status: verified
+        checkedBy: repo eng 核查
+        checkedAt: 2026-11-19
+      - ref: openai-harness-engineering
+        locator: 标题与发布日期
+        claim: "OpenAI 于 2026-02-11 发表 Harness engineering: leveraging Codex in an agent-first world"
+        status: verified
+        checkedBy: repo eng 核查
+        checkedAt: 2026-11-19
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: user
+          id: u
+          label: 你：一句「把挂掉的测试修好」
+        - lane: harness
+          id: h
+          label: Harness：拼输入、执行工具、管上下文
+          highlight: true
+        - lane: model
+          id: m
+          label: 模型：读文本 → 吐文本（可能夹一个工具请求）
+      messages:
+        - id: m1
+          from: u
+          to: h
+          label: 自然语言任务
+        - id: m2
+          from: h
+          to: m
+          label: 拼好的整段输入
+          active: true
+      registers:
+        - name: 分工
+          value: 模型决定做什么，harness 负责真的去做
+        - name: 前端对应
+          value: V8 ↔ Chrome / Node
+    log:
+      - phase: 全景
+        event: 先分清引擎与宿主：agent = 模型 + harness
+  - id: agent-loop
+    title: agent 循环：一次工具调用一个来回，7 次调用修好一个测试
+    tldr: 模型想用工具时，响应以 stop_reason 为 tool_use 结束，并带上工具名与参数；harness 执行后把结果作为 tool_result 塞回去，再调一次模型。循环一直转到模型不再要工具，或撞上 harness 设的上限。
+    body: |-
+      循环的一个来回是这样的。harness 发请求时附上工具清单；模型如果决定用工具，返回里会带一个 tool_use 块（工具名和参数），并以 stop_reason: "tool_use" 结束这次响应。这时模型已经停了，它不会自己去执行任何东西。harness 读到这个块，真的去跑命令，把输出包成 tool_result 块，连同之前的全部消息再发一次请求；模型看到结果，再决定下一步。用 V8 的话说：模型像一段只会 return 的函数，副作用全由宿主执行，结果作为下一次调用的参数传回来。
+
+      拿修测试走一遍。Claude Code 文档给过这个任务的典型路径：跑测试看哪里挂了、读错误输出、搜索相关源文件、读这些文件、改代码、再跑一遍测试验证。读错误输出就是看第一次 tool_result，不单独调工具，所以本课的样本里实际是 6 次工具调用：① npm test ② grep 找相关文件 ③ 读测试文件 ④ 读源文件 ⑤ 编辑源文件 ⑥ 再跑 npm test。每次工具调用都要先有一次模型调用来发出请求，最后还要一次调用写结论，合计 7 次模型调用。你只说了一句话，模型被调用了 7 次。
+
+      循环什么时候停？正常情况是模型某一轮不再请求工具，直接给出文字答复。但不能只靠模型自觉：Anthropic 的《Building effective agents》建议加停止条件，比如最大迭代次数；它的 SWE-bench 脚手架规则是一直采样，直到模型自己认为做完，或者用满 200k 的上下文长度。你也是一个停止条件：在 Claude Code 里按 Esc 会取消正在执行的工具调用；直接打字回车则排进队列，等当前这批工具调用结束后，在同一轮里被模型读到。
+
+      工具报错了，循环会崩吗？不会，也不该崩。命令失败的输出（比如测试还是红的）照样作为 tool_result 交回模型，这正是《Building effective agents》强调的：agent 每一步都要从环境拿到真实结果（工具输出、代码执行结果）来判断进度。对 harness 来说，测试失败是一条普通观察，不是异常；真正要 harness 兜底的是另一类问题，比如工具输出大到把窗口塞爆，第 5 步会讲 Claude Code 怎么处理。
+    code:
+      lang: ts
+      code: |-
+        const messages = [{ role: "user", content: "把挂掉的测试修好" }];
+        for (let turn = 0; turn < MAX_TURNS; turn++) {            // 停止条件之一：迭代上限
+          const res = await client.messages.create({ model, max_tokens: 4096, system, tools, messages });
+          messages.push({ role: "assistant", content: res.content });
+          if (res.stop_reason !== "tool_use") break;              // 模型不再要工具：收工
+          const results = [];
+          for (const block of res.content) {
+            if (block.type !== "tool_use") continue;
+            const output = await runTool(block.name, block.input);  // 权限检查、超时都在这里
+            results.push({ type: "tool_result", tool_use_id: block.id, content: output });
+          }
+          messages.push({ role: "user", content: results });       // 结果作为下一轮输入
+        }
+      note: 去掉权限、压缩和错误处理之后，harness 的骨架就这十几行；本课后面几步讲的，都是往这个循环里加东西。
+    derivation: original
+    sources:
+      - ref: claude-tool-use-overview
+        locator: How tool use works 一节
+        claim: '客户端工具在你的应用中执行：Claude 以 stop_reason: "tool_use" 和一个或多个 tool_use 块响应，你的代码执行操作并发回 tool_result'
+        status: verified
+        checkedBy: repo eng 核查
+        checkedAt: 2026-11-19
+      - ref: claude-code-how-it-works
+        locator: Tools 一节与 Interrupt and steer 一节
+        claim: 修复失败测试的典型路径为跑测试、读错误输出、搜索源文件、读文件、编辑、再跑测试；按 Esc 取消正在执行的工具调用，输入并回车的消息排队，在当前工具调用结束后的同一轮内被读到
+        status: verified
+        checkedBy: repo eng 核查
+        checkedAt: 2026-11-19
+      - ref: anthropic-building-effective-agents
+        locator: Agents 一节
+        claim: agent 执行中每一步都要从环境获取真实结果（如工具调用结果或代码执行）来评估进度；常见做法是加入最大迭代次数等停止条件
+        status: verified
+        checkedBy: repo eng 核查
+        checkedAt: 2026-11-19
+      - ref: anthropic-swe-bench-sonnet
+        locator: Tool Using Agent 一节
+        claim: 持续采样直到模型认为已完成或超过 200k 上下文长度
+        status: verified
+        checkedBy: repo eng 核查
+        checkedAt: 2026-11-19
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: model
+          id: m
+          label: 模型：发出 tool_use，然后停下
+        - lane: harness
+          id: h
+          label: Harness：执行、包成 tool_result、再调模型
+          highlight: true
+        - lane: env
+          id: e
+          label: 终端：npm test → 2 个用例失败
+      messages:
+        - id: m1
+          from: m
+          to: h
+          label: tool_use：npm test
+        - id: m2
+          from: h
+          to: e
+          label: 真的执行
+          active: true
+        - id: m3
+          from: e
+          to: h
+          label: 输出 → tool_result
+      registers:
+        - name: 本次任务
+          value: 7 次模型调用 / 6 次工具执行
+        - name: 停止条件
+          value: 不再要工具 / 迭代上限 / 你按 Esc
+    log:
+      - phase: 机制
+        event: 模型只提请求，执行和回填都在 harness；失败也是一条普通观察
+  - id: tools
+    title: 工具是给模型用的接口：说明写成什么样，模型就用成什么样
+    tldr: 工具定义 = 名字 + 描述 + input_schema（JSON Schema）；模型只能凭这几行文字决定什么时候用、参数怎么填。Anthropic 做 SWE-bench agent 时，花在打磨工具上的时间比打磨整体提示还多。
+    body: |-
+      模型看到的工具不是代码，是一份说明书：一个名字、一段描述、一个用 JSON Schema 写的 input_schema。它凭这几行字决定什么时候调用、参数怎么填。前端对照很直接：这就是组件的 props 类型加注释，类型和注释写得含糊，调用方就会传错；区别是这里的调用方是模型，它读不到你的实现，只读得到说明。Anthropic 把这一层叫作 agent-computer interface（ACI），建议在它上面投入和人机界面一样多的精力：站在模型的位置看说明够不够清楚、参数名能不能更直白，多跑一些例子看它在哪里犯错。
+
+      最好的例子来自 SWE-bench。Anthropic 做这个 agent 时发现，agent 离开仓库根目录之后，模型在使用相对路径的工具时会出错。他们没有去提示里加一句「注意当前目录」，而是把工具改成必须传绝对路径，之后模型用得毫无差错。原文的结论是，他们花在优化工具上的时间比花在整体提示上的还多。这一招叫 poka-yoke（防呆）：改参数设计，让错误的调用根本写不出来，和你用 TypeScript 联合类型把非法状态排除在类型之外是同一个思路。
+
+      工具也不是越多越好。那套 SWE-bench 脚手架只有一个提示和两个工具：执行 bash 命令的 Bash Tool、查看与编辑文件的 Edit Tool，就拿到了 49%，高于当时最好的 45%。Anthropic 后来在上下文工程一文里把臃肿的工具集列为最常见的失败之一：功能重叠、什么时候该用哪个说不清。如果一位工程师都说不准某个场景该用哪个工具，就别指望 agent 做得更好。Claude Code 的内置工具也只分五类：文件操作、搜索、执行、网页、代码智能。
+
+      接外部服务怎么办？Claude Code 可以通过 [[MCP]]（Model Context Protocol，Anthropic 提出的开放协议）接入第三方工具。工具说明本身也要占上下文，所以 MCP 工具的定义默认延迟加载：开头只占工具名和服务说明，等模型真要用某个工具时，再通过工具搜索把完整定义装进来。这笔上下文账，下一步来算。
+    derivation: original
+    sources:
+      - ref: anthropic-building-effective-agents
+        locator: "Appendix 2: Prompt engineering your tools"
+        claim: 建议在 agent-computer interface 上投入与人机界面同样多的精力；对工具做防呆设计；做 SWE-bench agent 时花在优化工具上的时间多于整体提示，把工具改为必须使用绝对路径后模型使用无误
+        status: verified
+        checkedBy: repo eng 核查
+        checkedAt: 2026-11-19
+      - ref: anthropic-swe-bench-sonnet
+        locator: 开头与 Tool Using Agent 一节
+        claim: 升级版 Claude 3.5 Sonnet 在 SWE-bench Verified 上达到 49%，此前最好成绩为 45%；脚手架只有一个提示、一个 Bash Tool 和一个 Edit Tool
+        status: verified
+        checkedBy: repo eng 核查
+        checkedAt: 2026-11-19
+      - ref: anthropic-context-engineering
+        locator: The anatomy of effective context 一节
+        claim: 最常见的失败之一是臃肿的工具集，功能过多或让该用哪个工具变得含糊；如果人类工程师都无法确定该用哪个工具，就不能指望 agent 做得更好
+        status: verified
+        checkedBy: repo eng 核查
+        checkedAt: 2026-11-19
+      - ref: claude-code-how-it-works
+        locator: Tools 一节与 When context fills up 一节
+        claim: 内置工具分为文件操作、搜索、执行、网页、代码智能五类；MCP 工具定义默认延迟，通过工具搜索按需加载，用到之前只占工具名与服务说明
+        status: verified
+        checkedBy: repo eng 核查
+        checkedAt: 2026-11-19
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: harness
+          id: h
+          label: Harness：把工具清单随请求发出
+        - lane: model
+          id: m
+          label: 模型：只看得到名字、描述、input_schema
+          highlight: true
+      messages:
+        - id: m1
+          from: h
+          to: m
+          label: 工具说明书就是全部接口
+          active: true
+      registers:
+        - name: SWE-bench 脚手架
+          value: 1 个提示 + 2 个工具 → 49%
+        - name: 防呆
+          value: 相对路径 → 必须传绝对路径
+    log:
+      - phase: 接口
+        event: 改参数设计比在提示里叮嘱更可靠
+  - id: context-window
+    title: "[[上下文窗口]]是唯一的工作台：每一轮都把整张台面重新搬一遍"
+    tldr: 模型不记得上一轮，harness 每次调用都要把系统提示、工具定义、CLAUDE.md 和全部历史重新发一遍；窗口越满越贵，模型对其中信息的召回也越差（context rot）。所以 harness 只预装少量说明，其余用 grep、读文件按需取。
+    body: |-
+      模型本身没有会话记忆：每次调用都是一次独立的推理，上一轮看过什么，全靠 harness 这一轮重新放进输入。用 V8 的话说，每次调用都像新起一个 V8 实例，堆是空的，状态全靠宿主传进来。Claude Code 文档列过窗口里装着什么：对话历史、文件内容、命令输出、CLAUDE.md、自动记忆、已加载的技能和系统指令。
+
+      把修测试的 7 次调用算一遍（数字是为演示取的整数）。假设系统提示加工具定义共 10k [[token]]，每次工具调用连同结果平均让历史增加 3k。第 1 次调用输入 10k；第 2 次多了第一次的调用和结果，是 13k；依此类推，第 7 次是 10k + 6×3k = 28k。7 次加起来是 7×10k + 3k×(0+1+…+6) = 70k + 63k = 133k 输入 token，而最终窗口里只有 28k。重复发送的部分正是上一课的 [[prefill]]：每一轮都要把整段前缀重新读一遍。好在前缀几乎不变，[[提示缓存]]可以让重复的前缀按较低价格计费；缓存按前缀匹配，所以 harness 只往历史末尾追加、不去改前面的内容，缓存才命中得了。
+
+      窗口不只是贵，还会变钝。Anthropic 的上下文工程一文提到 context rot：窗口里的 token 越多，模型准确回忆其中信息的能力越差。原因之一回到第二课的[[注意力]]：n 个 token 两两之间有 n² 对关系，长度一涨，注意力就被摊薄。这是一条渐变的曲线而不是悬崖，结论却很明确：上下文是边际收益递减的有限资源，要找的是让期望结果最可能出现的最小一组高信号 token。
+
+      于是 harness 要决定哪些东西预装、哪些按需取。Claude Code 用混合策略：CLAUDE.md 一开始就直接放进上下文，其余靠 glob、grep 这类工具在需要时再读文件；整个仓库不预先塞进去，只保留文件路径这类轻量指针，用到再加载，和前端路由懒加载一个道理。OpenAI 那篇文章给了反面教训：他们试过把规则全写进一个巨大的 AGENTS.md，结果失败了——指令挤占了任务和代码的位置，什么都标重要等于没有重点，内容很快过期，还没法做机械校验。后来他们把 AGENTS.md 缩到约 100 行，只当目录，指向 docs/ 里的详细文档。
+    derivation: original
+    sources:
+      - ref: claude-code-how-it-works
+        locator: The context window 一节
+        claim: 上下文窗口装有对话历史、文件内容、命令输出、CLAUDE.md、自动记忆、已加载的技能与系统指令
+        status: verified
+        checkedBy: repo eng 核查
+        checkedAt: 2026-11-19
+      - ref: anthropic-context-engineering
+        locator: Why context engineering is important 与 Context retrieval and agentic search 两节
+        claim: context rot：上下文 token 增多时模型准确回忆信息的能力下降；Transformer 中 n 个 token 有 n² 对关系；上下文是边际收益递减的有限资源；Claude Code 采用混合策略，CLAUDE.md 预先放入上下文，glob 与 grep 按需检索文件
+        status: verified
+        checkedBy: repo eng 核查
+        checkedAt: 2026-11-19
+      - ref: openai-harness-engineering
+        locator: We made repository knowledge the system of record 一节
+        claim: 一个巨大 AGENTS.md 的做法失败：挤占上下文、过多指引等于没有指引、迅速过时、难以校验；改为约 100 行的 AGENTS.md 作为目录，指向结构化 docs/ 目录
+        status: verified
+        checkedBy: repo eng 核查
+        checkedAt: 2026-11-19
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: harness
+          id: h
+          label: Harness：每一轮重装整张台面
+          highlight: true
+        - lane: model
+          id: m
+          label: 模型：不记得上一轮
+      messages:
+        - id: m1
+          from: h
+          to: m
+          label: 系统提示 + 工具 + CLAUDE.md + 全部历史
+          active: true
+      registers:
+        - name: 第 7 次调用输入
+          value: 10k + 6×3k = 28k
+          changed: true
+        - name: 7 次累计
+          value: 70k + 63k = 133k 输入 token
+    log:
+      - phase: 账本
+        event: 窗口越满越贵越钝：少量预装，其余按需取
+  - id: compaction-memory
+    title: 窗口装满之后：压缩、写文件与子 agent
+    tldr: 快满时 harness 让模型把历史总结成摘要、开新窗口接着干；要跨压缩、跨会话保留的东西写进文件（CLAUDE.md、进度笔记、git）；需要大量探索的子任务交给子 agent，在独立窗口里做完只交回摘要。
+    body: |-
+      任务一长，第 4 步那张台面迟早放不下。假设窗口是 200k，按每次工具调用涨 3k 算，60 次之后就是 10k + 60×3k = 190k，再来几轮就满。第一招是压缩：把快满的对话交给模型总结，用摘要开一个新窗口接着干。Claude Code 的做法是让模型保留架构决策、未解决的 bug 和实现细节，丢掉重复的工具输出，然后带着摘要和最近访问过的 5 个文件继续。最轻的一种是清掉早期的工具结果：很久以前跑过的一条命令，后面基本不需要再看它的原始输出。
+
+      压缩会丢细节。Claude Code 文档写得很直接：压缩后，对话早期的详细指令可能丢失，所以长期规则要写进 CLAUDE.md（每次会话开头都会加载），不要指望对话历史；还可以在 CLAUDE.md 里加一节 Compact Instructions，或者用 /compact 指定这次压缩重点保留什么。还有一种边界情况：单个文件或工具输出大到每次压缩后窗口立刻又满，Claude Code 试几次后会停止自动压缩、直接报错，而不是无限循环下去。
+
+      第二招是把要留的东西写到窗口外面。会话之间本来互不相通：Claude Code 每个新会话都从空窗口开始，跨会话的连续性靠 CLAUDE.md 和自动记忆（MEMORY.md 的前 200 行或前 25KB，以先到者为准，在会话开始时加载）。Anthropic 的长时间编程实验走得更远：第一个会话专门搭环境，写一个 init.sh 启动脚本、一份 claude-progress.txt 进度日志、一份列了 200 多个功能的 JSON 清单（初始全部标为未通过），并做一次初始 git 提交；之后每个会话只做一个功能，结束时提交 git、更新进度。他们选 JSON 而不用 Markdown，是因为模型不太容易误改或覆盖 JSON 文件。新会话先读进度文件和 git log，几步就能接上之前的工作。
+
+      第三招是子 agent：把一个要大量探索的子任务交给另一个 agent，它在自己的窗口里干，只把结论交回来。Anthropic 的说法是，子 agent 可能探索几万 token 甚至更多，但只返回 1,000–2,000 token 的浓缩摘要。走一笔账：主 agent 要查「这个测试依赖的 mock 在哪些地方被改过」，自己查要读进 40k token 的文件和搜索结果；交给子 agent，主窗口只多 1.5k，省下 38.5k。代价是那 40k 仍然要付费，而且主 agent 只看得到摘要，摘要漏掉的就真漏了。V8 这边的对应物是 Web Worker：另起一个有自己堆内存的线程，干完用 postMessage 只把结果传回来。
+    derivation: original
+    sources:
+      - ref: anthropic-context-engineering
+        locator: Compaction、Structured note-taking 与 Sub-agent architectures 三节
+        claim: Claude Code 的压缩让模型总结消息历史，保留架构决策、未解决的 bug 与实现细节，丢弃冗余工具输出，随后带着压缩后的上下文与最近访问的 5 个文件继续；清除工具结果是最轻的压缩；子 agent 可能用掉数万 token 探索，只返回约 1,000–2,000 token 的浓缩摘要
+        status: verified
+        checkedBy: repo eng 核查
+        checkedAt: 2026-11-19
+      - ref: claude-code-how-it-works
+        locator: Work with sessions 与 When context fills up 两节
+        claim: 每个新会话从全新上下文窗口开始；自动记忆 MEMORY.md 的前 200 行或 25KB（先到者为准）在会话开始时加载；压缩后早期详细指令可能丢失，持久规则应写入 CLAUDE.md；可用 Compact Instructions 或 /compact 指定保留重点；单个输出过大导致反复填满时，几次尝试后停止自动压缩并报错；子 agent 在自己的上下文窗口中工作，完成后返回摘要
+        status: verified
+        checkedBy: repo eng 核查
+        checkedAt: 2026-11-19
+      - ref: anthropic-long-running-harness
+        locator: The long-running agent problem 与 Feature list 两节
+        claim: 初始化 agent 写 init.sh、claude-progress.txt 与初始 git 提交，并写出 200 多项初始标为 failing 的功能清单；之后每个会话只做一个功能并提交 git、更新进度；选用 JSON 是因为模型较少不当修改或覆盖 JSON 文件
+        status: verified
+        checkedBy: repo eng 核查
+        checkedAt: 2026-11-19
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: harness
+          id: h
+          label: Harness：快满就压缩，或分派子 agent
+          highlight: true
+        - lane: model
+          id: m
+          label: 模型：读摘要接着干
+        - lane: env
+          id: e
+          label: 文件：CLAUDE.md、进度笔记、git
+      messages:
+        - id: m1
+          from: h
+          to: m
+          label: 摘要 + 最近 5 个文件
+          active: true
+        - id: m2
+          from: h
+          to: e
+          label: 要长期留的写进文件
+      registers:
+        - name: 60 次工具调用后
+          value: 10k + 60×3k = 190k，逼近 200k
+        - name: 子 agent 账
+          value: 探索 40k → 交回 1.5k，主窗口省 38.5k
+    log:
+      - phase: 边界
+        event: 三招各丢一样东西：压缩丢细节，文件要人维护，子 agent 只给摘要
+  - id: permissions
+    title: 权限与撤销：模型提要求，harness 决定放不放行
+    tldr: 模型只能请求调用工具，执行前由 harness 按风险分级：只读操作直接放行，跑命令、改文件要确认，确认可以存成规则；改文件前先拍快照可以回退，但部署、改数据库这类远程动作退不回来。
+    body: |-
+      第 2 步说过，模型发出 tool_use 后就停下了，执行与否由 harness 决定，权限正好落在这里。前端对照还是那张表：网页里的 JS 调用摄像头，弹出「允许使用摄像头吗」的是浏览器，不是 V8，页面代码绕不过去。Claude Code 默认的分级是：读文件、grep 这类只读操作在工作目录内不用批准；执行 bash 命令要批准（一组内置的只读命令除外），选「不再询问」后按仓库和命令永久记住；改文件要批准，选「不再询问」只管到本次会话结束；抓取网页、搜索网页也要批准。
+
+      拿修测试的 6 次工具调用数一遍（手动模式）。① npm test 是 bash 命令，要确认，你选「不再询问」，规则存进仓库根目录的 .claude/settings.local.json；② grep、③④ 读两个文件都是只读，不问；⑤ 改源文件，要确认；⑥ 再跑 npm test，命中刚才存的规则，不问。6 次调用，你只被问了 2 次。下次在同一个仓库开新会话，npm test 仍然不问，改文件则要重新确认。
+
+      不想逐个点，可以换模式（Shift+Tab 切换）：Accept edits 直接改文件、执行 mkdir、mv 这类常用文件命令，其他命令照问；Plan 只探索、出方案，不改源文件；Auto 用一个分类器在后台审查大多数动作、拦下有风险的，代替你点确认。团队也可以把信得过的命令（比如 npm test、git status）写进 .claude/settings.json 一起提交。更底层还有沙箱：在操作系统层面限制 bash 命令能访问的文件和网络。
+
+      批准之外还有撤销。Claude Code 改每个文件之前先拍快照，出错了按两次 Esc 就能回到之前的状态；但快照只管本地文件，部署、改数据库、调外部 API 这些远程动作退不回来，只能靠权限模式和规则事先挡住。判断的关键就在这里：能撤销的操作可以放宽，撤销不了的要收紧。没人在旁边点同意的时候怎么办？那是下一课的事：常驻 agent 把凭证挪出运行环境，把批准改成延后执行的工具调用。
+    derivation: original
+    sources:
+      - ref: claude-code-permissions
+        locator: Permission system 一节
+        claim: 只读操作在工作目录内无需批准；bash 命令需批准（内置只读命令除外），不再询问按仓库与命令永久保存；文件修改需批准，不再询问持续到会话结束；WebFetch 与 WebSearch 需批准；永久规则保存到仓库根目录的 .claude/settings.local.json
+        status: verified
+        checkedBy: repo eng 核查
+        checkedAt: 2026-11-19
+      - ref: claude-code-how-it-works
+        locator: Stay safe with checkpoints and permissions 一节
+        claim: 编辑文件前先快照，按两次 Esc 可回退；快照只覆盖本地文件改动，数据库、API、部署等远程动作无法回退；权限模式包括 Auto（分类器审查并拦截高风险动作）、Manual、Accept edits、Plan，用 Shift+Tab 切换；可在 .claude/settings.json 中允许特定命令
+        status: verified
+        checkedBy: repo eng 核查
+        checkedAt: 2026-11-19
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: model
+          id: m
+          label: 模型：只能提出 tool_use
+        - lane: harness
+          id: h
+          label: Harness：按风险分级放行
+          highlight: true
+        - lane: user
+          id: u
+          label: 你：只在要确认时被打扰
+      messages:
+        - id: m1
+          from: m
+          to: h
+          label: 请求：编辑源文件
+        - id: m2
+          from: h
+          to: u
+          label: 这一步要你点头
+          active: true
+      registers:
+        - name: 本次确认
+          value: 6 次工具调用 → 问 2 次
+        - name: 能撤销
+          value: 本地文件（改前快照）
+        - name: 撤销不了
+          value: 部署、数据库、外部 API
+    log:
+      - phase: 安全
+        event: 按能不能撤销定松紧：本地改动可回退，远程动作要事先挡
+  - id: harness-engineering
+    title: Harness engineering：agent 出错时，先问缺了什么能力
+    tldr: OpenAI 一个团队用五个月让 Codex 写出约一百万行代码、合并约 1,500 个 PR，人不直接写代码。工程师的工作变成给 agent 造环境：短 AGENTS.md 当目录、知识进仓库、用自定义 lint 机械地守住架构，并让报错信息直接告诉 agent 怎么改。
+    body: |-
+      造 harness 不只是 Claude Code、Codex 这些产品团队的事，用 agent 的团队也在做。OpenAI 在 2026 年 2 月的 Harness engineering 一文里讲了一个实验：从 2025 年 8 月底的一个空仓库开始，五个月里应用逻辑、测试、CI 配置、文档全部由 Codex 编写，人不直接贡献代码。仓库长到约一百万行，三名工程师驱动 Codex 合并了约 1,500 个 PR，平均每人每天 3.5 个；团队扩到七人后，人均吞吐还在上升。他们估计整体用时约为手写的十分之一。
+
+      文章里最值得带走的是出错时怎么办。早期进展比预期慢，原因不是 Codex 能力不够，而是环境描述不足：agent 缺少需要的工具、抽象和内部结构。修法几乎从来不是「再努力一点」，而是问：缺了什么能力，怎样让它对 agent 既看得见、又强制得了。看得见，是因为 agent 运行时看不到的东西等于不存在，放在 Google Docs、聊天记录、人脑里的知识它都拿不到，所以知识要以带版本的文件进仓库。强制得了，是他们把架构规则（每个业务域内只能沿 Types → Config → Repo → Service → Runtime → UI 单向依赖）写成自定义 linter 和结构测试，而且 lint 报错里直接写修复方法，报错本身就成了注入给 agent 的上下文。
+
+      前端对照：这就是你给团队配的 ESLint 规则和 CI 门禁，只是读报错的换成了 agent，所以报错要写「怎么改」，不能只写「哪里错」。他们还让应用能按 git worktree 各起一份实例，把 Chrome DevTools Protocol 接进 agent 运行时，让 Codex 自己截图、读 DOM、复现 bug、验证修复。Anthropic 的长时间编程实验得出了同样的结论：明确要求模型用浏览器自动化工具、像真实用户一样做端到端测试之后，它能找出只看代码发现不了的 bug。
+
+      边界也要说清。OpenAI 自己写明：这套能力高度依赖那个仓库特定的结构和工具，没有同等投入，不要假设能直接推广；一个完全由 agent 生成的系统，架构一致性几年后会怎样，他们也还不知道。agent 还会照抄仓库里已有的坏模式，团队一度每周五（一周的 20%）手动清理，后来改成把规则写进仓库，让后台任务定期扫描偏差、开重构 PR。
+    derivation: original
+    sources:
+      - ref: openai-harness-engineering
+        locator: 开头、Redefining the role of the engineer 与 We started with an empty git repository 几节
+        claim: 首个提交在 2025 年 8 月底；五个月内所有代码由 Codex 编写；约一百万行、约 1,500 个 PR、三名工程师、人均每天 3.5 个 PR，扩到七人后吞吐上升；估计用时约为手写的 1/10；早期慢是因为环境描述不足，修法是问缺了什么能力、如何让它对 agent 可读且可强制
+        status: verified
+        checkedBy: repo eng 核查
+        checkedAt: 2026-11-19
+      - ref: openai-harness-engineering
+        locator: Increasing application legibility、We made repository knowledge the system of record 与 Enforcing architecture and taste 几节
+        claim: 应用可按 git worktree 启动并接入 Chrome DevTools Protocol；agent 运行时访问不到的知识等于不存在；按 Types → Config → Repo → Service → Runtime → UI 的固定分层用自定义 linter 与结构测试强制依赖方向，lint 报错中写入修复说明
+        status: verified
+        checkedBy: repo eng 核查
+        checkedAt: 2026-11-19
+      - ref: openai-harness-engineering
+        locator: Entropy and garbage collection 与 What we're still learning 两节
+        claim: Codex 会复制仓库中已有的不佳模式；团队曾每周五（一周的 20%）手动清理，后改为编码规则并由后台任务定期扫描开重构 PR；这些行为依赖该仓库特定的结构与工具，不应假设可直接推广
+        status: verified
+        checkedBy: repo eng 核查
+        checkedAt: 2026-11-19
+      - ref: anthropic-long-running-harness
+        locator: Testing 一节
+        claim: 明确提示使用浏览器自动化工具、像人类用户一样做端到端测试后，Claude 能发现只看代码不明显的 bug
+        status: verified
+        checkedBy: repo eng 核查
+        checkedAt: 2026-11-19
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: user
+          id: u
+          label: 工程师：定方向、写验收标准、补缺的能力
+        - lane: harness
+          id: h
+          label: Harness：AGENTS.md 目录 + 仓库内文档 + 自定义 lint
+          highlight: true
+        - lane: model
+          id: m
+          label: Codex：执行、自查、开 PR
+      messages:
+        - id: m1
+          from: u
+          to: h
+          label: 把缺的能力补进环境
+          active: true
+        - id: m2
+          from: h
+          to: m
+          label: 看得见、强制得了
+      registers:
+        - name: 五个月
+          value: 约 100 万行 · 约 1,500 个 PR
+        - name: 出错时问
+          value: 缺了什么能力，而不是再努力一点
+    log:
+      - phase: 实务
+        event: 人的工作从写代码移到造环境：文档进仓库、规则写成 lint
+  - id: full-walk
+    title: 走完一圈：一句话、7 次调用、2 次确认
+    tldr: 把修测试的全程串起来：harness 先装好系统提示、工具清单和 CLAUDE.md；7 次模型调用里 6 次请求工具、1 次给出结论；harness 执行 6 次工具、问你 2 次、改文件前拍 1 次快照，7 次调用累计发送约 133k 输入 token。
+    body: |-
+      你在 React 仓库里输入「把挂掉的测试修好」。harness 开一个新会话，拼上系统提示、工具定义（MCP 工具只带名字）、CLAUDE.md 和自动记忆，发出第 1 次调用。模型返回 tool_use：npm test。harness 判断这是 bash 命令，弹出确认；你选「不再询问」，规则存进 settings.local.json，命令执行，2 个用例失败的输出作为 tool_result 拼回历史。第 2 到第 4 次调用，模型先 grep 找到 src/utils/formatDate.ts，再读测试文件和源文件，三次都是只读，harness 直接放行。第 5 次调用请求编辑源文件，harness 再问你一次，你同意后它先给文件拍快照，再写入修改。第 6 次调用请求再跑 npm test，命中刚存的规则，不问，结果全绿。第 7 次调用，模型不再请求工具，回一段说明：哪里错了、改了什么。stop_reason 不再是 tool_use，循环结束。
+
+      合上账：7 次模型调用、6 次工具执行、2 次确认、1 份快照。按第 4 步的假设，输入 token 累计约 133k，最终窗口只有 28k，离需要压缩还远；任务要是长到 60 多次工具调用，就轮到第 5 步的压缩和子 agent。整件事里模型只做了一件事：每一轮读完整段输入、决定下一步。其余都是 harness 的活：拼上下文、执行、拦截、记账、撤销。
+
+      最后给一张能带走的对照表，右边是 V8 那张表里的对应物：
+
+      - 循环：模型提 tool_use，harness 执行、回 tool_result；停在不再要工具、迭代上限或你按 Esc。对应事件循环。
+      - 工具：名字、描述加 schema 就是模型能看到的全部接口，用防呆参数代替提示里的叮嘱。对应宿主 API。
+      - 上下文：每轮重发，越长越贵越钝；少量预装，其余按需取。对应每次新起、堆为空的 V8 实例。
+      - 压缩与记忆：快满就写摘要，长期规则写文件，大探索交给子 agent。对应 Web Worker。
+      - 权限：按能不能撤销分级放行。对应浏览器的权限弹窗。
+
+      评估一个 agent 工具好不好用，先问三件事：它看得到什么（上下文），能做什么（工具），不能做什么（权限）。
+    derivation: original
+    sources:
+      - ref: claude-code-how-it-works
+        locator: The agentic loop、The context window 与 Stay safe with checkpoints and permissions 几节
+        claim: agent 循环在收集上下文、行动、验证之间反复，每次工具使用的结果都反馈进循环；会话开始加载 CLAUDE.md 与自动记忆；改文件前快照
+        status: verified
+        checkedBy: repo eng 核查
+        checkedAt: 2026-11-19
+      - ref: claude-code-permissions
+        locator: Permission system 一节
+        claim: bash 命令的不再询问按仓库与命令永久保存；文件修改的批准只持续到会话结束；只读操作无需批准
+        status: verified
+        checkedBy: repo eng 核查
+        checkedAt: 2026-11-19
+    canvas:
+      kind: swimlane
+      actors:
+        - lane: user
+          id: u
+          label: 你：1 句话，点了 2 次同意
+        - lane: harness
+          id: h
+          label: Harness：6 次执行、1 份快照、约 133k 输入 token
+          highlight: true
+        - lane: model
+          id: m
+          label: 模型：7 次调用，6 次要工具、1 次给结论
+        - lane: env
+          id: e
+          label: 仓库：测试由红变绿
+      messages:
+        - id: m1
+          from: u
+          to: h
+          label: 任务进，确认只在必要时
+          active: false
+        - id: m2
+          from: h
+          to: m
+          label: 每轮重装上下文
+          active: true
+        - id: m3
+          from: h
+          to: e
+          label: 执行与快照
+      registers:
+        - name: 全程账
+          value: 7 调用 · 6 工具 · 2 确认 · 1 快照
+        - name: 最终窗口
+          value: 28k，离压缩还远
+    log:
+      - phase: 走查
+        event: 模型只负责每一轮的决定，其余都是 harness 的活
+terminal:
+  - cmd: python3 -c "calls=[10+3*k for k in range(7)]; print('per call (k):', calls, '| total:', sum(calls), 'k | after 60 tools:', 10+60*3, 'k | subagent saves:', 40-1.5, 'k')"
+    note: 复算本课的上下文账：第 7 次调用 28k、7 次累计 133k；60 次工具调用后 190k；子 agent 为主窗口省下 38.5k
